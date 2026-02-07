@@ -123,10 +123,11 @@ pure-agent/
 │   ├── llm-gateway-configmap.yaml    # LiteLLM 설정 ConfigMap
 │   └── secret.yaml.example           # Secret 예시 파일
 ├── .github/workflows/
-│   ├── build-claude-agent.yaml       # Claude Agent 이미지 빌드 CI
-│   ├── build-mcp-server.yaml         # MCP Server 이미지 빌드 CI
-│   ├── build-export-handler.yaml     # Export Handler 이미지 빌드 CI
-│   └── build-router.yaml             # Router 이미지 빌드 CI
+│   ├── _build-image.yaml             # Docker 이미지 빌드 공통 워크플로우
+│   ├── build-claude-agent.yaml       # Claude Agent 빌드 트리거
+│   ├── build-mcp-server.yaml         # MCP Server 빌드 트리거
+│   ├── build-export-handler.yaml     # Export Handler 빌드 트리거
+│   └── build-router.yaml             # Router 빌드 트리거
 └── .devcontainer/
     └── devcontainer.json             # Dev Container 설정
 ```
