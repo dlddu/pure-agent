@@ -13,6 +13,10 @@ on:
       - ".github/workflows/build-mcp-server.yaml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build:
     uses: ./.github/workflows/_build-image.yaml
