@@ -37,12 +37,12 @@ spec:
     - name: main
       dag:
         tasks:
-          - name: create-stack-pod
-            template: create-mcp-stack-pod
+          - name: create-stack-rs
+            template: create-mcp-stack-rs
 
           - name: create-stack-svc
             template: create-mcp-stack-service
-            dependencies: [create-stack-pod]
+            dependencies: [create-stack-rs]
 
           - name: run-cycle
             template: run-cycle
@@ -66,122 +66,133 @@ spec:
             template: delete-mcp-stack-service
             dependencies: [export-cycle-output]
 
-          - name: delete-stack-pod
-            template: delete-mcp-stack-pod
+          - name: delete-stack-rs
+            template: delete-mcp-stack-rs
             dependencies: [delete-stack-svc]
 
           - name: cleanup
             template: cleanup-job
-            dependencies: [delete-stack-pod]
+            dependencies: [delete-stack-rs]
 
     # =============================
     # MCP + LLM Gateway stack
     # =============================
-    - name: create-mcp-stack-pod
+    - name: create-mcp-stack-rs
       resource:
         action: create
-        successCondition: status.phase == Running
+        successCondition: status.readyReplicas == 1
         manifest: |
-          apiVersion: v1
-          kind: Pod
+          apiVersion: apps/v1
+          kind: ReplicaSet
           metadata:
             name: mcp-stack-{{workflow.name}}
             labels:
               app: mcp-stack
               run: "{{workflow.name}}"
           spec:
-            restartPolicy: Never
-            containers:
-              - name: mcp
-                image: ghcr.io/dlddu/pure-agent/mcp-server:latest
-                ports:
-                  - containerPort: 8080
-                env:
-                  - name: LINEAR_API_KEY
-                    valueFrom:
-                      secretKeyRef:
-                        name: mcp-server-secrets
-                        key: LINEAR_API_KEY
-                  - name: LINEAR_TEAM_ID
-                    valueFrom:
-                      secretKeyRef:
-                        name: mcp-server-secrets
-                        key: LINEAR_TEAM_ID
-                volumeMounts:
-                  - name: workdir
-                    mountPath: /work
+            replicas: 1
+            selector:
+              matchLabels:
+                app: mcp-stack
+                run: "{{workflow.name}}"
+            template:
+              metadata:
+                labels:
+                  app: mcp-stack
+                  run: "{{workflow.name}}"
+              spec:
+                restartPolicy: Always
+                containers:
+                  - name: mcp
+                    image: ghcr.io/dlddu/pure-agent/mcp-server:latest
+                    ports:
+                      - containerPort: 8080
+                    env:
+                      - name: LINEAR_API_KEY
+                        valueFrom:
+                          secretKeyRef:
+                            name: mcp-server-secrets
+                            key: LINEAR_API_KEY
+                      - name: LINEAR_TEAM_ID
+                        valueFrom:
+                          secretKeyRef:
+                            name: mcp-server-secrets
+                            key: LINEAR_TEAM_ID
+                    volumeMounts:
+                      - name: workdir
+                        mountPath: /work
 
-              - name: llm-gateway
-                image: ghcr.io/berriai/litellm:main-stable
-                command: ["litellm"]
-                args:
-                  - "--config"
-                  - "/etc/litellm/config.yaml"
-                  - "--port"
-                  - "8443"
-                  - "--num_workers"
-                  - "1"
-                  - "--detailed_debug"
-                ports:
-                  - containerPort: 8443
-                    name: http
-                    protocol: TCP
-                env:
-                  - name: ANTHROPIC_API_KEY
-                    valueFrom:
-                      secretKeyRef:
-                        name: llm-gateway-secrets
-                        key: ANTHROPIC_API_KEY
-                  - name: LITELLM_MASTER_KEY
-                    valueFrom:
-                      secretKeyRef:
-                        name: llm-gateway-secrets
-                        key: LITELLM_MASTER_KEY
-                  - name: NO_DOCS
-                    value: "True"
-                volumeMounts:
+                  - name: llm-gateway
+                    image: ghcr.io/berriai/litellm:main-stable
+                    command: ["litellm"]
+                    args:
+                      - "--config"
+                      - "/etc/litellm/config.yaml"
+                      - "--port"
+                      - "8443"
+                      - "--num_workers"
+                      - "1"
+                      - "--detailed_debug"
+                    ports:
+                      - containerPort: 8443
+                        name: http
+                        protocol: TCP
+                    env:
+                      - name: ANTHROPIC_API_KEY
+                        valueFrom:
+                          secretKeyRef:
+                            name: llm-gateway-secrets
+                            key: ANTHROPIC_API_KEY
+                      - name: LITELLM_MASTER_KEY
+                        valueFrom:
+                          secretKeyRef:
+                            name: llm-gateway-secrets
+                            key: LITELLM_MASTER_KEY
+                      - name: NO_DOCS
+                        value: "True"
+                    volumeMounts:
+                      - name: workdir
+                        mountPath: /work
+                      - name: llm-gateway-config
+                        mountPath: /etc/litellm
+                        readOnly: true
+                    resources:
+                      requests:
+                        cpu: "500m"
+                        memory: "512Mi"
+                      limits:
+                        cpu: "1000m"
+                        memory: "1Gi"
+                    readinessProbe:
+                      httpGet:
+                        path: /health/readiness
+                        port: 8443
+                      initialDelaySeconds: 10
+                      periodSeconds: 10
+                      timeoutSeconds: 5
+                      failureThreshold: 3
+                    livenessProbe:
+                      httpGet:
+                        path: /health/liveliness
+                        port: 8443
+                      initialDelaySeconds: 15
+                      periodSeconds: 30
+                      timeoutSeconds: 5
+                      failureThreshold: 3
+                    startupProbe:
+                      httpGet:
+                        path: /health/liveliness
+                        port: 8443
+                      initialDelaySeconds: 5
+                      periodSeconds: 5
+                      failureThreshold: 12
+                volumes:
                   - name: workdir
-                    mountPath: /work
+                    persistentVolumeClaim:
+                      claimName: "{{workflow.name}}-workdir"
                   - name: llm-gateway-config
-                    mountPath: /etc/litellm
-                    readOnly: true
-                resources:
-                  requests:
-                    cpu: "500m"
-                    memory: "512Mi"
-                  limits:
-                    cpu: "1000m"
-                    memory: "1Gi"
-                readinessProbe:
-                  httpGet:
-                    path: /health/readiness
-                    port: 8443
-                  initialDelaySeconds: 10
-                  periodSeconds: 10
-                  timeoutSeconds: 5
-                  failureThreshold: 3
-                livenessProbe:
-                  httpGet:
-                    path: /health/liveliness
-                    port: 8443
-                  initialDelaySeconds: 15
-                  periodSeconds: 30
-                  timeoutSeconds: 5
-                  failureThreshold: 3
-                startupProbe:
-                  httpGet:
-                    path: /health/liveliness
-                    port: 8443
-                  initialDelaySeconds: 5
-                  periodSeconds: 5
-                  failureThreshold: 12
-            volumes:
-              - name: workdir
-                persistentVolumeClaim:
-                  claimName: "{{workflow.name}}-workdir"
-              - name: llm-gateway-config
-                configMap:
-                  name: llm-gateway-config
+                    configMap:
+                      name: llm-gateway-config
 
     - name: create-mcp-stack-service
       resource:
@@ -212,12 +223,12 @@ spec:
           metadata:
             name: mcp-stack-{{workflow.name}}
 
-    - name: delete-mcp-stack-pod
+    - name: delete-mcp-stack-rs
       resource:
         action: delete
         manifest: |
-          apiVersion: v1
-          kind: Pod
+          apiVersion: apps/v1
+          kind: ReplicaSet
           metadata:
             name: mcp-stack-{{workflow.name}}
 
@@ -272,6 +283,13 @@ spec:
           - name: result
             valueFrom:
               path: /tmp/agent_output.json
+      nodeSelector:
+        node.kubernetes.io/lifecycle: on-demand
+      tolerations:
+        - key: "lifecycle"
+          operator: "Equal"
+          value: "on-demand"
+          effect: "NoSchedule"
       container:
         image: ghcr.io/dlddu/pure-agent/claude-agent:latest
         command: ["/bin/sh", "-c"]
