@@ -1,0 +1,39 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# TypeScript build
+build/
+dist/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temp
+tmp/
+*.tmp
+*.bak
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Claude CLI (local settings only)
+.claude/settings.local.json

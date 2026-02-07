@@ -1,0 +1,369 @@
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: pure-agent
+spec:
+  entrypoint: main
+  serviceAccountName: argo-workflow-sa
+
+  arguments:
+    parameters:
+      - name: max_depth
+        value: "10"
+      - name: prompt
+        value: ""
+
+  volumeClaimTemplates:
+    - metadata:
+        name: workdir
+      spec:
+        accessModes: ["ReadWriteMany"]
+        storageClassName: efs-sc
+        resources:
+          requests:
+            storage: 10Gi
+
+  outputs:
+    parameters:
+      - name: cycle_output
+        valueFrom:
+          parameter: "{{tasks.export-cycle-output.outputs.parameters.cycle_output}}"
+
+  templates:
+
+    # =============================
+    # Main DAG
+    # =============================
+    - name: main
+      dag:
+        tasks:
+          - name: create-stack-pod
+            template: create-mcp-stack-pod
+
+          - name: create-stack-svc
+            template: create-mcp-stack-service
+            dependencies: [create-stack-pod]
+
+          - name: run-cycle
+            template: run-cycle
+            dependencies: [create-stack-svc]
+            arguments:
+              parameters:
+                - name: depth
+                  value: "0"
+                - name: max_depth
+                  value: "{{workflow.parameters.max_depth}}"
+                - name: prompt
+                  value: "{{workflow.parameters.prompt}}"
+                - name: previous_output
+                  value: ""
+
+          - name: export-cycle-output
+            template: export-cycle-output
+            dependencies: [run-cycle]
+
+          - name: delete-stack-svc
+            template: delete-mcp-stack-service
+            dependencies: [export-cycle-output]
+
+          - name: delete-stack-pod
+            template: delete-mcp-stack-pod
+            dependencies: [delete-stack-svc]
+
+          - name: cleanup
+            template: cleanup-job
+            dependencies: [delete-stack-pod]
+
+    # =============================
+    # MCP + LLM Gateway stack
+    # =============================
+    - name: create-mcp-stack-pod
+      resource:
+        action: create
+        successCondition: status.phase == Running
+        manifest: |
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: mcp-stack-{{workflow.name}}
+            labels:
+              app: mcp-stack
+              run: "{{workflow.name}}"
+          spec:
+            restartPolicy: Never
+            containers:
+              - name: mcp
+                image: ghcr.io/dlddu/pure-agent/mcp-server:latest
+                ports:
+                  - containerPort: 8080
+                env:
+                  - name: LINEAR_API_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: mcp-server-secrets
+                        key: LINEAR_API_KEY
+                  - name: LINEAR_TEAM_ID
+                    valueFrom:
+                      secretKeyRef:
+                        name: mcp-server-secrets
+                        key: LINEAR_TEAM_ID
+                volumeMounts:
+                  - name: workdir
+                    mountPath: /work
+
+              - name: llm-gateway
+                image: ghcr.io/berriai/litellm:main-stable
+                command: ["litellm"]
+                args:
+                  - "--config"
+                  - "/etc/litellm/config.yaml"
+                  - "--port"
+                  - "8443"
+                  - "--num_workers"
+                  - "1"
+                  - "--detailed_debug"
+                ports:
+                  - containerPort: 8443
+                    name: http
+                    protocol: TCP
+                env:
+                  - name: ANTHROPIC_API_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: llm-gateway-secrets
+                        key: ANTHROPIC_API_KEY
+                  - name: LITELLM_MASTER_KEY
+                    valueFrom:
+                      secretKeyRef:
+                        name: llm-gateway-secrets
+                        key: LITELLM_MASTER_KEY
+                  - name: NO_DOCS
+                    value: "True"
+                volumeMounts:
+                  - name: workdir
+                    mountPath: /work
+                  - name: llm-gateway-config
+                    mountPath: /etc/litellm
+                    readOnly: true
+                resources:
+                  requests:
+                    cpu: "500m"
+                    memory: "512Mi"
+                  limits:
+                    cpu: "1000m"
+                    memory: "1Gi"
+                readinessProbe:
+                  httpGet:
+                    path: /health/readiness
+                    port: 8443
+                  initialDelaySeconds: 10
+                  periodSeconds: 10
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+                livenessProbe:
+                  httpGet:
+                    path: /health/liveliness
+                    port: 8443
+                  initialDelaySeconds: 15
+                  periodSeconds: 30
+                  timeoutSeconds: 5
+                  failureThreshold: 3
+                startupProbe:
+                  httpGet:
+                    path: /health/liveliness
+                    port: 8443
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                  failureThreshold: 12
+            volumes:
+              - name: workdir
+                persistentVolumeClaim:
+                  claimName: "{{workflow.name}}-workdir"
+              - name: llm-gateway-config
+                configMap:
+                  name: llm-gateway-config
+
+    - name: create-mcp-stack-service
+      resource:
+        action: create
+        manifest: |
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: mcp-stack-{{workflow.name}}
+          spec:
+            selector:
+              app: mcp-stack
+              run: "{{workflow.name}}"
+            ports:
+              - name: mcp
+                port: 8080
+                targetPort: 8080
+              - name: llm-gateway
+                port: 8443
+                targetPort: 8443
+
+    - name: delete-mcp-stack-service
+      resource:
+        action: delete
+        manifest: |
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: mcp-stack-{{workflow.name}}
+
+    - name: delete-mcp-stack-pod
+      resource:
+        action: delete
+        manifest: |
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: mcp-stack-{{workflow.name}}
+
+    # =============================
+    # agent -> router loop
+    # =============================
+    - name: run-cycle
+      inputs:
+        parameters:
+          - name: depth
+          - name: max_depth
+          - name: prompt
+          - name: previous_output
+      steps:
+        - - name: agent
+            template: agent-job
+            arguments:
+              parameters:
+                - name: prompt
+                  value: "{{inputs.parameters.prompt}}"
+                - name: previous_output
+                  value: "{{inputs.parameters.previous_output}}"
+        - - name: router
+            template: router
+            arguments:
+              parameters:
+                - name: depth
+                  value: "{{inputs.parameters.depth}}"
+                - name: max_depth
+                  value: "{{inputs.parameters.max_depth}}"
+        - - name: recurse
+            template: run-cycle
+            when: "{{steps.router.outputs.parameters.continue}} == true && {{=asInt(inputs.parameters.depth)+1}} < {{=asInt(inputs.parameters.max_depth)}}"
+            arguments:
+              parameters:
+                - name: depth
+                  value: "{{=asInt(inputs.parameters.depth)+1}}"
+                - name: max_depth
+                  value: "{{inputs.parameters.max_depth}}"
+                - name: prompt
+                  value: "{{inputs.parameters.prompt}}"
+                - name: previous_output
+                  value: "{{steps.agent.outputs.parameters.result}}"
+
+    - name: agent-job
+      inputs:
+        parameters:
+          - name: prompt
+          - name: previous_output
+      outputs:
+        parameters:
+          - name: result
+            valueFrom:
+              path: /tmp/agent_output.json
+      container:
+        image: ghcr.io/dlddu/pure-agent/claude-agent:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            cd /work
+            if [ -n "{{inputs.parameters.previous_output}}" ]; then
+              FULL_PROMPT="Previous output:
+            {{inputs.parameters.previous_output}}
+
+            Continue with:
+            {{inputs.parameters.prompt}}"
+            else
+              FULL_PROMPT="{{inputs.parameters.prompt}}"
+            fi
+            claude -p "$FULL_PROMPT" --dangerously-skip-permissions --output-format json | tee /tmp/agent_output.json /work/last_agent_output.json
+        env:
+          - name: ANTHROPIC_BASE_URL
+            value: "http://mcp-stack-{{workflow.name}}:8443"
+          - name: ANTHROPIC_AUTH_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: agent-secrets
+                key: LITELLM_MASTER_KEY
+        volumeMounts:
+          - name: workdir
+            mountPath: /work
+
+    - name: router
+      inputs:
+        parameters:
+          - name: depth
+          - name: max_depth
+      outputs:
+        parameters:
+          - name: continue
+            valueFrom:
+              path: /tmp/continue.txt
+      container:
+        image: ghcr.io/dlddu/pure-agent/router:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            set -euo pipefail
+            CONTINUE="$(python /app/router.py \
+              --depth '{{inputs.parameters.depth}}' \
+              --max-depth '{{inputs.parameters.max_depth}}')"
+            echo "${CONTINUE}" > /tmp/continue.txt
+            if [ "${CONTINUE}" != "true" ]; then
+              cp /work/export_config.json /work/cycle_output.json 2>/dev/null || echo '{}' > /work/cycle_output.json
+            fi
+        volumeMounts:
+          - name: workdir
+            mountPath: /work
+
+    - name: export-cycle-output
+      outputs:
+        parameters:
+          - name: cycle_output
+            valueFrom:
+              path: /tmp/cycle_output.json
+      container:
+        image: ghcr.io/dlddu/pure-agent/export-handler:latest
+        env:
+          - name: LINEAR_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: export-handler-secrets
+                key: LINEAR_API_KEY
+          - name: LINEAR_TEAM_ID
+            valueFrom:
+              secretKeyRef:
+                name: export-handler-secrets
+                key: LINEAR_TEAM_ID
+          - name: GITHUB_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: export-handler-secrets
+                key: GITHUB_TOKEN
+        volumeMounts:
+          - name: workdir
+            mountPath: /work
+
+    # =============================
+    # Cleanup
+    # =============================
+    - name: cleanup-job
+      container:
+        image: alpine:3.20
+        command: ["/bin/sh", "-c"]
+        args:
+          - rm -rf /work/*
+        volumeMounts:
+          - name: workdir
+            mountPath: /work
