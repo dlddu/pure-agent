@@ -18,7 +18,7 @@ spec:
         name: workdir
       spec:
         accessModes: ["ReadWriteMany"]
-        storageClassName: efs-sc
+        storageClassName: efs
         resources:
           requests:
             storage: 10Gi

@@ -18,7 +18,8 @@
 	"customizations": {
 		"vscode": {
 			"extensions": [
-				"anthropic.claude-code"
+				"anthropic.claude-code",
+				"GitHub.vscode-github-actions"
 			]
 		}
 	},

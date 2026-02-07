@@ -152,7 +152,7 @@ pure-agent/
 ### 사전 요구 사항
 
 - Kubernetes 클러스터 (Argo Workflows 설치)
-- EFS StorageClass (`efs-sc`)
+- EFS StorageClass (`efs`)
 - Kubernetes Secret 생성 (`k8s/secret.yaml.example` 참고):
 
 | Secret 이름 | 키 | 사용 컨테이너 |
