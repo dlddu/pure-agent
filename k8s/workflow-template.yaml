@@ -37,16 +37,15 @@ spec:
     - name: main
       dag:
         tasks:
-          - name: create-stack-rs
-            template: create-mcp-stack-rs
+          - name: mcp-daemon
+            template: mcp-daemon
 
-          - name: create-stack-svc
-            template: create-mcp-stack-service
-            dependencies: [create-stack-rs]
+          - name: llm-gateway-daemon
+            template: llm-gateway-daemon
 
           - name: run-cycle
             template: run-cycle
-            dependencies: [create-stack-svc]
+            dependencies: [mcp-daemon, llm-gateway-daemon]
             continueOn:
               failed: true
             arguments:
@@ -59,6 +58,10 @@ spec:
                   value: "{{workflow.parameters.prompt}}"
                 - name: previous_output
                   value: ""
+                - name: mcp_host
+                  value: "{{tasks.mcp-daemon.ip}}"
+                - name: llm_gateway_host
+                  value: "{{tasks.llm-gateway-daemon.ip}}"
 
           - name: export-cycle-output
             template: export-cycle-output
@@ -66,179 +69,100 @@ spec:
             continueOn:
               failed: true
 
-          - name: delete-stack-svc
-            template: delete-mcp-stack-service
-            dependencies: [export-cycle-output]
-            continueOn:
-              failed: true
-
-          - name: delete-stack-rs
-            template: delete-mcp-stack-rs
-            dependencies: [delete-stack-svc]
-            continueOn:
-              failed: true
-
           - name: cleanup
             template: cleanup-job
-            dependencies: [delete-stack-rs]
+            dependencies: [export-cycle-output]
 
     # =============================
-    # MCP + LLM Gateway stack
+    # MCP Server Daemon
     # =============================
-    - name: create-mcp-stack-rs
-      resource:
-        action: create
-        successCondition: status.readyReplicas == 1
-        manifest: |
-          apiVersion: apps/v1
-          kind: ReplicaSet
-          metadata:
-            name: mcp-stack-{{workflow.name}}
-            labels:
-              app: mcp-stack
-              run: "{{workflow.name}}"
-          spec:
-            replicas: 1
-            selector:
-              matchLabels:
-                app: mcp-stack
-                run: "{{workflow.name}}"
-            template:
-              metadata:
-                labels:
-                  app: mcp-stack
-                  run: "{{workflow.name}}"
-              spec:
-                restartPolicy: Always
-                containers:
-                  - name: mcp
-                    image: ghcr.io/dlddu/pure-agent/mcp-server:latest
-                    ports:
-                      - containerPort: 8080
-                    env:
-                      - name: LINEAR_API_KEY
-                        valueFrom:
-                          secretKeyRef:
-                            name: mcp-server-secrets
-                            key: LINEAR_API_KEY
-                      - name: LINEAR_TEAM_ID
-                        valueFrom:
-                          secretKeyRef:
-                            name: mcp-server-secrets
-                            key: LINEAR_TEAM_ID
-                    volumeMounts:
-                      - name: workdir
-                        mountPath: /work
+    - name: mcp-daemon
+      daemon: true
+      container:
+        image: ghcr.io/dlddu/pure-agent/mcp-server:latest
+        ports:
+          - containerPort: 8080
+        env:
+          - name: LINEAR_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: mcp-server-secrets
+                key: LINEAR_API_KEY
+          - name: LINEAR_TEAM_ID
+            valueFrom:
+              secretKeyRef:
+                name: mcp-server-secrets
+                key: LINEAR_TEAM_ID
+        volumeMounts:
+          - name: workdir
+            mountPath: /work
 
-                  - name: llm-gateway
-                    image: ghcr.io/cabinlab/litellm-claude-code:latest
-                    command: ["litellm"]
-                    args:
-                      - "--config"
-                      - "/etc/litellm/config.yaml"
-                      - "--port"
-                      - "8443"
-                      - "--num_workers"
-                      - "1"
-                      - "--detailed_debug"
-                    ports:
-                      - containerPort: 8443
-                        name: http
-                        protocol: TCP
-                    env:
-                      - name: CLAUDE_CODE_OAUTH_TOKEN
-                        valueFrom:
-                          secretKeyRef:
-                            name: llm-gateway-secrets
-                            key: CLAUDE_CODE_OAUTH_TOKEN
-                      - name: LITELLM_MASTER_KEY
-                        valueFrom:
-                          secretKeyRef:
-                            name: llm-gateway-secrets
-                            key: LITELLM_MASTER_KEY
-                      - name: NO_DOCS
-                        value: "True"
-                    volumeMounts:
-                      - name: workdir
-                        mountPath: /work
-                      - name: llm-gateway-config
-                        mountPath: /etc/litellm
-                        readOnly: true
-                    resources:
-                      requests:
-                        cpu: "500m"
-                        memory: "512Mi"
-                      limits:
-                        cpu: "1000m"
-                        memory: "1Gi"
-                    readinessProbe:
-                      httpGet:
-                        path: /health/readiness
-                        port: 8443
-                      initialDelaySeconds: 10
-                      periodSeconds: 10
-                      timeoutSeconds: 5
-                      failureThreshold: 3
-                    livenessProbe:
-                      httpGet:
-                        path: /health/liveliness
-                        port: 8443
-                      initialDelaySeconds: 15
-                      periodSeconds: 30
-                      timeoutSeconds: 5
-                      failureThreshold: 3
-                    startupProbe:
-                      httpGet:
-                        path: /health/liveliness
-                        port: 8443
-                      initialDelaySeconds: 5
-                      periodSeconds: 5
-                      failureThreshold: 12
-                volumes:
-                  - name: workdir
-                    persistentVolumeClaim:
-                      claimName: "{{workflow.name}}-workdir"
-                  - name: llm-gateway-config
-                    configMap:
-                      name: llm-gateway-config
-
-    - name: create-mcp-stack-service
-      resource:
-        action: create
-        manifest: |
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: mcp-stack-{{workflow.name}}
-          spec:
-            selector:
-              app: mcp-stack
-              run: "{{workflow.name}}"
-            ports:
-              - name: mcp
-                port: 8080
-                targetPort: 8080
-              - name: llm-gateway
-                port: 8443
-                targetPort: 8443
-
-    - name: delete-mcp-stack-service
-      resource:
-        action: delete
-        manifest: |
-          apiVersion: v1
-          kind: Service
-          metadata:
-            name: mcp-stack-{{workflow.name}}
-
-    - name: delete-mcp-stack-rs
-      resource:
-        action: delete
-        manifest: |
-          apiVersion: apps/v1
-          kind: ReplicaSet
-          metadata:
-            name: mcp-stack-{{workflow.name}}
+    # =============================
+    # LLM Gateway Daemon
+    # =============================
+    - name: llm-gateway-daemon
+      daemon: true
+      volumes:
+        - name: llm-gateway-config
+          configMap:
+            name: llm-gateway-config
+      container:
+        image: ghcr.io/cabinlab/litellm-claude-code:latest
+        command: ["litellm"]
+        args:
+          - "--config"
+          - "/etc/litellm/config.yaml"
+          - "--port"
+          - "8443"
+          - "--num_workers"
+          - "1"
+          - "--detailed_debug"
+        ports:
+          - containerPort: 8443
+            name: http
+            protocol: TCP
+        env:
+          - name: CLAUDE_CODE_OAUTH_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: llm-gateway-secrets
+                key: CLAUDE_CODE_OAUTH_TOKEN
+          - name: LITELLM_MASTER_KEY
+            valueFrom:
+              secretKeyRef:
+                name: llm-gateway-secrets
+                key: LITELLM_MASTER_KEY
+          - name: NO_DOCS
+            value: "True"
+        volumeMounts:
+          - name: workdir
+            mountPath: /work
+          - name: llm-gateway-config
+            mountPath: /etc/litellm
+            readOnly: true
+        readinessProbe:
+          httpGet:
+            path: /health/readiness
+            port: 8443
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /health/liveliness
+            port: 8443
+          initialDelaySeconds: 15
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health/liveliness
+            port: 8443
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          failureThreshold: 12
 
     # =============================
     # agent -> router loop
@@ -250,6 +174,8 @@ spec:
           - name: max_depth
           - name: prompt
           - name: previous_output
+          - name: mcp_host
+          - name: llm_gateway_host
       steps:
         - - name: agent
             template: agent-job
@@ -259,6 +185,8 @@ spec:
                   value: "{{inputs.parameters.prompt}}"
                 - name: previous_output
                   value: "{{inputs.parameters.previous_output}}"
+                - name: llm_gateway_host
+                  value: "{{inputs.parameters.llm_gateway_host}}"
         - - name: router
             template: router
             arguments:
@@ -280,12 +208,17 @@ spec:
                   value: "{{inputs.parameters.prompt}}"
                 - name: previous_output
                   value: "{{steps.agent.outputs.parameters.result}}"
+                - name: mcp_host
+                  value: "{{inputs.parameters.mcp_host}}"
+                - name: llm_gateway_host
+                  value: "{{inputs.parameters.llm_gateway_host}}"
 
     - name: agent-job
       inputs:
         parameters:
           - name: prompt
           - name: previous_output
+          - name: llm_gateway_host
       outputs:
         parameters:
           - name: result
@@ -316,7 +249,7 @@ spec:
             claude -p "$FULL_PROMPT" --dangerously-skip-permissions --output-format stream-json --verbose | tee /tmp/agent_output.json /work/last_agent_output.json
         env:
           - name: ANTHROPIC_BASE_URL
-            value: "http://mcp-stack-{{workflow.name}}:8443"
+            value: "http://{{inputs.parameters.llm_gateway_host}}:8443"
           - name: ANTHROPIC_AUTH_TOKEN
             valueFrom:
               secretKeyRef:
