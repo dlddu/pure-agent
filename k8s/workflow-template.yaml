@@ -361,6 +361,7 @@ spec:
               path: /tmp/cycle_output.json
       container:
         image: ghcr.io/dlddu/pure-agent/export-handler:latest
+        command: ["node", "build/index.js"]
         env:
           - name: LINEAR_API_KEY
             valueFrom:
