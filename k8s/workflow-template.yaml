@@ -138,11 +138,11 @@ spec:
                         name: http
                         protocol: TCP
                     env:
-                      - name: ANTHROPIC_API_KEY
+                      - name: CLAUDE_CODE_OAUTH_TOKEN
                         valueFrom:
                           secretKeyRef:
                             name: llm-gateway-secrets
-                            key: ANTHROPIC_API_KEY
+                            key: CLAUDE_CODE_OAUTH_TOKEN
                       - name: LITELLM_MASTER_KEY
                         valueFrom:
                           secretKeyRef:

@@ -158,7 +158,7 @@ pure-agent/
 | Secret 이름 | 키 | 사용 컨테이너 |
 |---|---|---|
 | `mcp-server-secrets` | `LINEAR_API_KEY`, `LINEAR_TEAM_ID` | MCP Server |
-| `llm-gateway-secrets` | `ANTHROPIC_API_KEY`, `LITELLM_MASTER_KEY` | LLM Gateway |
+| `llm-gateway-secrets` | `CLAUDE_CODE_OAUTH_TOKEN`, `LITELLM_MASTER_KEY` | LLM Gateway |
 | `agent-secrets` | `LITELLM_MASTER_KEY` | Claude Agent |
 | `export-handler-secrets` | `LINEAR_API_KEY`, `LINEAR_TEAM_ID`, `GITHUB_TOKEN` | Export Handler |
 
