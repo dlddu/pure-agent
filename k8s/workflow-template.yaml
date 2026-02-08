@@ -80,6 +80,7 @@ spec:
       daemon: true
       container:
         image: ghcr.io/dlddu/pure-agent/mcp-server:latest
+        command: ["node", "build/index.js"]
         ports:
           - containerPort: 8080
         env:
