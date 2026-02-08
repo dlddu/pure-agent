@@ -47,6 +47,8 @@ spec:
           - name: run-cycle
             template: run-cycle
             dependencies: [create-stack-svc]
+            continueOn:
+              failed: true
             arguments:
               parameters:
                 - name: depth
@@ -61,14 +63,20 @@ spec:
           - name: export-cycle-output
             template: export-cycle-output
             dependencies: [run-cycle]
+            continueOn:
+              failed: true
 
           - name: delete-stack-svc
             template: delete-mcp-stack-service
             dependencies: [export-cycle-output]
+            continueOn:
+              failed: true
 
           - name: delete-stack-rs
             template: delete-mcp-stack-rs
             dependencies: [delete-stack-svc]
+            continueOn:
+              failed: true
 
           - name: cleanup
             template: cleanup-job
