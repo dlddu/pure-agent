@@ -131,7 +131,7 @@ spec:
                         mountPath: /work
 
                   - name: llm-gateway
-                    image: ghcr.io/berriai/litellm:main-stable
+                    image: ghcr.io/cabinlab/litellm-claude-code:latest
                     command: ["litellm"]
                     args:
                       - "--config"
