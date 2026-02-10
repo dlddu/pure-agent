@@ -213,7 +213,7 @@ spec:
           - name: CLAUDE_CODE_OAUTH_TOKEN
             valueFrom:
               secretKeyRef:
-                name: llm-gateway-secrets
+                name: agent-secrets
                 key: CLAUDE_CODE_OAUTH_TOKEN
         volumeMounts:
           - name: workdir

@@ -11,8 +11,8 @@
 │  │                                                        │  │
 │  │  ┌──────────────┐         ┌──────────────────────┐     │  │
 │  │  │  MCP Server   │         │    LLM Gateway       │     │  │
-│  │  │  :8080        │         │    :8443             │     │  │
-│  │  │               │         │    (LiteLLM Proxy)   │     │  │
+│  │  │  :8080        │         │    :80               │     │  │
+│  │  │               │         │    (nginx proxy)      │     │  │
 │  │  └──────▲────────┘         └──────▲───────────────┘     │  │
 │  │         │                         │                     │  │
 │  └─────────┼─────────────────────────┼─────────────────────┘  │
@@ -38,7 +38,7 @@
 Agent가 외부 네트워크에 직접 접근하지 않도록 모든 통신을 내부 서비스를 통해 라우팅한다.
 
 - **LLM 호출**: Agent → 클러스터 내부 LLM Gateway → Anthropic API
-  - `ANTHROPIC_BASE_URL`을 내부 서비스 URL(`http://mcp-stack-{workflow}:8443`)로 설정
+  - `ANTHROPIC_BASE_URL`을 내부 서비스 URL(`http://{llm-gateway-daemon-ip}`)로 설정
 - **도구 접근**: Agent → MCP Server를 통해서만 외부 서비스 연동
 - **내부 통신**: Kubernetes Service 기반 Pod 간 통신
 
@@ -56,7 +56,7 @@ Argo Workflows 기반으로 Agent → Router 반복 루프를 실행한다.
 
 ### 3. LLM Gateway
 
-LiteLLM Proxy 기반 API 프록시. Agent의 LLM 호출을 중계한다.
+nginx 리버스 프록시 기반 API 게이트웨이. Agent의 LLM 호출을 Anthropic API로 중계한다.
 
 ### 4. MCP Server
 
@@ -120,7 +120,7 @@ pure-agent/
 │   └── router.py                     # 계속/종료 판단 로직
 ├── k8s/
 │   ├── workflow-template.yaml        # Argo WorkflowTemplate (오케스트레이션)
-│   ├── llm-gateway-configmap.yaml    # LiteLLM 설정 ConfigMap
+│   ├── llm-gateway-configmap.yaml    # nginx 설정 ConfigMap
 │   └── secret.yaml.example           # Secret 예시 파일
 ├── .github/workflows/
 │   ├── _build-image.yaml             # Docker 이미지 빌드 공통 워크플로우
@@ -137,7 +137,7 @@ pure-agent/
 | 영역 | 기술 |
 |------|------|
 | 오케스트레이션 | Argo Workflows, Kubernetes |
-| LLM Gateway | LiteLLM Proxy |
+| LLM Gateway | nginx (리버스 프록시) |
 | MCP Server | Node.js 22, TypeScript, Express |
 | Export Handler | Node.js 22, TypeScript, Linear SDK, GitHub CLI |
 | Router | Python 3.12 |
@@ -158,7 +158,6 @@ pure-agent/
 | Secret 이름 | 키 | 사용 컨테이너 |
 |---|---|---|
 | `mcp-server-secrets` | `LINEAR_API_KEY`, `LINEAR_TEAM_ID` | MCP Server |
-| `llm-gateway-secrets` | `CLAUDE_CODE_OAUTH_TOKEN`, `LITELLM_MASTER_KEY` | LLM Gateway |
-| `agent-secrets` | `LITELLM_MASTER_KEY` | Claude Agent |
+| `agent-secrets` | `CLAUDE_CODE_OAUTH_TOKEN` | Claude Agent |
 | `export-handler-secrets` | `LINEAR_API_KEY`, `LINEAR_TEAM_ID`, `GITHUB_TOKEN` | Export Handler |
 
