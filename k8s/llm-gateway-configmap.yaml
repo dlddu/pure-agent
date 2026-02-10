@@ -6,32 +6,17 @@ metadata:
     app: llm-gateway
     component: pure-agent
 data:
-  config.yaml: |
-    # =============================================================================
-    # LiteLLM Proxy Configuration for pure-agent LLM Gateway
-    # =============================================================================
+  default.conf: |
+    server {
+        listen 80;
+        resolver 8.8.8.8;
 
-    model_list:
-      # --- Primary: Anthropic Direct API ---
-      - model_name: claude-sonnet-4-5
-        litellm_params:
-          model: anthropic/claude-sonnet-4-5
-          api_key: "os.environ/CLAUDE_CODE_OAUTH_TOKEN"
-
-      - model_name: claude-opus-4-6
-        litellm_params:
-          model: anthropic/claude-opus-4-6
-          api_key: "os.environ/CLAUDE_CODE_OAUTH_TOKEN"
-
-      - model_name: claude-opus-4-5-20251101
-        litellm_params:
-          model: anthropic/claude-opus-4-5-20251101
-          api_key: "os.environ/CLAUDE_CODE_OAUTH_TOKEN"
-
-      - model_name: claude-haiku-4-5
-        litellm_params:
-          model: anthropic/claude-4-5
-          api_key: "os.environ/CLAUDE_CODE_OAUTH_TOKEN"
-
-    general_settings:
-      master_key: "os.environ/LITELLM_MASTER_KEY"
+        location / {
+            proxy_pass https://api.anthropic.com;
+            proxy_ssl_server_name on;
+            proxy_set_header Host $proxy_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+    }

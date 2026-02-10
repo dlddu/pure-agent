@@ -108,62 +108,21 @@ spec:
           configMap:
             name: llm-gateway-config
       container:
-        image: ghcr.io/cabinlab/litellm-claude-code:latest
-        command: ["litellm"]
-        args:
-          - "--config"
-          - "/etc/litellm/config.yaml"
-          - "--port"
-          - "8443"
-          - "--num_workers"
-          - "1"
-          - "--detailed_debug"
+        image: nginx:alpine
         ports:
-          - containerPort: 8443
+          - containerPort: 80
             name: http
             protocol: TCP
-        env:
-          - name: CLAUDE_CODE_OAUTH_TOKEN
-            valueFrom:
-              secretKeyRef:
-                name: llm-gateway-secrets
-                key: CLAUDE_CODE_OAUTH_TOKEN
-          - name: LITELLM_MASTER_KEY
-            valueFrom:
-              secretKeyRef:
-                name: llm-gateway-secrets
-                key: LITELLM_MASTER_KEY
-          - name: NO_DOCS
-            value: "True"
         volumeMounts:
-          - name: workdir
-            mountPath: /work
           - name: llm-gateway-config
-            mountPath: /etc/litellm
+            mountPath: /etc/nginx/conf.d/default.conf
+            subPath: default.conf
             readOnly: true
-        readinessProbe:
-          httpGet:
-            path: /health/readiness
-            port: 8443
-          initialDelaySeconds: 10
-          periodSeconds: 10
-          timeoutSeconds: 5
-          failureThreshold: 3
         livenessProbe:
-          httpGet:
-            path: /health/liveliness
-            port: 8443
-          initialDelaySeconds: 15
-          periodSeconds: 30
-          timeoutSeconds: 5
+          tcpSocket:
+            port: 80
+          periodSeconds: 10
           failureThreshold: 3
-        startupProbe:
-          httpGet:
-            path: /health/liveliness
-            port: 8443
-          initialDelaySeconds: 5
-          periodSeconds: 5
-          failureThreshold: 12
 
     # =============================
     # agent -> router loop
@@ -250,12 +209,12 @@ spec:
             claude -p "$FULL_PROMPT" --dangerously-skip-permissions --output-format stream-json --verbose | tee /tmp/agent_output.json /work/last_agent_output.json
         env:
           - name: ANTHROPIC_BASE_URL
-            value: "http://{{inputs.parameters.llm_gateway_host}}:8443"
-          - name: ANTHROPIC_AUTH_TOKEN
+            value: "http://{{inputs.parameters.llm_gateway_host}}"
+          - name: CLAUDE_CODE_OAUTH_TOKEN
             valueFrom:
               secretKeyRef:
-                name: agent-secrets
-                key: LITELLM_MASTER_KEY
+                name: llm-gateway-secrets
+                key: CLAUDE_CODE_OAUTH_TOKEN
         volumeMounts:
           - name: workdir
             mountPath: /work
