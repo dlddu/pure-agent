@@ -147,6 +147,8 @@ spec:
                   value: "{{inputs.parameters.previous_output}}"
                 - name: llm_gateway_host
                   value: "{{inputs.parameters.llm_gateway_host}}"
+                - name: mcp_host
+                  value: "{{inputs.parameters.mcp_host}}"
         - - name: router
             template: router
             arguments:
@@ -179,6 +181,7 @@ spec:
           - name: prompt
           - name: previous_output
           - name: llm_gateway_host
+          - name: mcp_host
       outputs:
         parameters:
           - name: result
@@ -197,6 +200,16 @@ spec:
         args:
           - |
             cd /work
+            cat > .mcp.json << MCPEOF
+            {
+              "mcpServers": {
+                "pure-agent": {
+                  "type": "http",
+                  "url": "http://{{inputs.parameters.mcp_host}}:8080/mcp"
+                }
+              }
+            }
+            MCPEOF
             if [ -n "{{inputs.parameters.previous_output}}" ]; then
               FULL_PROMPT="Previous output:
             {{inputs.parameters.previous_output}}
