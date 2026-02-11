@@ -2,7 +2,7 @@ import express, { Request, Response } from "express";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
-export async function createHttpTransport(mcpServer: Server, mcpPath: string): Promise<express.Application> {
+export function createHttpTransport(createServer: () => Server, mcpPath: string): express.Application {
   const app = express();
 
   app.use(express.json());
@@ -22,14 +22,53 @@ export async function createHttpTransport(mcpServer: Server, mcpPath: string): P
     });
   });
 
-  const transport = new StreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
+  app.post(mcpPath, async (req: Request, res: Response) => {
+    const mcpServer = createServer();
+    try {
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: undefined,
+      });
+      await mcpServer.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+      res.on("close", () => {
+        transport.close();
+        mcpServer.close();
+      });
+    } catch (error) {
+      console.error("Error handling MCP request:", error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: "2.0",
+          error: {
+            code: -32603,
+            message: "Internal server error",
+          },
+          id: null,
+        });
+      }
+    }
   });
 
-  await mcpServer.connect(transport);
+  app.get(mcpPath, (_req: Request, res: Response) => {
+    res.status(405).json({
+      jsonrpc: "2.0",
+      error: {
+        code: -32000,
+        message: "Method not allowed.",
+      },
+      id: null,
+    });
+  });
 
-  app.post(mcpPath, async (req: Request, res: Response) => {
-    await transport.handleRequest(req, res, req.body);
+  app.delete(mcpPath, (_req: Request, res: Response) => {
+    res.status(405).json({
+      jsonrpc: "2.0",
+      error: {
+        code: -32000,
+        message: "Method not allowed.",
+      },
+      id: null,
+    });
   });
 
   return app;

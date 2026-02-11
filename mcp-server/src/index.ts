@@ -27,10 +27,9 @@ async function main() {
     defaultLabelId: config.LINEAR_DEFAULT_LABEL_ID,
   });
 
-  const mcpServer = createMcpServer(linearService);
-  console.log("MCP server created");
+  console.log("Initializing MCP server...");
 
-  const app = await createHttpTransport(mcpServer, config.MCP_PATH);
+  const app = createHttpTransport(() => createMcpServer(linearService), config.MCP_PATH);
 
   app.listen(config.PORT, config.HOST, () => {
     console.log(`MCP Server listening on http://${config.HOST}:${config.PORT}`);
