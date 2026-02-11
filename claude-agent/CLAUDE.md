@@ -25,7 +25,7 @@ This project runs in a network-isolated environment.
 ### 필수 사항
 
 - `summary` 는 항상 작성해야 합니다 (작업 내용 요약)
-- `linear_issue_id` 는 작업 대상 Linear 이슈의 ID입니다
+- `linear_issue_id` 는 작업 대상 Linear 이슈의 ID입니다. 이슈 ID를 알 수 없는 경우 반드시 `"none"`으로 설정하세요.
 - action이 `report`인 경우 `report_content` 필수
 - action이 `create_pr`인 경우 `pr` 설정 필수 (title, body, branch)
 - 작업을 완료할 수 없는 경우에도 반드시 `set_export_config`를 호출하세요. action='none'으로 설정하고 summary에 현재 상태와 완료할 수 없는 이유를 기술합니다

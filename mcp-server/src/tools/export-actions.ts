@@ -54,7 +54,7 @@ const SetExportConfigInputSchema = z.object({
   linear_issue_id: z
     .string()
     .min(1)
-    .describe("Linear 이슈 ID"),
+    .describe("Linear 이슈 ID. 이슈 ID를 알 수 없는 경우 'none'으로 설정."),
   summary: z
     .string()
     .min(1)
@@ -80,7 +80,7 @@ export const SET_EXPORT_CONFIG_TOOL = {
     properties: {
       linear_issue_id: {
         type: "string",
-        description: "Linear 이슈 ID",
+        description: "Linear 이슈 ID. 이슈 ID를 알 수 없는 경우 'none'으로 설정.",
       },
       summary: {
         type: "string",

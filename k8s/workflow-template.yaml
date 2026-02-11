@@ -78,6 +78,9 @@ spec:
     # =============================
     - name: mcp-daemon
       daemon: true
+      metadata:
+        labels:
+          pure-agent/role: mcp-server
       container:
         image: ghcr.io/dlddu/pure-agent/mcp-server:latest
         command: ["node", "build/index.js"]
@@ -103,6 +106,9 @@ spec:
     # =============================
     - name: llm-gateway-daemon
       daemon: true
+      metadata:
+        labels:
+          pure-agent/role: llm-gateway
       volumes:
         - name: llm-gateway-config
           configMap:
@@ -176,6 +182,9 @@ spec:
                   value: "{{inputs.parameters.llm_gateway_host}}"
 
     - name: agent-job
+      metadata:
+        labels:
+          pure-agent/role: agent
       inputs:
         parameters:
           - name: prompt
