@@ -48,6 +48,7 @@ spec:
             dependencies: [mcp-daemon, llm-gateway-daemon]
             continueOn:
               failed: true
+              error: true
             arguments:
               parameters:
                 - name: depth
