@@ -164,6 +164,14 @@ spec:
                   value: "{{inputs.parameters.depth}}"
                 - name: max_depth
                   value: "{{inputs.parameters.max_depth}}"
+        - - name: debug-continue
+            template: debug-param
+            arguments:
+              parameters:
+                - name: name
+                  value: "continue"
+                - name: value
+                  value: "{{steps.router.outputs.parameters.continue}}"
         - - name: recurse
             template: run-cycle
             when: "{{steps.router.outputs.parameters.continue}} == true && {{=asInt(inputs.parameters.depth)+1}} < {{=asInt(inputs.parameters.max_depth)}}"
@@ -319,6 +327,24 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /work
+
+    # =============================
+    # Debug helper
+    # =============================
+    - name: debug-param
+      inputs:
+        parameters:
+          - name: name
+          - name: value
+      container:
+        image: alpine:3.20
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            echo "=== DEBUG: {{inputs.parameters.name}} ==="
+            echo "raw='{{inputs.parameters.value}}'"
+            echo "length=$(printf '%s' '{{inputs.parameters.value}}' | wc -c)"
+            printf '%s' '{{inputs.parameters.value}}' | od -A x -t x1z -v
 
     # =============================
     # Cleanup
