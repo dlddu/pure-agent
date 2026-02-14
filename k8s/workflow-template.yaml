@@ -256,14 +256,31 @@ spec:
         command: ["/bin/sh", "-c"]
         args:
           - |
-            set -euo pipefail
-            CONTINUE="$(python /app/router.py \
+            set -uo pipefail
+            echo "[router-wrapper] Starting router" >&2
+            echo "false" > /tmp/continue.txt
+
+            if CONTINUE="$(python /app/router.py \
               --depth '{{inputs.parameters.depth}}' \
-              --max-depth '{{inputs.parameters.max_depth}}')"
+              --max-depth '{{inputs.parameters.max_depth}}')"; then
+              echo "[router-wrapper] router.py succeeded" >&2
+            else
+              RC=$?
+              echo "[router-wrapper] router.py exited with code ${RC}" >&2
+              CONTINUE="false"
+            fi
+
+            echo "[router-wrapper] Captured CONTINUE='${CONTINUE}'" >&2
+            if [ "${CONTINUE}" != "true" ]; then
+              CONTINUE="false"
+            fi
             echo "${CONTINUE}" > /tmp/continue.txt
+            echo "[router-wrapper] /tmp/continue.txt='$(cat /tmp/continue.txt)'" >&2
+
             if [ "${CONTINUE}" != "true" ]; then
               cp /work/export_config.json /work/cycle_output.json 2>/dev/null || echo '{}' > /work/cycle_output.json
             fi
+            echo "[router-wrapper] Done" >&2
         volumeMounts:
           - name: workdir
             mountPath: /work

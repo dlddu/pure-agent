@@ -23,16 +23,27 @@ logger = logging.getLogger("router")
 def load_state():
     if os.path.exists(STATE_PATH):
         try:
+            size = os.path.getsize(STATE_PATH)
+            logger.debug("State file %s exists (%d bytes)", STATE_PATH, size)
             with open(STATE_PATH) as f:
-                return json.load(f)
-        except (json.JSONDecodeError, IOError):
-            logger.warning("Failed to parse state file %s, starting fresh", STATE_PATH)
+                state = json.load(f)
+            logger.debug("State loaded successfully: %d history entries", len(state.get("history", [])))
+            return state
+        except (json.JSONDecodeError, IOError) as e:
+            logger.warning("Failed to parse state file %s: %s, starting fresh", STATE_PATH, e)
+    else:
+        logger.debug("State file %s does not exist, starting fresh", STATE_PATH)
     return {"history": []}
 
 
 def save_state(state):
-    with open(STATE_PATH, "w") as f:
-        json.dump(state, f, indent=2)
+    try:
+        with open(STATE_PATH, "w") as f:
+            json.dump(state, f, indent=2)
+        logger.debug("State saved to %s (%d bytes)", STATE_PATH, os.path.getsize(STATE_PATH))
+    except IOError as e:
+        logger.error("Failed to save state to %s: %s", STATE_PATH, e)
+        raise
 
 
 def main():
@@ -42,8 +53,13 @@ def main():
     args = parser.parse_args()
     logger.info("Router invoked: depth=%d max_depth=%d", args.depth, args.max_depth)
 
+    try:
+        work_contents = os.listdir("/work")
+        logger.debug("/work directory contents: %s", work_contents)
+    except OSError as e:
+        logger.warning("Cannot list /work directory: %s", e)
+
     state = load_state()
-    logger.debug("Loaded state with %d history entries", len(state["history"]))
 
     if os.path.exists(EXPORT_CONFIG):
         decision = {"continue": False, "reason": "export_config.json exists"}
@@ -62,8 +78,22 @@ def main():
     })
     save_state(state)
 
-    print("true" if decision["continue"] else "false")
+    output_value = "true" if decision["continue"] else "false"
+    logger.info("Writing output to stdout: '%s'", output_value)
+    print(output_value)
+
+
+def run():
+    """Entry point with error handling. Always produces output on stdout."""
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception:
+        logger.exception("Router crashed with unhandled exception")
+        print("false")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
-    main()
+    run()

@@ -1,6 +1,7 @@
 """Tests for router.py -- workflow routing decisions."""
 
 import json
+import logging
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -138,3 +139,35 @@ class TestMainArgs:
         monkeypatch.setattr(sys, "argv", ["router.py", "--depth", "0"])
         with pytest.raises(SystemExit):
             router.main()
+
+
+# ── run: error boundary ──────────────────────────────────
+
+
+class TestRun:
+    def test_crash_still_outputs_false(self, monkeypatch, capsys):
+        """If main() throws, run() should still print 'false' to stdout."""
+        monkeypatch.setattr(
+            router, "save_state",
+            lambda s: (_ for _ in ()).throw(RuntimeError("disk full")),
+        )
+        monkeypatch.setattr(
+            sys, "argv",
+            ["router.py", "--depth", "0", "--max-depth", "5"],
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            router.run()
+        assert exc_info.value.code == 1
+        assert capsys.readouterr().out.strip() == "false"
+
+    def test_output_value_logged(self, monkeypatch, capsys, caplog):
+        """The final output value should appear in logs."""
+        monkeypatch.setattr(
+            sys, "argv",
+            ["router.py", "--depth", "0", "--max-depth", "5"],
+        )
+        with caplog.at_level(logging.INFO, logger="router"):
+            router.main()
+        captured = capsys.readouterr()
+        assert captured.out.strip() == "true"
+        assert "Writing output to stdout: 'true'" in caplog.text
