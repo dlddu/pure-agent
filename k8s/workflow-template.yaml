@@ -205,6 +205,11 @@ spec:
           effect: "NoSchedule"
       container:
         image: ghcr.io/dlddu/pure-agent/claude-agent:latest
+        resources:
+          requests:
+            memory: 900Mi
+          limits:
+            memory: 900Mi
         command: ["/bin/sh", "-c"]
         args:
           - |
