@@ -1,0 +1,38 @@
+name: "CI: router"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "router/**"
+      - ".github/workflows/ci-router.yaml"
+      - ".github/workflows/_build-image.yaml"
+      - ".github/workflows/_test-python.yaml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "router/**"
+      - ".github/workflows/ci-router.yaml"
+      - ".github/workflows/_build-image.yaml"
+      - ".github/workflows/_test-python.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    uses: ./.github/workflows/_test-python.yaml
+    with:
+      service: router
+
+  build:
+    needs: [test]
+    uses: ./.github/workflows/_build-image.yaml
+    with:
+      service: router

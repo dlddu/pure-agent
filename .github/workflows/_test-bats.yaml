@@ -1,0 +1,24 @@
+name: Test BATS
+
+on:
+  workflow_call:
+    inputs:
+      service:
+        description: "Service directory name"
+        required: true
+        type: string
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bats jq
+
+      - name: Run shellcheck
+        run: find ${{ inputs.service }} -name '*.sh' -print0 | xargs -0 --no-run-if-empty shellcheck -s bash -S warning
+
+      - name: Run BATS tests
+        run: bats ${{ inputs.service }}/tests/

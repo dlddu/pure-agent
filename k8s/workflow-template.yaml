@@ -1,0 +1,356 @@
+# =============================================================================
+# Pure-Agent Argo WorkflowTemplate
+# =============================================================================
+#
+# 에이전트 실행 파이프라인 오케스트레이션:
+#   1. 데몬 서비스 시작 (MCP Server, LLM Gateway)
+#   2. Agent → Router 재귀 루프 실행 (max_depth까지 반복)
+#   3. Export Handler로 결과 내보내기
+#   4. 공유 볼륨 정리
+#
+# Templates:
+#   - main               : DAG 엔트리포인트
+#   - mcp-daemon          : MCP Server 사이드카 (Linear 도구)
+#   - llm-gateway-daemon  : nginx 리버스 프록시 → Anthropic API
+#   - run-cycle           : Agent → Router → Recurse 재귀 루프
+#   - agent-job           : Claude Code CLI 실행
+#   - router              : 계속/종료 판단
+#   - export-cycle-output : 후처리 (Linear, GitHub, S3)
+#   - cleanup-job         : 공유 볼륨 정리
+#
+# =============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: pure-agent
+  namespace: pure-agent
+spec:
+  entrypoint: main
+  serviceAccountName: argo-workflow-sa
+
+  arguments:
+    parameters:
+      - name: max_depth
+        value: "10"
+      - name: prompt
+        value: ""
+
+  volumeClaimTemplates:
+    - metadata:
+        name: workdir
+      spec:
+        accessModes: ["ReadWriteMany"]
+        storageClassName: efs
+        resources:
+          requests:
+            storage: 10Gi
+
+  outputs:
+    parameters:
+      - name: export_config
+        valueFrom:
+          parameter: "{{tasks.export-cycle-output.outputs.parameters.export_config}}"
+      - name: action_results
+        valueFrom:
+          parameter: "{{tasks.export-cycle-output.outputs.parameters.action_results}}"
+
+  templates:
+
+    # =============================
+    # Main DAG
+    # =============================
+    - name: main
+      dag:
+        tasks:
+          - name: mcp-daemon
+            template: mcp-daemon
+
+          - name: llm-gateway-daemon
+            template: llm-gateway-daemon
+
+          - name: run-cycle
+            template: run-cycle
+            dependencies: [mcp-daemon, llm-gateway-daemon]
+            continueOn:
+              failed: true
+              error: true
+            arguments:
+              parameters:
+                - name: depth
+                  value: "0"
+                - name: max_depth
+                  value: "{{workflow.parameters.max_depth}}"
+                - name: prompt
+                  value: "{{workflow.parameters.prompt}}"
+                - name: previous_output
+                  value: ""
+                - name: mcp_host
+                  value: "{{tasks.mcp-daemon.ip}}"
+                - name: llm_gateway_host
+                  value: "{{tasks.llm-gateway-daemon.ip}}"
+
+          - name: export-cycle-output
+            template: export-cycle-output
+            dependencies: [run-cycle]
+            continueOn:
+              failed: true
+
+          - name: cleanup
+            template: cleanup-job
+            dependencies: [export-cycle-output]
+
+    # =============================
+    # MCP Server Daemon
+    # =============================
+    - name: mcp-daemon
+      daemon: true
+      metadata:
+        labels:
+          pure-agent/role: mcp-server
+      container:
+        image: ghcr.io/dlddu/pure-agent/mcp-server:latest
+        command: ["node", "build/index.js"]
+        ports:
+          - containerPort: 8080
+        env:
+          - name: LINEAR_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: mcp-server-secrets
+                key: LINEAR_API_KEY
+          - name: LINEAR_TEAM_ID
+            valueFrom:
+              secretKeyRef:
+                name: mcp-server-secrets
+                key: LINEAR_TEAM_ID
+        volumeMounts:
+          - name: workdir
+            mountPath: /work
+
+    # =============================
+    # LLM Gateway Daemon
+    # =============================
+    - name: llm-gateway-daemon
+      daemon: true
+      metadata:
+        labels:
+          pure-agent/role: llm-gateway
+      volumes:
+        - name: llm-gateway-config
+          configMap:
+            name: llm-gateway-config
+      container:
+        image: nginx:alpine
+        ports:
+          - containerPort: 80
+            name: http
+            protocol: TCP
+        volumeMounts:
+          - name: llm-gateway-config
+            mountPath: /etc/nginx/conf.d/default.conf
+            subPath: default.conf
+            readOnly: true
+        livenessProbe:
+          tcpSocket:
+            port: 80
+          periodSeconds: 10
+          failureThreshold: 3
+
+    # =============================
+    # Agent → Router Loop
+    # =============================
+    - name: run-cycle
+      inputs:
+        parameters:
+          - name: depth
+          - name: max_depth
+          - name: prompt
+          - name: previous_output
+          - name: mcp_host
+          - name: llm_gateway_host
+      steps:
+        - - name: agent
+            template: agent-job
+            arguments:
+              parameters:
+                - name: prompt
+                  value: "{{inputs.parameters.prompt}}"
+                - name: previous_output
+                  value: "{{inputs.parameters.previous_output}}"
+                - name: llm_gateway_host
+                  value: "{{inputs.parameters.llm_gateway_host}}"
+                - name: mcp_host
+                  value: "{{inputs.parameters.mcp_host}}"
+        - - name: router
+            template: router
+            arguments:
+              parameters:
+                - name: depth
+                  value: "{{inputs.parameters.depth}}"
+                - name: max_depth
+                  value: "{{inputs.parameters.max_depth}}"
+                - name: export_config
+                  value: "{{steps.agent.outputs.parameters.export_config}}"
+        - - name: recurse
+            template: run-cycle
+            when: "{{steps.router.outputs.parameters.continue}} == true"
+            arguments:
+              parameters:
+                - name: depth
+                  value: "{{=asInt(inputs.parameters.depth)+1}}"
+                - name: max_depth
+                  value: "{{inputs.parameters.max_depth}}"
+                - name: prompt
+                  value: "{{inputs.parameters.prompt}}"
+                - name: previous_output
+                  value: "{{steps.agent.outputs.parameters.result}}"
+                - name: mcp_host
+                  value: "{{inputs.parameters.mcp_host}}"
+                - name: llm_gateway_host
+                  value: "{{inputs.parameters.llm_gateway_host}}"
+
+    # =============================
+    # Agent Job
+    # =============================
+    - name: agent-job
+      metadata:
+        labels:
+          pure-agent/role: agent
+      inputs:
+        parameters:
+          - name: prompt
+          - name: previous_output
+          - name: llm_gateway_host
+          - name: mcp_host
+      outputs:
+        parameters:
+          - name: result
+            valueFrom:
+              path: /tmp/agent_result.txt
+          - name: session_id
+            valueFrom:
+              path: /tmp/session_id.txt
+          - name: export_config
+            valueFrom:
+              path: /work/export_config.json
+              default: "{}"
+      nodeSelector:
+        node.kubernetes.io/lifecycle: on-demand
+      tolerations:
+        - key: "lifecycle"
+          operator: "Equal"
+          value: "on-demand"
+          effect: "NoSchedule"
+      container:
+        image: ghcr.io/dlddu/pure-agent/claude-agent:latest
+        command: ["/home/claude/entrypoint.sh"]
+        resources:
+          requests:
+            memory: 1800Mi
+          limits:
+            memory: 1800Mi
+        env:
+          - name: PROMPT
+            value: "{{inputs.parameters.prompt}}"
+          - name: PREVIOUS_OUTPUT
+            value: "{{inputs.parameters.previous_output}}"
+          - name: MCP_HOST
+            value: "{{inputs.parameters.mcp_host}}"
+          - name: ANTHROPIC_BASE_URL
+            value: "http://{{inputs.parameters.llm_gateway_host}}"
+          - name: CLAUDE_CODE_OAUTH_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: agent-secrets
+                key: CLAUDE_CODE_OAUTH_TOKEN
+        volumeMounts:
+          - name: workdir
+            mountPath: /work
+
+    # =============================
+    # Router
+    # =============================
+    - name: router
+      inputs:
+        parameters:
+          - name: depth
+          - name: max_depth
+          - name: export_config
+      outputs:
+        parameters:
+          - name: continue
+            valueFrom:
+              path: /tmp/continue.txt
+      container:
+        image: ghcr.io/dlddu/pure-agent/router:latest  # CONFIGURE: 이미지 태그
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            router \
+              --export-config "$EXPORT_CONFIG_JSON" \
+              --depth '{{inputs.parameters.depth}}' \
+              --max-depth '{{inputs.parameters.max_depth}}' \
+              --output /tmp/continue.txt \
+            || echo "false" > /tmp/continue.txt
+        env:
+          - name: EXPORT_CONFIG_JSON
+            value: "{{inputs.parameters.export_config}}"
+          - name: AWS_S3_BUCKET_NAME
+            valueFrom:
+              secretKeyRef:
+                name: router-secrets
+                key: AWS_S3_BUCKET_NAME
+          - name: AWS_REGION
+            value: "ap-northeast-2"
+        volumeMounts:
+          - name: workdir
+            mountPath: /work
+
+    # =============================
+    # Export Cycle Output
+    # =============================
+    - name: export-cycle-output
+      outputs:
+        parameters:
+          - name: export_config
+            valueFrom:
+              path: /tmp/export_config.json
+          - name: action_results
+            valueFrom:
+              path: /tmp/action_results.json
+              default: "{}"
+      container:
+        image: ghcr.io/dlddu/pure-agent/export-handler:latest
+        command: ["node", "build/index.js"]
+        env:
+          - name: LINEAR_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: export-handler-secrets
+                key: LINEAR_API_KEY
+          - name: GITHUB_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: export-handler-secrets
+                key: GITHUB_TOKEN
+        volumeMounts:
+          - name: workdir
+            mountPath: /work
+
+    # =============================
+    # Cleanup
+    # =============================
+    - name: cleanup-job
+      outputs:
+        parameters:
+          - name: file_list
+            valueFrom:
+              path: /tmp/file_list.txt
+      container:
+        image: alpine:3.20
+        command: ["/bin/sh", "-c"]
+        args:
+          - find /work -maxdepth 1 | tee /tmp/file_list.txt && find /work -mindepth 1 -delete
+        volumeMounts:
+          - name: workdir
+            mountPath: /work

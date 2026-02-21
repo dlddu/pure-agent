@@ -1,0 +1,49 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# TypeScript build
+build/
+dist/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temp
+tmp/
+*.tmp
+*.bak
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.venv/
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Kubernetes secrets
+k8s/secrets.yaml
+
+# Claude CLI (local settings only)
+.claude/settings.local.json

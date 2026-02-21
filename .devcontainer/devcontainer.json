@@ -1,0 +1,51 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/ubuntu
+{
+	"name": "dlddu/pure-agent",
+	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
+	"image": "mcr.microsoft.com/devcontainers/base:noble",
+	// Features to add to the dev container. More info: https://containers.dev/features.
+	"features": {
+		"ghcr.io/devcontainers/features/node:1": {},
+		"ghcr.io/devcontainers/features/github-cli:1": {},
+		"ghcr.io/devcontainers/features/python:1": {},
+		"ghcr.io/devcontainers/features/docker-in-docker:2": {},
+		"ghcr.io/devcontainers-extra/features/shellcheck:1": {}
+	},
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// "forwardPorts": [],
+	// Use 'postCreateCommand' to run commands after the container is created.
+	"postCreateCommand": "curl -fsSL https://claude.ai/install.sh | bash -s stable",
+	// Configure tool-specific properties.
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"anthropic.claude-code",
+				"GitHub.vscode-github-actions"
+			]
+		}
+	},
+	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
+	// "remoteUser": "root"
+	"runArgs": [
+		"--name",
+		"dlddu-pure-agent"
+	],
+	"mounts": [
+		{
+			"source": "dlddu-pure-agent-claude",
+			"target": "/home/vscode/.claude",
+			"type": "volume"
+		},
+		{
+			"source": "dlddu-pure-agent-gh",
+			"target": "/home/vscode/.config/gh",
+			"type": "volume"
+		},
+		{
+			"source": "dlddu-pure-agent-dind",
+			"target": "/var/lib/docker",
+			"type": "volume"
+		}
+	]
+}

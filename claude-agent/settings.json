@@ -1,0 +1,21 @@
+{
+  "model": "opus",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/home/claude/hooks/feature-request-review.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "/home/claude/hooks/ensure-export-config.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}

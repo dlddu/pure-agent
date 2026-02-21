@@ -1,0 +1,38 @@
+name: "CI: claude-agent"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "claude-agent/**"
+      - ".github/workflows/ci-claude-agent.yaml"
+      - ".github/workflows/_build-image.yaml"
+      - ".github/workflows/_test-bats.yaml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "claude-agent/**"
+      - ".github/workflows/ci-claude-agent.yaml"
+      - ".github/workflows/_build-image.yaml"
+      - ".github/workflows/_test-bats.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    uses: ./.github/workflows/_test-bats.yaml
+    with:
+      service: claude-agent
+
+  build:
+    needs: [test]
+    uses: ./.github/workflows/_build-image.yaml
+    with:
+      service: claude-agent

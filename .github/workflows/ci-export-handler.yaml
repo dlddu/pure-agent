@@ -1,0 +1,38 @@
+name: "CI: export-handler"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "export-handler/**"
+      - ".github/workflows/ci-export-handler.yaml"
+      - ".github/workflows/_build-image.yaml"
+      - ".github/workflows/_test-node.yaml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "export-handler/**"
+      - ".github/workflows/ci-export-handler.yaml"
+      - ".github/workflows/_build-image.yaml"
+      - ".github/workflows/_test-node.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    uses: ./.github/workflows/_test-node.yaml
+    with:
+      service: export-handler
+
+  build:
+    needs: [test]
+    uses: ./.github/workflows/_build-image.yaml
+    with:
+      service: export-handler

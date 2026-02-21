@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "router"
+version = "0.1.0"
+description = "File-based workflow router for pure-agent"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.35.0",
+]
+
+[project.scripts]
+router = "router.cli:run"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

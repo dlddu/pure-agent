@@ -1,0 +1,38 @@
+name: "CI: mcp-server"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mcp-server/**"
+      - ".github/workflows/ci-mcp-server.yaml"
+      - ".github/workflows/_build-image.yaml"
+      - ".github/workflows/_test-node.yaml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "mcp-server/**"
+      - ".github/workflows/ci-mcp-server.yaml"
+      - ".github/workflows/_build-image.yaml"
+      - ".github/workflows/_test-node.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    uses: ./.github/workflows/_test-node.yaml
+    with:
+      service: mcp-server
+
+  build:
+    needs: [test]
+    uses: ./.github/workflows/_build-image.yaml
+    with:
+      service: mcp-server
