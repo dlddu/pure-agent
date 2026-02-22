@@ -32,7 +32,7 @@ parse_scenario_field() {
     return 1
   fi
 
-  yq -r "$jq_path" "$yaml_file"
+  yq eval "$jq_path" "$yaml_file"
 }
 
 # ── place_fixtures ────────────────────────────────────────────────────────────
@@ -51,15 +51,15 @@ place_fixtures() {
 
   # export_config
   local export_config_src
-  export_config_src=$(yq -r '.fixtures.export_config // empty' "$yaml_file")
-  if [ -n "$export_config_src" ] && [ -f "$export_config_src" ]; then
+  export_config_src=$(yq eval '.fixtures.export_config // ""' "$yaml_file")
+  if [ -n "$export_config_src" ] && [ "$export_config_src" != "null" ] && [ -f "$export_config_src" ]; then
     cp "$export_config_src" "$target_dir/export_config.json"
   fi
 
   # agent_result
   local agent_result_src
-  agent_result_src=$(yq -r '.fixtures.agent_result // empty' "$yaml_file")
-  if [ -n "$agent_result_src" ] && [ -f "$agent_result_src" ]; then
+  agent_result_src=$(yq eval '.fixtures.agent_result // ""' "$yaml_file")
+  if [ -n "$agent_result_src" ] && [ "$agent_result_src" != "null" ] && [ -f "$agent_result_src" ]; then
     cp "$agent_result_src" "$target_dir/agent_result.txt"
   fi
 }

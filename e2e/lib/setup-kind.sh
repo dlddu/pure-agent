@@ -7,8 +7,6 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 # ── Defaults ────────────────────────────────────────────────────────────────
 CLUSTER_NAME="${CLUSTER_NAME:-pure-agent-e2e}"
 ARGO_VERSION="${ARGO_VERSION:-v3.6.4}"

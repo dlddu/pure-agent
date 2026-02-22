@@ -63,7 +63,10 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y bats jq yq netcat-openbsd
+        run: |
+          sudo apt-get update && sudo apt-get install -y bats jq
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
 
       - name: Run shellcheck on e2e/lib
         run: |
