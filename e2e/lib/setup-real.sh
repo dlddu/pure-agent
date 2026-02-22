@@ -29,10 +29,12 @@ setup_linear_test_issue() {
   [[ -n "${LINEAR_API_KEY:-}" ]] || die "LINEAR_API_KEY is not set"
   [[ -n "${LINEAR_TEAM_ID:-}" ]] || die "LINEAR_TEAM_ID is not set"
 
-  local issue_title="[E2E-TEST] ${scenario_name} — $(date '+%Y-%m-%dT%H:%M:%S')"
+  local issue_title
+  issue_title="[E2E-TEST] ${scenario_name} — $(date '+%Y-%m-%dT%H:%M:%S')"
   log "Creating Linear test issue: $issue_title"
 
   local query
+  # shellcheck disable=SC2016
   query=$(printf '{"query":"mutation CreateIssue($title: String!, $teamId: String!) { issueCreate(input: { title: $title, teamId: $teamId }) { success issue { id identifier } } }","variables":{"title":"%s","teamId":"%s"}}' \
     "$issue_title" "$LINEAR_TEAM_ID")
 
@@ -66,7 +68,8 @@ setup_github_test_branch() {
   [[ -n "${GITHUB_TOKEN:-}" ]]    || die "GITHUB_TOKEN is not set"
   [[ -n "${GITHUB_TEST_REPO:-}" ]] || die "GITHUB_TEST_REPO is not set"
 
-  local branch="${GITHUB_TEST_BRANCH_PREFIX}/${scenario_name}-$(date '+%Y%m%d%H%M%S')"
+  local branch
+  branch="${GITHUB_TEST_BRANCH_PREFIX}/${scenario_name}-$(date '+%Y%m%d%H%M%S')"
   log "Initializing GitHub test branch: $branch (repo=$GITHUB_TEST_REPO)"
 
   # Get the latest SHA of the base branch (main)

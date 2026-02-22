@@ -25,6 +25,7 @@ teardown_linear_issue() {
   log "Archiving Linear test issue: $issue_id"
 
   local query
+  # shellcheck disable=SC2016
   query=$(printf '{"query":"mutation ArchiveIssue($issueId: String!) { issueArchive(id: $issueId) { success } }","variables":{"issueId":"%s"}}' \
     "$issue_id")
 

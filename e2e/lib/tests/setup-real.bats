@@ -45,7 +45,7 @@ setup() {
   export -f curl
 
   # Act
-  run setup_linear_test_issue "report-action"
+  run --separate-stderr setup_linear_test_issue "report-action"
 
   # Assert
   [ "$status" -eq 0 ]
@@ -134,10 +134,14 @@ setup() {
 
 @test "setup_github_test_branch: returns a non-empty branch name on success" {
   # Arrange — first curl call returns base SHA, second creates the branch
-  local call_count=0
+  local call_file="$WORK_DIR/curl-calls.txt"
+  echo "0" > "$call_file"
   curl() {
-    call_count=$((call_count + 1))
-    if [ "$call_count" -eq 1 ]; then
+    local n
+    n=$(cat "$call_file")
+    n=$((n + 1))
+    echo "$n" > "$call_file"
+    if [ "$n" -eq 1 ]; then
       # GET /git/ref/heads/main -> base SHA
       echo '{"object":{"sha":"deadbeef1234567890"}}'
     else
@@ -146,6 +150,7 @@ setup() {
     fi
   }
   export -f curl
+  export call_file
 
   # Act
   run setup_github_test_branch "create-pr-action"
@@ -156,16 +161,21 @@ setup() {
 }
 
 @test "setup_github_test_branch: branch name contains the scenario name" {
-  local call_count=0
+  local call_file="$WORK_DIR/curl-calls.txt"
+  echo "0" > "$call_file"
   curl() {
-    call_count=$((call_count + 1))
-    if [ "$call_count" -eq 1 ]; then
+    local n
+    n=$(cat "$call_file")
+    n=$((n + 1))
+    echo "$n" > "$call_file"
+    if [ "$n" -eq 1 ]; then
       echo '{"object":{"sha":"deadbeef1234567890"}}'
     else
       echo '{}'
     fi
   }
   export -f curl
+  export call_file
 
   run setup_github_test_branch "create-pr-action"
 
@@ -174,16 +184,21 @@ setup() {
 }
 
 @test "setup_github_test_branch: branch name contains the e2e-test prefix" {
-  local call_count=0
+  local call_file="$WORK_DIR/curl-calls.txt"
+  echo "0" > "$call_file"
   curl() {
-    call_count=$((call_count + 1))
-    if [ "$call_count" -eq 1 ]; then
+    local n
+    n=$(cat "$call_file")
+    n=$((n + 1))
+    echo "$n" > "$call_file"
+    if [ "$n" -eq 1 ]; then
       echo '{"object":{"sha":"deadbeef1234567890"}}'
     else
       echo '{}'
     fi
   }
   export -f curl
+  export call_file
 
   run setup_github_test_branch "some-scenario"
 
@@ -221,15 +236,20 @@ setup() {
 }
 
 @test "setup_github_test_branch: fails when first curl call (get SHA) fails" {
-  local call_count=0
+  local call_file="$WORK_DIR/curl-calls.txt"
+  echo "0" > "$call_file"
   curl() {
-    call_count=$((call_count + 1))
-    if [ "$call_count" -eq 1 ]; then
+    local n
+    n=$(cat "$call_file")
+    n=$((n + 1))
+    echo "$n" > "$call_file"
+    if [ "$n" -eq 1 ]; then
       return 1
     fi
     echo '{}'
   }
   export -f curl
+  export call_file
 
   run setup_github_test_branch "create-pr-action"
 
@@ -237,16 +257,21 @@ setup() {
 }
 
 @test "setup_github_test_branch: fails when branch creation curl call fails" {
-  local call_count=0
+  local call_file="$WORK_DIR/curl-calls.txt"
+  echo "0" > "$call_file"
   curl() {
-    call_count=$((call_count + 1))
-    if [ "$call_count" -eq 1 ]; then
+    local n
+    n=$(cat "$call_file")
+    n=$((n + 1))
+    echo "$n" > "$call_file"
+    if [ "$n" -eq 1 ]; then
       echo '{"object":{"sha":"deadbeef1234567890"}}'
     else
       return 1
     fi
   }
   export -f curl
+  export call_file
 
   run setup_github_test_branch "create-pr-action"
 

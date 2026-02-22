@@ -140,16 +140,21 @@ setup() {
 
 @test "teardown_github_pr_and_branch: exits with code 0 on success" {
   # Arrange — first curl lists PRs (one PR found), second closes it, third deletes branch
-  local call_count=0
+  local call_file="$WORK_DIR/curl-calls.txt"
+  echo "0" > "$call_file"
   curl() {
-    call_count=$((call_count + 1))
-    case "$call_count" in
+    local n
+    n=$(cat "$call_file")
+    n=$((n + 1))
+    echo "$n" > "$call_file"
+    case "$n" in
       1) echo '[{"number":7}]' ;;   # list open PRs
       2) echo '{"number":7,"state":"closed"}' ;;  # close PR
       3) echo '' ;;                  # delete branch (204 no body)
     esac
   }
   export -f curl
+  export call_file
 
   # Act
   run teardown_github_pr_and_branch "e2e-test/create-pr-action-20260101"
@@ -159,15 +164,20 @@ setup() {
 }
 
 @test "teardown_github_pr_and_branch: exits with code 0 when no open PRs exist" {
-  local call_count=0
+  local call_file="$WORK_DIR/curl-calls.txt"
+  echo "0" > "$call_file"
   curl() {
-    call_count=$((call_count + 1))
-    case "$call_count" in
+    local n
+    n=$(cat "$call_file")
+    n=$((n + 1))
+    echo "$n" > "$call_file"
+    case "$n" in
       1) echo '[]' ;;   # no open PRs
       2) echo '' ;;      # delete branch
     esac
   }
   export -f curl
+  export call_file
 
   run teardown_github_pr_and_branch "e2e-test/create-pr-action-20260101"
 
@@ -176,14 +186,17 @@ setup() {
 
 @test "teardown_github_pr_and_branch: closes all open PRs for the branch" {
   # Arrange — two open PRs exist
-  local call_count=0
-  local close_calls=0
+  local call_file="$WORK_DIR/curl-calls.txt"
+  echo "0" > "$call_file"
   local close_calls_file="$WORK_DIR/close-calls.txt"
   touch "$close_calls_file"
 
   curl() {
-    call_count=$((call_count + 1))
-    case "$call_count" in
+    local n
+    n=$(cat "$call_file")
+    n=$((n + 1))
+    echo "$n" > "$call_file"
+    case "$n" in
       1)
         # List PRs — return two PR numbers
         echo '[{"number":10},{"number":11}]'
@@ -200,6 +213,7 @@ setup() {
     esac
   }
   export -f curl
+  export call_file
   export close_calls_file
 
   run teardown_github_pr_and_branch "e2e-test/some-branch"
@@ -212,18 +226,23 @@ setup() {
 
 @test "teardown_github_pr_and_branch: deletes the branch after closing PRs" {
   local captured_args_file="$WORK_DIR/curl-args.txt"
-  local call_count=0
+  local call_file="$WORK_DIR/curl-calls.txt"
+  echo "0" > "$call_file"
 
   curl() {
-    call_count=$((call_count + 1))
+    local n
+    n=$(cat "$call_file")
+    n=$((n + 1))
+    echo "$n" > "$call_file"
     # Append each invocation's args to the captured file
-    printf 'CALL %s: %s\n' "$call_count" "$*" >> "$captured_args_file"
-    case "$call_count" in
+    printf 'CALL %s: %s\n' "$n" "$*" >> "$captured_args_file"
+    case "$n" in
       1) echo '[]' ;;
       2) echo '' ;;
     esac
   }
   export -f curl
+  export call_file
   export captured_args_file
 
   run teardown_github_pr_and_branch "e2e-test/feature-branch"
@@ -236,15 +255,20 @@ setup() {
 # ── teardown_github_pr_and_branch: error / warn-only behaviour ────────────────
 
 @test "teardown_github_pr_and_branch: does NOT exit non-zero when branch deletion fails" {
-  local call_count=0
+  local call_file="$WORK_DIR/curl-calls.txt"
+  echo "0" > "$call_file"
   curl() {
-    call_count=$((call_count + 1))
-    case "$call_count" in
+    local n
+    n=$(cat "$call_file")
+    n=$((n + 1))
+    echo "$n" > "$call_file"
+    case "$n" in
       1) echo '[]' ;;  # no open PRs
       2) return 1 ;;   # DELETE branch -> network error
     esac
   }
   export -f curl
+  export call_file
 
   # Act
   run teardown_github_pr_and_branch "e2e-test/some-branch"
@@ -254,33 +278,43 @@ setup() {
 }
 
 @test "teardown_github_pr_and_branch: outputs a warning when branch deletion fails" {
-  local call_count=0
+  local call_file="$WORK_DIR/curl-calls.txt"
+  echo "0" > "$call_file"
   curl() {
-    call_count=$((call_count + 1))
-    case "$call_count" in
+    local n
+    n=$(cat "$call_file")
+    n=$((n + 1))
+    echo "$n" > "$call_file"
+    case "$n" in
       1) echo '[]' ;;
       2) return 1 ;;
     esac
   }
   export -f curl
+  export call_file
 
-  run teardown_github_pr_and_branch "e2e-test/some-branch"
+  run --separate-stderr teardown_github_pr_and_branch "e2e-test/some-branch"
 
   [ "$status" -eq 0 ]
-  [[ "$output" == *"warn"* ]] || [[ "$output" == *"WARN"* ]] || [[ "$output" == *"Warning"* ]] || [[ "$output" == *"fail"* ]] || [[ "$output" == *"Failed"* ]]
+  [[ "$stderr" == *"warn"* ]] || [[ "$stderr" == *"WARN"* ]] || [[ "$stderr" == *"Warning"* ]] || [[ "$stderr" == *"fail"* ]] || [[ "$stderr" == *"Failed"* ]]
 }
 
 @test "teardown_github_pr_and_branch: does NOT exit non-zero when PR close fails" {
-  local call_count=0
+  local call_file="$WORK_DIR/curl-calls.txt"
+  echo "0" > "$call_file"
   curl() {
-    call_count=$((call_count + 1))
-    case "$call_count" in
+    local n
+    n=$(cat "$call_file")
+    n=$((n + 1))
+    echo "$n" > "$call_file"
+    case "$n" in
       1) echo '[{"number":5}]' ;;  # one PR
       2) return 1 ;;               # close PR fails
       3) echo '' ;;                # delete branch succeeds
     esac
   }
   export -f curl
+  export call_file
 
   run teardown_github_pr_and_branch "e2e-test/some-branch"
 
@@ -300,17 +334,22 @@ setup() {
 
 @test "teardown_github_pr_and_branch: uses GITHUB_TOKEN for authorization" {
   local captured_args_file="$WORK_DIR/curl-args.txt"
-  local call_count=0
+  local call_file="$WORK_DIR/curl-calls.txt"
+  echo "0" > "$call_file"
 
   curl() {
-    call_count=$((call_count + 1))
+    local n
+    n=$(cat "$call_file")
+    n=$((n + 1))
+    echo "$n" > "$call_file"
     printf '%s\n' "$@" >> "$captured_args_file"
-    case "$call_count" in
+    case "$n" in
       1) echo '[]' ;;
       2) echo '' ;;
     esac
   }
   export -f curl
+  export call_file
   export captured_args_file
 
   run teardown_github_pr_and_branch "e2e-test/some-branch"
@@ -321,17 +360,22 @@ setup() {
 
 @test "teardown_github_pr_and_branch: uses GITHUB_TEST_REPO in API URLs" {
   local captured_args_file="$WORK_DIR/curl-args.txt"
-  local call_count=0
+  local call_file="$WORK_DIR/curl-calls.txt"
+  echo "0" > "$call_file"
 
   curl() {
-    call_count=$((call_count + 1))
+    local n
+    n=$(cat "$call_file")
+    n=$((n + 1))
+    echo "$n" > "$call_file"
     printf '%s\n' "$@" >> "$captured_args_file"
-    case "$call_count" in
+    case "$n" in
       1) echo '[]' ;;
       2) echo '' ;;
     esac
   }
   export -f curl
+  export call_file
   export captured_args_file
 
   run teardown_github_pr_and_branch "e2e-test/some-branch"
