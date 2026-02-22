@@ -4,6 +4,8 @@ name: "E2E: full (Level 3 — real API)"
 # 실제 Linear/GitHub API로 시나리오를 실행합니다.
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       scenario:
@@ -182,7 +184,7 @@ jobs:
           KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
         run: |
           bash e2e/run-argo.sh \
-            --scenario "${{ github.event.inputs.scenario }}" \
+            --scenario "${{ github.event.inputs.scenario || 'all' }}" \
             --namespace "$PURE_AGENT_NAMESPACE"
 
       # ── Teardown ──────────────────────────────────────────────────────────────
