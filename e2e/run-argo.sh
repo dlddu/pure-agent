@@ -159,23 +159,37 @@ run_argo_workflow() {
   log "Submitting Argo Workflow for scenario: $scenario_name"
   log "Prompt: $prompt"
 
-  local workflow_output
-  workflow_output=$(argo submit \
+  local submit_output
+  submit_output=$(argo submit \
     --from workflowtemplate/pure-agent \
     -n "$NAMESPACE" \
     --context "$KUBE_CONTEXT" \
     -p max_depth="$max_depth" \
     -p prompt="$prompt" \
-    --wait \
-    --timeout "${WORKFLOW_TIMEOUT}s" \
     --output json 2>&1) || {
       warn "Argo workflow submission failed:"
-      echo "$workflow_output" >&2
+      echo "$submit_output" >&2
       die "Workflow failed for scenario: $scenario_name"
     }
 
   local workflow_name
-  workflow_name=$(echo "$workflow_output" | jq -r '.metadata.name')
+  workflow_name=$(echo "$submit_output" | jq -r '.metadata.name')
+  log "Submitted workflow: $workflow_name — waiting up to ${WORKFLOW_TIMEOUT}s"
+
+  argo wait "$workflow_name" \
+    -n "$NAMESPACE" \
+    --context "$KUBE_CONTEXT" \
+    --timeout "${WORKFLOW_TIMEOUT}s" || {
+      warn "Workflow timed out or wait failed for: $workflow_name"
+      die "Workflow failed for scenario: $scenario_name"
+    }
+
+  local workflow_output
+  workflow_output=$(argo get "$workflow_name" \
+    -n "$NAMESPACE" \
+    --context "$KUBE_CONTEXT" \
+    --output json 2>&1)
+
   local workflow_phase
   workflow_phase=$(echo "$workflow_output" | jq -r '.status.phase')
 
