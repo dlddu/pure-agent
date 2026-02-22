@@ -39,7 +39,7 @@ env:
 
 jobs:
   e2e-full:
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -52,34 +52,34 @@ jobs:
 
           # kind
           curl -Lo /usr/local/bin/kind \
-            https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-arm64
+            https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
           chmod +x /usr/local/bin/kind
 
           # kubectl
           curl -Lo /usr/local/bin/kubectl \
-            "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
+            "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
           chmod +x /usr/local/bin/kubectl
 
           # argo CLI
-          curl -sLO https://github.com/argoproj/argo-workflows/releases/download/v3.6.4/argo-linux-arm64.gz
-          gunzip argo-linux-arm64.gz
-          chmod +x argo-linux-arm64
-          mv argo-linux-arm64 /usr/local/bin/argo
+          curl -sLO https://github.com/argoproj/argo-workflows/releases/download/v3.6.4/argo-linux-amd64.gz
+          gunzip argo-linux-amd64.gz
+          chmod +x argo-linux-amd64
+          mv argo-linux-amd64 /usr/local/bin/argo
 
           # gh CLI
           GH_VERSION="2.67.0"
-          curl -sLO "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_arm64.tar.gz"
-          tar -xzf "gh_${GH_VERSION}_linux_arm64.tar.gz"
-          mv "gh_${GH_VERSION}_linux_arm64/bin/gh" /usr/local/bin/gh
+          curl -sLO "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_amd64.tar.gz"
+          tar -xzf "gh_${GH_VERSION}_linux_amd64.tar.gz"
+          mv "gh_${GH_VERSION}_linux_amd64/bin/gh" /usr/local/bin/gh
           chmod +x /usr/local/bin/gh
-          rm -rf "gh_${GH_VERSION}_linux_arm64" "gh_${GH_VERSION}_linux_arm64.tar.gz"
+          rm -rf "gh_${GH_VERSION}_linux_amd64" "gh_${GH_VERSION}_linux_amd64.tar.gz"
 
-          # jq (ubuntu에 포함되어 있으나 명시적으로 보장)
+          # jq (ubuntu-latest에 포함되어 있으나 명시적으로 보장)
           sudo apt-get update -q && sudo apt-get install -y -q jq curl
 
           # yq (YAML patching용)
           curl -Lo /usr/local/bin/yq \
-            https://github.com/mikefarah/yq/releases/download/v4.43.1/yq_linux_arm64
+            https://github.com/mikefarah/yq/releases/download/v4.43.1/yq_linux_amd64
           chmod +x /usr/local/bin/yq
 
       # ── Cluster setup ─────────────────────────────────────────────────────────
