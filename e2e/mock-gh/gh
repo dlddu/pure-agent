@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# mock-gh — a drop-in replacement for the gh CLI used in e2e tests.
+#
+# Supported commands:
+#   gh pr create [flags]       → records args to GH_CALLS_DIR, prints fake PR URL
+#   gh auth status             → exits 0
+#   gh api repos/<org>/<repo>  → prints {"permissions":{"push":true}}
+#   anything else              → exits 1 with error message
+
+set -euo pipefail
+
+: "${GH_CALLS_DIR:=/tmp/gh-calls}"
+mkdir -p "$GH_CALLS_DIR"
+
+if [ $# -eq 0 ]; then
+  echo "mock-gh: no command given" >&2
+  exit 1
+fi
+
+command="$1"
+subcommand="${2:-}"
+
+case "$command" in
+  pr)
+    case "$subcommand" in
+      create)
+        # Record all arguments to a timestamped file
+        local_file="$GH_CALLS_DIR/pr-create-$(date +%s%N).txt"
+        echo "gh pr create $*" > "$local_file"
+        # Also store each --flag value pair for easier assertions
+        shift 2
+        while [ $# -gt 0 ]; do
+          echo "$1" >> "$local_file"
+          shift
+        done
+        # Print a fake PR URL
+        echo "https://github.com/mock-org/mock-repo/pull/1"
+        ;;
+      *)
+        echo "mock-gh: unknown pr subcommand: '$subcommand'" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+
+  auth)
+    case "$subcommand" in
+      status)
+        echo "Logged in to github.com as mock-user (mock-gh)"
+        ;;
+      *)
+        echo "mock-gh: unknown auth subcommand: '$subcommand'" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+
+  api)
+    path="${subcommand}"
+    case "$path" in
+      repos/*)
+        echo '{"permissions":{"push":true}}'
+        ;;
+      *)
+        echo "mock-gh: unknown api path: '$path'" >&2
+        exit 1
+        ;;
+    esac
+    ;;
+
+  *)
+    echo "mock-gh: unknown command: '$command'" >&2
+    exit 1
+    ;;
+esac
