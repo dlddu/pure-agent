@@ -28,7 +28,7 @@ export async function run(): Promise<void> {
   const exportConfig = loadExportConfig(paths.exportConfigPath);
   log.info(`Export config loaded: actions=[${exportConfig.actions.join(",")}], issue=${exportConfig.linear_issue_id ?? "(none)"}`);
 
-  const linearClient = new LinearClient({ apiKey: appConfig.linearApiKey });
+  const linearClient = new LinearClient({ apiKey: appConfig.linearApiKey, ...(appConfig.linearApiUrl && { apiUrl: appConfig.linearApiUrl }) });
 
   const actionResults = await processExport(exportConfig, linearClient, {
     workDir: appConfig.workDir,

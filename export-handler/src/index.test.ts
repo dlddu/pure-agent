@@ -46,9 +46,12 @@ vi.mock("./orchestrator.js", () => ({
 }));
 
 // Mock LinearClient
+const mockLinearClientInstances: { opts: unknown }[] = [];
 vi.mock("@linear/sdk", () => ({
   LinearClient: class MockLinearClient {
-    constructor(public opts: unknown) {}
+    constructor(public opts: unknown) {
+      mockLinearClientInstances.push(this);
+    }
   },
 }));
 
@@ -73,6 +76,7 @@ describe("run (index.ts entry point)", () => {
     mockExistsSync.mockReset().mockReturnValue(false);
     mockReadFileSync.mockReset();
     mockProcessExport.mockReset().mockResolvedValue({});
+    mockLinearClientInstances.length = 0;
   });
 
   it("export_config.json이 없으면 export action을 스킵한다", async () => {
@@ -104,6 +108,33 @@ describe("run (index.ts entry point)", () => {
         githubToken: undefined,
       },
     );
+  });
+
+  it("LinearClient 생성 시 linearApiKey만 전달하고 apiUrl은 전달하지 않는다 (LINEAR_API_URL 미설정)", async () => {
+    const exportConfig = { linear_issue_id: "TEAM-1", summary: "done", actions: ["none"] };
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(JSON.stringify(exportConfig));
+
+    await run();
+
+    expect(mockLinearClientInstances).toHaveLength(1);
+    expect(mockLinearClientInstances[0].opts).toEqual({ apiKey: defaultConfig.linearApiKey });
+  });
+
+  it("LinearClient 생성 시 LINEAR_API_URL이 설정되면 apiUrl을 함께 전달한다", async () => {
+    const configWithApiUrl = createTestAppConfig({ linearApiUrl: "https://linear-proxy.example.com" });
+    mockParseConfig.mockReturnValue(configWithApiUrl);
+    const exportConfig = { linear_issue_id: "TEAM-1", summary: "done", actions: ["none"] };
+    mockExistsSync.mockReturnValue(true);
+    mockReadFileSync.mockReturnValue(JSON.stringify(exportConfig));
+
+    await run();
+
+    expect(mockLinearClientInstances).toHaveLength(1);
+    expect(mockLinearClientInstances[0].opts).toEqual({
+      apiKey: configWithApiUrl.linearApiKey,
+      apiUrl: "https://linear-proxy.example.com",
+    });
   });
 
   it("processExport 실패 시 에러를 전파한다", async () => {

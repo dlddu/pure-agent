@@ -41,6 +41,16 @@ describe("parseConfig", () => {
     const config = parseConfig(validEnv);
     expect(config.githubToken).toBeUndefined();
   });
+
+  it("returns undefined for linearApiUrl when LINEAR_API_URL is not provided", () => {
+    const config = parseConfig(validEnv);
+    expect(config.linearApiUrl).toBeUndefined();
+  });
+
+  it("maps LINEAR_API_URL to linearApiUrl when provided", () => {
+    const config = parseConfig({ ...validEnv, LINEAR_API_URL: "https://linear-proxy.example.com" });
+    expect(config.linearApiUrl).toBe("https://linear-proxy.example.com");
+  });
 });
 
 describe("derivePaths", () => {

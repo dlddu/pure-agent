@@ -9,6 +9,7 @@ const ConfigSchema = z.object({
   LINEAR_TEAM_ID: z.string().min(1, "LINEAR_TEAM_ID is required"),
   LINEAR_DEFAULT_PROJECT_ID: z.string().optional(),
   LINEAR_DEFAULT_LABEL_ID: z.string().optional(),
+  LINEAR_API_URL: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof ConfigSchema>;
