@@ -176,10 +176,10 @@ run_argo_workflow() {
   workflow_name=$(echo "$submit_output" | jq -r '.metadata.name')
   log "Submitted workflow: $workflow_name — waiting up to ${WORKFLOW_TIMEOUT}s"
 
-  argo wait "$workflow_name" \
-    -n "$NAMESPACE" \
-    --context "$KUBE_CONTEXT" \
-    --timeout "${WORKFLOW_TIMEOUT}s" || {
+  timeout "${WORKFLOW_TIMEOUT}s" \
+    argo wait "$workflow_name" \
+      -n "$NAMESPACE" \
+      --context "$KUBE_CONTEXT" || {
       warn "Workflow timed out or wait failed for: $workflow_name"
       die "Workflow failed for scenario: $scenario_name"
     }
