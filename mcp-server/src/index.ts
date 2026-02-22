@@ -24,7 +24,7 @@ async function main() {
   log.info(`Configuration: PORT=${config.PORT}, HOST=${config.HOST}`);
 
   const linearService = new LinearService({
-    client: new LinearClient({ apiKey: config.LINEAR_API_KEY }),
+    client: new LinearClient({ apiKey: config.LINEAR_API_KEY, ...(config.LINEAR_API_URL && { apiUrl: config.LINEAR_API_URL }) }),
     teamId: config.LINEAR_TEAM_ID,
     defaultProjectId: config.LINEAR_DEFAULT_PROJECT_ID,
     defaultLabelId: config.LINEAR_DEFAULT_LABEL_ID,

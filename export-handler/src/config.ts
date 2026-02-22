@@ -7,6 +7,7 @@ const ConfigSchema = z.object({
   TMP_DIR: z.string().default(DEFAULT_TMP_DIR),
   LINEAR_API_KEY: z.string().min(1, "LINEAR_API_KEY is required"),
   GITHUB_TOKEN: z.string().optional(),
+  LINEAR_API_URL: z.string().optional(),
 });
 
 export interface AppConfig {
@@ -14,6 +15,7 @@ export interface AppConfig {
   tmpDir: string;
   linearApiKey: string;
   githubToken?: string;
+  linearApiUrl?: string;
 }
 
 export interface AppPaths {
@@ -52,5 +54,6 @@ export function parseConfig(
     tmpDir: parsed.TMP_DIR,
     linearApiKey: parsed.LINEAR_API_KEY,
     githubToken: parsed.GITHUB_TOKEN,
+    linearApiUrl: parsed.LINEAR_API_URL,
   });
 }

@@ -62,4 +62,17 @@ describe("parseConfig", () => {
     expect(config.LINEAR_DEFAULT_PROJECT_ID).toBe("proj-123");
     expect(config.LINEAR_DEFAULT_LABEL_ID).toBe("label-456");
   });
+
+  it("returns undefined for LINEAR_API_URL when not provided", () => {
+    const config = parseConfig(validEnv);
+    expect(config.LINEAR_API_URL).toBeUndefined();
+  });
+
+  it("populates LINEAR_API_URL when provided", () => {
+    const config = parseConfig({
+      ...validEnv,
+      LINEAR_API_URL: "https://linear-proxy.example.com",
+    });
+    expect(config.LINEAR_API_URL).toBe("https://linear-proxy.example.com");
+  });
 });
