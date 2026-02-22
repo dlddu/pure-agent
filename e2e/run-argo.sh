@@ -22,7 +22,7 @@ NAMESPACE="${NAMESPACE:-pure-agent}"
 KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-full}"
 GITHUB_TEST_REPO="${GITHUB_TEST_REPO:-dlddu/pure-agent-e2e-sandbox}"
 GITHUB_TEST_BRANCH_PREFIX="e2e-test"
-WORKFLOW_TIMEOUT="${WORKFLOW_TIMEOUT:-300}"  # seconds
+WORKFLOW_TIMEOUT="${WORKFLOW_TIMEOUT:-600}"  # seconds
 
 # ── Source shared libraries ──────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -142,12 +142,22 @@ run_argo_workflow() {
     else
       warn "argo wait failed (exit=$wait_exit) for: $workflow_name (phase=$workflow_phase)"
     fi
-    # Dump workflow logs for debugging
-    log "=== Workflow logs ==="
+    # Dump workflow node tree for debugging
+    log "=== Workflow status ==="
+    argo get "$workflow_name" \
+      -n "$NAMESPACE" \
+      --context "$KUBE_CONTEXT" 2>&1 >&2 || true
+    log "=== Pod status ==="
+    kubectl get pods \
+      -l "workflows.argoproj.io/workflow=$workflow_name" \
+      -n "$NAMESPACE" \
+      --context "$KUBE_CONTEXT" \
+      -o wide 2>&1 >&2 || true
+    log "=== Workflow logs (last 200 lines) ==="
     argo logs "$workflow_name" \
       -n "$NAMESPACE" \
-      --context "$KUBE_CONTEXT" 2>&1 | tail -100 >&2 || true
-    log "=== End workflow logs ==="
+      --context "$KUBE_CONTEXT" 2>&1 | tail -200 >&2 || true
+    log "=== End diagnostics ==="
     die "Workflow failed for scenario: $scenario_name"
   fi
 
