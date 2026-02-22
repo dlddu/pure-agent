@@ -28,7 +28,7 @@ permissions:
 # Required GitHub Actions secrets:
 #   LINEAR_API_KEY            — Linear Personal API Key (테스트 전용)
 #   LINEAR_TEAM_ID            — Linear Team ID
-#   GITHUB_TOKEN              — GitHub Token (PR 생성용, repo scope 필요)
+#   GH_PAT                    — GitHub PAT (PR 생성용, repo scope 필요)
 #   CLAUDE_CODE_OAUTH_TOKEN   — Claude Code OAuth token
 
 env:
@@ -113,7 +113,7 @@ jobs:
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
-          GITHUB_TOKEN_SECRET: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN_SECRET: ${{ secrets.GH_PAT }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           set -euo pipefail
@@ -186,7 +186,7 @@ jobs:
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           KUBECONFIG: "/root/.kube/config"
           KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
         run: |
