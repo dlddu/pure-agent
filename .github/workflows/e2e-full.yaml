@@ -186,7 +186,8 @@ jobs:
             /tmp/workflow-template-patched.yaml
 
           # Set imagePullPolicy to IfNotPresent so kind uses locally loaded images
-          yq -i '(.spec.templates[].container.imagePullPolicy) = "IfNotPresent"' \
+          # Only patch templates that already have a container field (skip DAG/steps templates)
+          yq -i '(.spec.templates[] | select(has("container")) | .container.imagePullPolicy) = "IfNotPresent"' \
             /tmp/workflow-template-patched.yaml
 
           kubectl --context "kind-${CLUSTER_NAME}" \
