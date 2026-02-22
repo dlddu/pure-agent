@@ -1,0 +1,148 @@
+name: "E2E: full (Level 3 — real API)"
+# DLD-464: Level ③ e2e 테스트 작성 (skipped)
+# 이 workflow는 kind 클러스터에서 Argo를 통해 실제 Claude Agent +
+# 실제 Linear/GitHub API로 시나리오를 실행합니다.
+#
+# NOTE: 모든 step은 SKIP 상태입니다. 구현 완료 후 SKIP 조건 제거 필요.
+# 관련 이슈: DLD-464
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "실행할 시나리오 (all 또는 시나리오명: report-action | create-pr-action | none-action)"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - "all"
+          - "report-action"
+          - "create-pr-action"
+          - "none-action"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# TODO(DLD-464): 실제 실행 시 아래 secrets을 GitHub Actions secrets에 등록 필요:
+#   LINEAR_API_KEY    — Linear Personal API Key (테스트 전용)
+#   LINEAR_TEAM_ID    — Linear Team ID
+#   GITHUB_TOKEN      — GitHub Token (PR 생성용, repo scope 필요)
+#   CLAUDE_CODE_OAUTH_TOKEN — Claude Code OAuth token
+
+env:
+  # SKIP 플래그: DLD-464 구현 완료 후 false로 변경
+  E2E_SKIP: "true"
+  CLUSTER_NAME: "pure-agent-e2e-full"
+  ARGO_NAMESPACE: "argo"
+  PURE_AGENT_NAMESPACE: "pure-agent"
+
+jobs:
+  e2e-full:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── SKIP guard ────────────────────────────────────────────────────────────
+      # DLD-464: 구현 완료 후 이 step과 각 step의 if 조건을 제거하세요.
+      - name: "[SKIP] Check skip flag"
+        run: |
+          echo "SKIP: E2E full 테스트가 skip 상태입니다 (DLD-464)"
+          echo "      skip 제거 방법: E2E_SKIP env를 false로 변경 후 각 step의 if 조건을 삭제"
+
+      # ── Tool installation ─────────────────────────────────────────────────────
+      - name: Install dependencies (kind, kubectl, argo CLI, jq, curl)
+        if: env.E2E_SKIP != 'true'
+        run: |
+          set -euo pipefail
+
+          # kind
+          curl -Lo /usr/local/bin/kind \
+            https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
+          chmod +x /usr/local/bin/kind
+
+          # kubectl
+          curl -Lo /usr/local/bin/kubectl \
+            "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+          chmod +x /usr/local/bin/kubectl
+
+          # argo CLI
+          curl -sLO https://github.com/argoproj/argo-workflows/releases/download/v3.6.4/argo-linux-amd64.gz
+          gunzip argo-linux-amd64.gz
+          chmod +x argo-linux-amd64
+          mv argo-linux-amd64 /usr/local/bin/argo
+
+          # jq (ubuntu-latest에 포함되어 있으나 명시적으로 보장)
+          sudo apt-get update -q && sudo apt-get install -y -q jq curl
+
+      # ── Cluster setup ─────────────────────────────────────────────────────────
+      - name: Set up kind cluster and install Argo Workflows
+        if: env.E2E_SKIP != 'true'
+        run: |
+          bash e2e/lib/setup-kind.sh \
+            --cluster-name "$CLUSTER_NAME"
+
+      # ── Kubernetes namespace and secrets ──────────────────────────────────────
+      - name: Create namespace and secrets for pure-agent
+        if: env.E2E_SKIP != 'true'
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+          GITHUB_TOKEN_SECRET: ${{ secrets.GITHUB_TOKEN }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          kubectl --context "kind-${CLUSTER_NAME}" create namespace "$PURE_AGENT_NAMESPACE" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # mcp-server-secrets
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create secret generic mcp-server-secrets \
+              --from-literal=LINEAR_API_KEY="$LINEAR_API_KEY" \
+              --from-literal=LINEAR_TEAM_ID="$LINEAR_TEAM_ID" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+          # export-handler-secrets
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create secret generic export-handler-secrets \
+              --from-literal=LINEAR_API_KEY="$LINEAR_API_KEY" \
+              --from-literal=GITHUB_TOKEN="$GITHUB_TOKEN_SECRET" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+          # agent-secrets
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create secret generic agent-secrets \
+              --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$CLAUDE_CODE_OAUTH_TOKEN" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+      # ── Apply WorkflowTemplate ────────────────────────────────────────────────
+      - name: Apply Argo WorkflowTemplate
+        if: env.E2E_SKIP != 'true'
+        run: |
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            apply -n "$PURE_AGENT_NAMESPACE" -f k8s/workflow-template.yaml
+
+      # ── Run E2E scenarios ─────────────────────────────────────────────────────
+      - name: Run E2E scenarios (run-argo.sh)
+        if: env.E2E_SKIP != 'true'
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          KUBECONFIG: "/root/.kube/config"
+          KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
+        run: |
+          bash e2e/run-argo.sh \
+            --scenario "${{ github.event.inputs.scenario }}" \
+            --namespace "$PURE_AGENT_NAMESPACE"
+
+      # ── Teardown ──────────────────────────────────────────────────────────────
+      - name: Tear down kind cluster
+        if: always() && env.E2E_SKIP != 'true'
+        run: |
+          kind delete cluster --name "$CLUSTER_NAME" || true
