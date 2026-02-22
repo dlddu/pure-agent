@@ -1,0 +1,1 @@
+Linear 이슈 {{LINEAR_ISSUE_ID}}에 '완료'라고 코멘트만 남기고 종료해주세요.

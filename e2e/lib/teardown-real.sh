@@ -24,17 +24,17 @@ teardown_linear_issue() {
   local issue_id="$1"
   log "Archiving Linear test issue: $issue_id"
 
-  local query
-  # shellcheck disable=SC2016
-  query=$(printf '{"query":"mutation ArchiveIssue($issueId: String!) { issueArchive(id: $issueId) { success } }","variables":{"issueId":"%s"}}' \
-    "$issue_id")
-
   local response
   if ! response=$(curl -sf \
     -X POST \
     -H "Authorization: ${LINEAR_API_KEY:-}" \
     -H "Content-Type: application/json" \
-    --data "$query" \
+    --data "$(jq -n \
+      --arg issueId "$issue_id" \
+      '{
+        query: "mutation ArchiveIssue($issueId: String!) { issueArchive(id: $issueId) { success } }",
+        variables: { issueId: $issueId }
+      }')" \
     "https://api.linear.app/graphql"); then
     warn "curl failed while archiving Linear issue $issue_id"
     return 0

@@ -4,7 +4,7 @@
 # DLD-465: Level ③ 풀 e2e를 실제로 동작하게 구현.
 #
 # Usage:
-#   ./e2e/run-argo.sh [--scenario <name|all>] [--namespace <ns>]
+#   ./e2e/run-argo.sh [--scenario <name|all>] [--level <2|3>] [--namespace <ns>]
 #
 # Environment variables (required):
 #   LINEAR_API_KEY        — Linear Personal API Key
@@ -17,21 +17,36 @@ set -euo pipefail
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
 SCENARIO="${SCENARIO:-all}"
+LEVEL="${LEVEL:-3}"
 NAMESPACE="${NAMESPACE:-pure-agent}"
 KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-full}"
 GITHUB_TEST_REPO="${GITHUB_TEST_REPO:-dlddu/pure-agent-e2e-sandbox}"
 GITHUB_TEST_BRANCH_PREFIX="e2e-test"
 WORKFLOW_TIMEOUT="${WORKFLOW_TIMEOUT:-300}"  # seconds
 
-# ── Logging ──────────────────────────────────────────────────────────────────
+# ── Source shared libraries ──────────────────────────────────────────────────
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="${SCRIPT_DIR}/lib"
+# shellcheck source=lib/setup-real.sh
+source "$LIB_DIR/setup-real.sh" --source-only
+# shellcheck source=lib/teardown-real.sh
+source "$LIB_DIR/teardown-real.sh" --source-only
+
+# ── Logging (override library prefixes) ──────────────────────────────────────
 log()  { echo "[run-argo] $*" >&2; }
 warn() { echo "[run-argo] WARN: $*" >&2; }
 die()  { echo "[run-argo] ERROR: $*" >&2; exit 1; }
+
+# ── Source guard (must be before arg parsing) ────────────────────────────────
+if [[ "${1:-}" == "--source-only" ]]; then
+  return 0 2>/dev/null || true
+fi
 
 # ── Arg parsing ──────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --scenario)   SCENARIO="$2";   shift 2 ;;
+    --level)      LEVEL="$2";      shift 2 ;;
     --namespace)  NAMESPACE="$2";  shift 2 ;;
     --context)    KUBE_CONTEXT="$2"; shift 2 ;;
     *)            die "Unknown argument: $1" ;;
@@ -53,100 +68,29 @@ check_prerequisites() {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# SETUP FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════════
-
-# setup_linear_issue: Linear에 테스트 이슈를 생성하고 이슈 ID를 출력합니다.
-# 출력: Linear issue ID (예: "ABC-123")
-setup_linear_issue() {
-  local scenario_name="$1"
-  local issue_title="[E2E-TEST] ${scenario_name} — $(date '+%Y-%m-%dT%H:%M:%S')"
-
-  log "Creating Linear test issue: $issue_title"
-
-  local response
-  response=$(curl -sf \
-    -X POST \
-    -H "Authorization: ${LINEAR_API_KEY}" \
-    -H "Content-Type: application/json" \
-    --data "$(jq -n \
-      --arg title "$issue_title" \
-      --arg teamId "$LINEAR_TEAM_ID" \
-      '{
-        query: "mutation CreateIssue($title: String!, $teamId: String!) { issueCreate(input: { title: $title, teamId: $teamId }) { success issue { id identifier } } }",
-        variables: { title: $title, teamId: $teamId }
-      }')" \
-    "https://api.linear.app/graphql")
-
-  local issue_id
-  issue_id=$(echo "$response" | jq -r '.data.issueCreate.issue.id')
-  local issue_identifier
-  issue_identifier=$(echo "$response" | jq -r '.data.issueCreate.issue.identifier')
-
-  [[ "$issue_id" != "null" && -n "$issue_id" ]] \
-    || die "Failed to create Linear issue. Response: $response"
-
-  log "Created Linear issue: $issue_identifier (id=$issue_id)"
-  echo "$issue_id"
-}
-
-# setup_github_branch: GitHub 테스트 레포에 E2E 테스트용 브랜치를 초기화합니다.
-# 출력: 브랜치명
-setup_github_branch() {
-  local scenario_name="$1"
-  local branch="${GITHUB_TEST_BRANCH_PREFIX}/${scenario_name}-$(date '+%Y%m%d%H%M%S')"
-
-  log "Initializing GitHub test branch: $branch (repo=$GITHUB_TEST_REPO)"
-
-  # 기본 브랜치(main)의 최신 SHA를 가져옵니다
-  local base_sha
-  base_sha=$(curl -sf \
-    -H "Authorization: token ${GITHUB_TOKEN}" \
-    -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/${GITHUB_TEST_REPO}/git/ref/heads/main" \
-    | jq -r '.object.sha')
-
-  [[ "$base_sha" != "null" && -n "$base_sha" ]] \
-    || die "Failed to get base SHA from GitHub. Repo: $GITHUB_TEST_REPO"
-
-  # 새 브랜치 생성
-  curl -sf \
-    -X POST \
-    -H "Authorization: token ${GITHUB_TOKEN}" \
-    -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/${GITHUB_TEST_REPO}/git/refs" \
-    -d "$(jq -n --arg ref "refs/heads/$branch" --arg sha "$base_sha" \
-      '{ref: $ref, sha: $sha}')" \
-    > /dev/null
-
-  log "Created GitHub branch: $branch"
-  echo "$branch"
-}
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # RUN FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# build_prompt: 시나리오별 실제 API 프롬프트를 생성합니다.
+# build_prompt: 시나리오별 프롬프트를 파일에서 읽고 변수를 치환합니다.
+# 프롬프트 파일 위치: e2e/scenarios/<scenario_name>/prompt.txt
 build_prompt() {
   local scenario_name="$1"
   local linear_issue_id="$2"
   local github_branch="${3:-}"
 
-  case "$scenario_name" in
-    report-action)
-      echo "Linear 이슈 ${linear_issue_id}를 읽고 내용을 요약해서 report로 작성해주세요."
-      ;;
-    create-pr-action)
-      echo "테스트 레포 ${GITHUB_TEST_REPO}에 hello.txt 파일을 생성하고 PR을 만들어주세요. 브랜치명은 ${github_branch} 를 사용하세요."
-      ;;
-    none-action)
-      echo "Linear 이슈 ${linear_issue_id}에 '완료'라고 코멘트만 남기고 종료해주세요."
-      ;;
-    *)
-      die "Unknown scenario: $scenario_name"
-      ;;
-  esac
+  local prompt_file="${SCRIPT_DIR}/scenarios/${scenario_name}/prompt.txt"
+  [[ -f "$prompt_file" ]] \
+    || die "Prompt file not found: $prompt_file"
+
+  local prompt
+  prompt=$(<"$prompt_file")
+
+  # 변수 치환
+  prompt="${prompt//\{\{LINEAR_ISSUE_ID\}\}/$linear_issue_id}"
+  prompt="${prompt//\{\{GITHUB_TEST_REPO\}\}/$GITHUB_TEST_REPO}"
+  prompt="${prompt//\{\{GITHUB_BRANCH\}\}/$github_branch}"
+
+  echo "$prompt"
 }
 
 # run_argo_workflow: Argo Workflow를 제출하고 완료까지 대기합니다.
@@ -268,73 +212,6 @@ verify_github_pr() {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TEARDOWN FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════════
-
-# teardown_linear_issue: 테스트 이슈를 archive합니다.
-teardown_linear_issue() {
-  local linear_issue_id="$1"
-
-  log "Archiving Linear test issue: $linear_issue_id"
-
-  local response
-  response=$(curl -sf \
-    -X POST \
-    -H "Authorization: ${LINEAR_API_KEY}" \
-    -H "Content-Type: application/json" \
-    --data "$(jq -n \
-      --arg issueId "$linear_issue_id" \
-      '{
-        query: "mutation ArchiveIssue($issueId: String!) { issueArchive(id: $issueId) { success } }",
-        variables: { issueId: $issueId }
-      }')" \
-    "https://api.linear.app/graphql")
-
-  local success
-  success=$(echo "$response" | jq -r '.data.issueArchive.success')
-  [[ "$success" == "true" ]] \
-    || warn "Failed to archive Linear issue $linear_issue_id (may need manual cleanup)"
-
-  log "Archived Linear issue: $linear_issue_id"
-}
-
-# teardown_github_pr_and_branch: PR을 close하고 브랜치를 삭제합니다 (create-pr-action 전용).
-teardown_github_pr_and_branch() {
-  local github_branch="$1"
-
-  log "Closing GitHub PRs and deleting branch: $github_branch"
-
-  # 해당 브랜치의 열린 PR을 모두 close합니다
-  local prs
-  prs=$(curl -sf \
-    -H "Authorization: token ${GITHUB_TOKEN}" \
-    -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/${GITHUB_TEST_REPO}/pulls?head=${GITHUB_TEST_REPO%%/*}:${github_branch}&state=open" \
-    | jq -r '.[].number')
-
-  for pr_number in $prs; do
-    curl -sf \
-      -X PATCH \
-      -H "Authorization: token ${GITHUB_TOKEN}" \
-      -H "Accept: application/vnd.github+json" \
-      "https://api.github.com/repos/${GITHUB_TEST_REPO}/pulls/${pr_number}" \
-      -d '{"state":"closed"}' \
-      > /dev/null
-    log "Closed PR #$pr_number"
-  done
-
-  # 브랜치 삭제
-  curl -sf \
-    -X DELETE \
-    -H "Authorization: token ${GITHUB_TOKEN}" \
-    -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/${GITHUB_TEST_REPO}/git/refs/heads/${github_branch}" \
-    > /dev/null || warn "Failed to delete branch $github_branch (may not exist)"
-
-  log "Deleted branch: $github_branch"
-}
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # SCENARIO RUNNERS
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -346,17 +223,16 @@ run_scenario_report_action() {
   log "=== Scenario: $scenario_name ==="
 
   local linear_issue_id
-  local github_branch="SKIP-BRANCH"
 
   # Setup
-  linear_issue_id=$(setup_linear_issue "$scenario_name")
+  linear_issue_id=$(setup_linear_test_issue "$scenario_name")
 
   # Teardown trap (cleanup even on failure)
   trap "teardown_linear_issue '$linear_issue_id'" EXIT
 
   # Run
   local prompt
-  prompt=$(build_prompt "$scenario_name" "$linear_issue_id" "$github_branch")
+  prompt=$(build_prompt "$scenario_name" "$linear_issue_id")
   run_argo_workflow "$scenario_name" "$prompt" "5"
 
   # Verify
@@ -380,8 +256,8 @@ run_scenario_create_pr_action() {
   local github_branch
 
   # Setup
-  linear_issue_id=$(setup_linear_issue "$scenario_name")
-  github_branch=$(setup_github_branch "$scenario_name")
+  linear_issue_id=$(setup_linear_test_issue "$scenario_name")
+  github_branch=$(setup_github_test_branch "$scenario_name")
 
   # Teardown trap (cleanup even on failure)
   trap "teardown_linear_issue '$linear_issue_id'; teardown_github_pr_and_branch '$github_branch'" EXIT
@@ -411,17 +287,16 @@ run_scenario_none_action() {
   log "=== Scenario: $scenario_name ==="
 
   local linear_issue_id
-  local github_branch="SKIP-BRANCH"
 
   # Setup
-  linear_issue_id=$(setup_linear_issue "$scenario_name")
+  linear_issue_id=$(setup_linear_test_issue "$scenario_name")
 
   # Teardown trap (cleanup even on failure)
   trap "teardown_linear_issue '$linear_issue_id'" EXIT
 
   # Run
   local prompt
-  prompt=$(build_prompt "$scenario_name" "$linear_issue_id" "$github_branch")
+  prompt=$(build_prompt "$scenario_name" "$linear_issue_id")
   run_argo_workflow "$scenario_name" "$prompt" "5"
 
   # Verify
@@ -439,8 +314,8 @@ run_scenario_none_action() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 main() {
-  log "Starting Level ③ E2E test runner"
-  log "SCENARIO=${SCENARIO}, NAMESPACE=${NAMESPACE}"
+  log "Starting Level ${LEVEL} E2E test runner"
+  log "SCENARIO=${SCENARIO}, LEVEL=${LEVEL}, NAMESPACE=${NAMESPACE}"
 
   check_prerequisites
 
@@ -459,9 +334,4 @@ main() {
   log "All scenarios completed"
 }
 
-# Source guard
-if [[ "${1:-}" == "--source-only" ]]; then
-  true
-else
-  main "$@"
-fi
+main "$@"

@@ -33,17 +33,18 @@ setup_linear_test_issue() {
   issue_title="[E2E-TEST] ${scenario_name} — $(date '+%Y-%m-%dT%H:%M:%S')"
   log "Creating Linear test issue: $issue_title"
 
-  local query
-  # shellcheck disable=SC2016
-  query=$(printf '{"query":"mutation CreateIssue($title: String!, $teamId: String!) { issueCreate(input: { title: $title, teamId: $teamId }) { success issue { id identifier } } }","variables":{"title":"%s","teamId":"%s"}}' \
-    "$issue_title" "$LINEAR_TEAM_ID")
-
   local response
   response=$(curl -sf \
     -X POST \
     -H "Authorization: ${LINEAR_API_KEY}" \
     -H "Content-Type: application/json" \
-    --data "$query" \
+    --data "$(jq -n \
+      --arg title "$issue_title" \
+      --arg teamId "$LINEAR_TEAM_ID" \
+      '{
+        query: "mutation CreateIssue($title: String!, $teamId: String!) { issueCreate(input: { title: $title, teamId: $teamId }) { success issue { id identifier } } }",
+        variables: { title: $title, teamId: $teamId }
+      }')" \
     "https://api.linear.app/graphql")
 
   local issue_id
@@ -90,7 +91,8 @@ setup_github_test_branch() {
     -H "Authorization: token ${GITHUB_TOKEN}" \
     -H "Accept: application/vnd.github+json" \
     "https://api.github.com/repos/${GITHUB_TEST_REPO}/git/refs" \
-    -d "$(printf '{"ref":"refs/heads/%s","sha":"%s"}' "$branch" "$base_sha")" \
+    -d "$(jq -n --arg ref "refs/heads/$branch" --arg sha "$base_sha" \
+      '{ref: $ref, sha: $sha}')" \
     > /dev/null \
     || die "Failed to create GitHub branch: $branch"
 
