@@ -38,19 +38,7 @@ env:
   PURE_AGENT_NAMESPACE: "pure-agent"
 
 jobs:
-  # ── Build images (parallel, with GHA cache, no push) ─────────────────────
-  build-images:
-    strategy:
-      matrix:
-        service: [claude-agent, mcp-server, router, export-handler]
-    uses: ./.github/workflows/_build-image.yaml
-    with:
-      service: ${{ matrix.service }}
-      push: false
-
-  # ── E2E test ───────────────────────────────────────────────────────────────
   e2e-full:
-    needs: [build-images]
     runs-on: ubuntu-24.04-arm
 
     steps:
@@ -100,29 +88,36 @@ jobs:
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME"
 
-      # ── Build and load images (GHA cache from _build-image.yaml) ─────────────
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      # ── Build and load images (GHA cache, no push) ──────────────────────────
+      - name: Build claude-agent image
+        uses: ./.github/actions/build-image
+        with:
+          service: claude-agent
+          push: "false"
 
-      - name: Build and load images with GHA cache
+      - name: Build mcp-server image
+        uses: ./.github/actions/build-image
+        with:
+          service: mcp-server
+          push: "false"
+
+      - name: Build router image
+        uses: ./.github/actions/build-image
+        with:
+          service: router
+          push: "false"
+
+      - name: Build export-handler image
+        uses: ./.github/actions/build-image
+        with:
+          service: export-handler
+          push: "false"
+
+      - name: Load images into kind cluster
         run: |
-          set -euo pipefail
-          SERVICES=(claude-agent mcp-server router export-handler)
-          IMAGES=""
-
-          for svc in "${SERVICES[@]}"; do
-            IMAGE="ghcr.io/dlddu/pure-agent/${svc}:latest"
-            docker buildx build \
-              --load \
-              -t "${IMAGE}" \
-              --cache-from "type=gha,scope=${svc}" \
-              "./${svc}"
-            IMAGES="${IMAGES:+${IMAGES},}${IMAGE}"
-          done
-
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME" \
-            --images "$IMAGES"
+            --images "ghcr.io/dlddu/pure-agent/claude-agent:latest,ghcr.io/dlddu/pure-agent/mcp-server:latest,ghcr.io/dlddu/pure-agent/router:latest,ghcr.io/dlddu/pure-agent/export-handler:latest"
 
       # ── Kubernetes namespace and secrets ──────────────────────────────────────
       - name: Create namespace and secrets for pure-agent
