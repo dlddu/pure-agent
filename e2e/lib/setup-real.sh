@@ -83,14 +83,16 @@ setup_github_test_branch() {
   [[ "$base_sha" != "null" && -n "$base_sha" ]] \
     || die "Failed to get base SHA from GitHub. Repo: $GITHUB_TEST_REPO"
 
-  # Create the new branch
+  # Create the new branch — use || die so failure is detected even inside
+  # command-substitution subshells where set -e is suppressed by POSIX.
   curl -sf \
     -X POST \
     -H "Authorization: token ${GITHUB_TOKEN}" \
     -H "Accept: application/vnd.github+json" \
     "https://api.github.com/repos/${GITHUB_TEST_REPO}/git/refs" \
     -d "$(printf '{"ref":"refs/heads/%s","sha":"%s"}' "$branch" "$base_sha")" \
-    > /dev/null
+    > /dev/null \
+    || die "Failed to create GitHub branch: $branch"
 
   log "Created GitHub branch: $branch"
   echo "$branch"
