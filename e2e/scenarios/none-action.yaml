@@ -1,0 +1,17 @@
+name: none-action
+description: "actions: [\"none\"] → Router stop, Export Handler는 Linear 코멘트만 작성"
+level: [1, 2, 3]
+cycles:
+  - export_config:
+      linear_issue_id: "mock-issue-id"
+      actions:
+        - "none"
+      session_id: "mock-session-none"
+    agent_result: "No action needed. Task already completed."
+assertions:
+  router_decision: "stop"
+  export_handler_exit: 0
+  mock_api:
+    - type: linear_comment_created
+      issue_id_from_config: true
+      body_contains: "작업 완료"

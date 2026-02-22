@@ -1,0 +1,25 @@
+name: continue-then-stop
+description: "2 cycle. cycle-0은 continue, cycle-1은 stop"
+level: [1, 2, 3]
+cycles:
+  - export_config:
+      linear_issue_id: "mock-issue-id"
+      actions:
+        - "continue"
+      session_id: "mock-session-cycle0"
+    agent_result: "Cycle 0 done, continuing..."
+  - export_config:
+      linear_issue_id: "mock-issue-id"
+      actions:
+        - "none"
+      session_id: "mock-session-cycle1"
+    agent_result: "Cycle 1 done, stopping."
+assertions:
+  router_decisions:
+    - "continue"
+    - "stop"
+  export_handler_exit: 0
+  mock_api:
+    - type: linear_comment_created
+      issue_id_from_config: true
+      body_contains: "작업 완료"

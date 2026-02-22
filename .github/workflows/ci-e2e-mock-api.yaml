@@ -1,0 +1,29 @@
+name: "CI: e2e mock-api"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "e2e/mock-api/**"
+      - ".github/workflows/ci-e2e-mock-api.yaml"
+      - ".github/workflows/_test-node.yaml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "e2e/mock-api/**"
+      - ".github/workflows/ci-e2e-mock-api.yaml"
+      - ".github/workflows/_test-node.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: ./.github/workflows/_test-node.yaml
+    with:
+      service: e2e/mock-api
