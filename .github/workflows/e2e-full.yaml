@@ -38,7 +38,19 @@ env:
   PURE_AGENT_NAMESPACE: "pure-agent"
 
 jobs:
+  # ── Build images (parallel, with GHA cache, no push) ─────────────────────
+  build-images:
+    strategy:
+      matrix:
+        service: [claude-agent, mcp-server, router, export-handler]
+    uses: ./.github/workflows/_build-image.yaml
+    with:
+      service: ${{ matrix.service }}
+      push: false
+
+  # ── E2E test ───────────────────────────────────────────────────────────────
   e2e-full:
+    needs: [build-images]
     runs-on: ubuntu-24.04-arm
 
     steps:
@@ -91,50 +103,26 @@ jobs:
       # ── Build and load images (GHA cache from _build-image.yaml) ─────────────
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          driver: docker-container
 
-      - name: Build images with GHA cache and load into kind cluster
-        uses: docker/build-push-action@v6
-        with:
-          context: ./claude-agent
-          push: false
-          load: true
-          tags: ghcr.io/dlddu/pure-agent/claude-agent:latest
-          cache-from: type=gha,scope=claude-agent
-
-      - name: Build mcp-server image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./mcp-server
-          push: false
-          load: true
-          tags: ghcr.io/dlddu/pure-agent/mcp-server:latest
-          cache-from: type=gha,scope=mcp-server
-
-      - name: Build router image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./router
-          push: false
-          load: true
-          tags: ghcr.io/dlddu/pure-agent/router:latest
-          cache-from: type=gha,scope=router
-
-      - name: Build export-handler image
-        uses: docker/build-push-action@v6
-        with:
-          context: ./export-handler
-          push: false
-          load: true
-          tags: ghcr.io/dlddu/pure-agent/export-handler:latest
-          cache-from: type=gha,scope=export-handler
-
-      - name: Load images into kind cluster
+      - name: Build and load images with GHA cache
         run: |
+          set -euo pipefail
+          SERVICES=(claude-agent mcp-server router export-handler)
+          IMAGES=""
+
+          for svc in "${SERVICES[@]}"; do
+            IMAGE="ghcr.io/dlddu/pure-agent/${svc}:latest"
+            docker buildx build \
+              --load \
+              -t "${IMAGE}" \
+              --cache-from "type=gha,scope=${svc}" \
+              "./${svc}"
+            IMAGES="${IMAGES:+${IMAGES},}${IMAGE}"
+          done
+
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME" \
-            --images "ghcr.io/dlddu/pure-agent/claude-agent:latest,ghcr.io/dlddu/pure-agent/mcp-server:latest,ghcr.io/dlddu/pure-agent/router:latest,ghcr.io/dlddu/pure-agent/export-handler:latest"
+            --images "$IMAGES"
 
       # ── Kubernetes namespace and secrets ──────────────────────────────────────
       - name: Create namespace and secrets for pure-agent
