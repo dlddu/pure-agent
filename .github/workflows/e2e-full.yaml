@@ -38,8 +38,25 @@ env:
   PURE_AGENT_NAMESPACE: "pure-agent"
 
 jobs:
+  # ── Build images (parallel, with GHA cache) ────────────────────────────────
+  build-images:
+    strategy:
+      matrix:
+        service: [claude-agent, mcp-server, router, export-handler]
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/_build-image.yaml
+    with:
+      service: ${{ matrix.service }}
+
+  # ── E2E test ───────────────────────────────────────────────────────────────
   e2e-full:
+    needs: [build-images]
     runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: read
 
     steps:
       - name: Checkout repository
@@ -88,25 +105,31 @@ jobs:
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME"
 
-      # ── Build and load images ─────────────────────────────────────────────────
-      - name: Build and load images into kind cluster
+      # ── Pull and load images ──────────────────────────────────────────────────
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and load images into kind cluster
         run: |
           set -euo pipefail
+          SHA_TAG="${GITHUB_SHA::7}"
+          SERVICES=(claude-agent mcp-server router export-handler)
+          IMAGES=""
 
-          # Build service images with the same names used in workflow-template.yaml
-          docker build -t ghcr.io/dlddu/pure-agent/claude-agent:latest \
-            -f claude-agent/Dockerfile claude-agent/
-          docker build -t ghcr.io/dlddu/pure-agent/mcp-server:latest \
-            mcp-server/
-          docker build -t ghcr.io/dlddu/pure-agent/router:latest \
-            router/
-          docker build -t ghcr.io/dlddu/pure-agent/export-handler:latest \
-            export-handler/
+          for svc in "${SERVICES[@]}"; do
+            IMAGE="ghcr.io/dlddu/pure-agent/${svc}"
+            docker pull "${IMAGE}:${SHA_TAG}"
+            docker tag "${IMAGE}:${SHA_TAG}" "${IMAGE}:latest"
+            IMAGES="${IMAGES:+${IMAGES},}${IMAGE}:latest"
+          done
 
-          # Load images into the kind cluster
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME" \
-            --images "ghcr.io/dlddu/pure-agent/claude-agent:latest,ghcr.io/dlddu/pure-agent/mcp-server:latest,ghcr.io/dlddu/pure-agent/router:latest,ghcr.io/dlddu/pure-agent/export-handler:latest"
+            --images "$IMAGES"
 
       # ── Kubernetes namespace and secrets ──────────────────────────────────────
       - name: Create namespace and secrets for pure-agent
