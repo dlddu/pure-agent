@@ -120,22 +120,36 @@ run_argo_workflow() {
   workflow_name=$(echo "$submit_output" | jq -r '.metadata.name')
   log "Submitted workflow: $workflow_name — waiting up to ${WORKFLOW_TIMEOUT}s"
 
+  local wait_exit=0
   timeout "${WORKFLOW_TIMEOUT}s" \
     argo wait "$workflow_name" \
       -n "$NAMESPACE" \
-      --context "$KUBE_CONTEXT" || {
-      warn "Workflow timed out or wait failed for: $workflow_name"
-      die "Workflow failed for scenario: $scenario_name"
-    }
+      --context "$KUBE_CONTEXT" || wait_exit=$?
 
+  # Always fetch workflow status for diagnostics
   local workflow_output
   workflow_output=$(argo get "$workflow_name" \
     -n "$NAMESPACE" \
     --context "$KUBE_CONTEXT" \
-    --output json 2>&1)
+    --output json 2>&1) || true
 
   local workflow_phase
-  workflow_phase=$(echo "$workflow_output" | jq -r '.status.phase')
+  workflow_phase=$(echo "$workflow_output" | jq -r '.status.phase // "Unknown"')
+
+  if [[ "$wait_exit" -ne 0 ]]; then
+    if [[ "$wait_exit" -eq 124 ]]; then
+      warn "Workflow timed out after ${WORKFLOW_TIMEOUT}s: $workflow_name (phase=$workflow_phase)"
+    else
+      warn "argo wait failed (exit=$wait_exit) for: $workflow_name (phase=$workflow_phase)"
+    fi
+    # Dump workflow logs for debugging
+    log "=== Workflow logs ==="
+    argo logs "$workflow_name" \
+      -n "$NAMESPACE" \
+      --context "$KUBE_CONTEXT" 2>&1 | tail -100 >&2 || true
+    log "=== End workflow logs ==="
+    die "Workflow failed for scenario: $scenario_name"
+  fi
 
   log "Workflow completed: name=$workflow_name phase=$workflow_phase"
 
