@@ -1,29 +1,19 @@
 #!/usr/bin/env bash
 # e2e/run-argo.sh — Level ③ E2E runner: kind + Argo + real Claude Agent + real APIs
 #
-# DLD-464: 이 스크립트 전체가 SKIP 상태입니다.
-#          skip 제거 후 실제 Linear / GitHub API로 실행 가능한 구조입니다.
+# DLD-465: Level ③ 풀 e2e를 실제로 동작하게 구현.
 #
 # Usage:
 #   ./e2e/run-argo.sh [--scenario <name|all>] [--namespace <ns>]
 #
-# Environment variables (required when not skipped):
+# Environment variables (required):
 #   LINEAR_API_KEY        — Linear Personal API Key
 #   LINEAR_TEAM_ID        — Linear Team ID
 #   GITHUB_TOKEN          — GitHub token (repo scope, PR 생성용)
 #   GITHUB_TEST_REPO      — "org/repo" 형태의 테스트용 GitHub 레포 (기본값: dlddu/pure-agent-e2e-sandbox)
 #   KUBE_CONTEXT          — kubectl context (기본값: kind-pure-agent-e2e-full)
-#
-# Skip 제거 방법 (DLD-464 구현 완료 후):
-#   1. 파일 상단의 SKIP_ALL 변수를 "false"로 변경
-#   2. GitHub Actions secrets에 필요한 값을 등록
-#   3. e2e-full.yaml workflow의 E2E_SKIP env를 "false"로 변경
 
 set -euo pipefail
-
-# ── SKIP 플래그 ──────────────────────────────────────────────────────────────
-# TODO(DLD-464): 구현 완료 후 SKIP_ALL="false" 로 변경
-SKIP_ALL="${SKIP_ALL:-true}"
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
 SCENARIO="${SCENARIO:-all}"
@@ -38,18 +28,6 @@ log()  { echo "[run-argo] $*" >&2; }
 warn() { echo "[run-argo] WARN: $*" >&2; }
 die()  { echo "[run-argo] ERROR: $*" >&2; exit 1; }
 
-# ── Skip helper ──────────────────────────────────────────────────────────────
-# DLD-464: SKIP_ALL=true 인 경우 각 함수 시작 시 이 함수를 호출하여 skip합니다.
-# skip 제거 시 이 함수 호출 줄들을 삭제하세요.
-skip_if_disabled() {
-  local reason="${1:-Pending implementation: DLD-464}"
-  if [[ "$SKIP_ALL" == "true" ]]; then
-    log "SKIP: $reason"
-    return 0
-  fi
-  return 1
-}
-
 # ── Arg parsing ──────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -62,9 +40,6 @@ done
 
 # ── Prerequisites check ──────────────────────────────────────────────────────
 check_prerequisites() {
-  # SKIP(DLD-464): prerequisites 확인 — skip 제거 시 이 블록을 삭제하세요
-  if skip_if_disabled "check_prerequisites: Pending implementation: DLD-464"; then return 0; fi
-
   command -v argo    >/dev/null 2>&1 || die "argo CLI is not installed"
   command -v kubectl >/dev/null 2>&1 || die "kubectl is not installed"
   command -v curl    >/dev/null 2>&1 || die "curl is not installed"
@@ -86,12 +61,6 @@ check_prerequisites() {
 setup_linear_issue() {
   local scenario_name="$1"
   local issue_title="[E2E-TEST] ${scenario_name} — $(date '+%Y-%m-%dT%H:%M:%S')"
-
-  # SKIP(DLD-464): Linear 이슈 생성 — skip 제거 시 이 블록을 삭제하세요
-  if skip_if_disabled "setup_linear_issue: Pending implementation: DLD-464"; then
-    echo "SKIP-ISSUE-ID"
-    return 0
-  fi
 
   log "Creating Linear test issue: $issue_title"
 
@@ -126,12 +95,6 @@ setup_linear_issue() {
 setup_github_branch() {
   local scenario_name="$1"
   local branch="${GITHUB_TEST_BRANCH_PREFIX}/${scenario_name}-$(date '+%Y%m%d%H%M%S')"
-
-  # SKIP(DLD-464): GitHub 브랜치 초기화 — skip 제거 시 이 블록을 삭제하세요
-  if skip_if_disabled "setup_github_branch: Pending implementation: DLD-464"; then
-    echo "SKIP-BRANCH"
-    return 0
-  fi
 
   log "Initializing GitHub test branch: $branch (repo=$GITHUB_TEST_REPO)"
 
@@ -193,12 +156,6 @@ run_argo_workflow() {
   local prompt="$2"
   local max_depth="${3:-5}"
 
-  # SKIP(DLD-464): Argo Workflow 실행 — skip 제거 시 이 블록을 삭제하세요
-  if skip_if_disabled "run_argo_workflow: Pending implementation: DLD-464"; then
-    echo "SKIP-WORKFLOW-NAME"
-    return 0
-  fi
-
   log "Submitting Argo Workflow for scenario: $scenario_name"
   log "Prompt: $prompt"
 
@@ -239,9 +196,6 @@ verify_linear_comment() {
   local linear_issue_id="$1"
   local expected_body_contains="${2:-}"
 
-  # SKIP(DLD-464): Linear 코멘트 검증 — skip 제거 시 이 블록을 삭제하세요
-  if skip_if_disabled "verify_linear_comment: Pending implementation: DLD-464"; then return 0; fi
-
   log "Verifying Linear comment on issue: $linear_issue_id"
 
   local response
@@ -280,9 +234,6 @@ verify_linear_comment() {
 verify_github_pr() {
   local github_branch="$1"
 
-  # SKIP(DLD-464): GitHub PR 검증 — skip 제거 시 이 블록을 삭제하세요
-  if skip_if_disabled "verify_github_pr: Pending implementation: DLD-464"; then return 0; fi
-
   log "Verifying GitHub PR for branch: $github_branch (repo=$GITHUB_TEST_REPO)"
 
   local response
@@ -310,9 +261,6 @@ verify_github_pr() {
 teardown_linear_issue() {
   local linear_issue_id="$1"
 
-  # SKIP(DLD-464): Linear 이슈 teardown — skip 제거 시 이 블록을 삭제하세요
-  if skip_if_disabled "teardown_linear_issue: Pending implementation: DLD-464"; then return 0; fi
-
   log "Archiving Linear test issue: $linear_issue_id"
 
   local response
@@ -339,9 +287,6 @@ teardown_linear_issue() {
 # teardown_github_pr_and_branch: PR을 close하고 브랜치를 삭제합니다 (create-pr-action 전용).
 teardown_github_pr_and_branch() {
   local github_branch="$1"
-
-  # SKIP(DLD-464): GitHub PR/브랜치 teardown — skip 제거 시 이 블록을 삭제하세요
-  if skip_if_disabled "teardown_github_pr_and_branch: Pending implementation: DLD-464"; then return 0; fi
 
   log "Closing GitHub PRs and deleting branch: $github_branch"
 
@@ -383,12 +328,6 @@ teardown_github_pr_and_branch() {
 # Agent가 set_export_config(actions: ["report"])를 호출하고
 # Export Handler가 Linear 코멘트를 작성하는지 검증합니다.
 run_scenario_report_action() {
-  # SKIP(DLD-464): report-action 시나리오 — skip 제거 시 이 블록을 삭제하세요
-  if skip_if_disabled "run_scenario_report_action: Pending implementation: DLD-464"; then
-    log "[SKIP] report-action scenario skipped (DLD-464)"
-    return 0
-  fi
-
   local scenario_name="report-action"
   log "=== Scenario: $scenario_name ==="
 
@@ -420,12 +359,6 @@ run_scenario_report_action() {
 # Agent가 set_export_config(actions: ["create_pr"])를 호출하고
 # GitHub PR 생성 + Linear 코멘트 작성을 검증합니다.
 run_scenario_create_pr_action() {
-  # SKIP(DLD-464): create-pr-action 시나리오 — skip 제거 시 이 블록을 삭제하세요
-  if skip_if_disabled "run_scenario_create_pr_action: Pending implementation: DLD-464"; then
-    log "[SKIP] create-pr-action scenario skipped (DLD-464)"
-    return 0
-  fi
-
   local scenario_name="create-pr-action"
   log "=== Scenario: $scenario_name ==="
 
@@ -460,12 +393,6 @@ run_scenario_create_pr_action() {
 # Agent가 set_export_config(actions: ["none"])를 호출하고
 # Export Handler가 Linear 코멘트를 작성하는지 검증합니다.
 run_scenario_none_action() {
-  # SKIP(DLD-464): none-action 시나리오 — skip 제거 시 이 블록을 삭제하세요
-  if skip_if_disabled "run_scenario_none_action: Pending implementation: DLD-464"; then
-    log "[SKIP] none-action scenario skipped (DLD-464)"
-    return 0
-  fi
-
   local scenario_name="none-action"
   log "=== Scenario: $scenario_name ==="
 
@@ -499,46 +426,23 @@ run_scenario_none_action() {
 
 main() {
   log "Starting Level ③ E2E test runner"
-  log "SKIP_ALL=${SKIP_ALL}, SCENARIO=${SCENARIO}, NAMESPACE=${NAMESPACE}"
-
-  if [[ "$SKIP_ALL" == "true" ]]; then
-    log "==========================================================="
-    log "SKIP: 모든 시나리오가 skip 상태입니다 (DLD-464)"
-    log "      구현 완료 후 SKIP_ALL=false 로 변경하세요"
-    log "==========================================================="
-  fi
+  log "SCENARIO=${SCENARIO}, NAMESPACE=${NAMESPACE}"
 
   check_prerequisites
 
-  # SKIP_ALL=true 인 경우 시나리오 케이스에 진입하지 않고 아래에서 직접 실행합니다.
-  # skip 함수 내부에서 이미 return 0이 처리되므로 die()가 호출되지 않도록 합니다.
-  if [[ "$SKIP_ALL" == "true" ]]; then
-    run_scenario_report_action
-    run_scenario_create_pr_action
-    run_scenario_none_action
-  else
-    case "$SCENARIO" in
-      all)
-        run_scenario_report_action
-        run_scenario_create_pr_action
-        run_scenario_none_action
-        ;;
-      report-action)
-        run_scenario_report_action
-        ;;
-      create-pr-action)
-        run_scenario_create_pr_action
-        ;;
-      none-action)
-        run_scenario_none_action
-        ;;
-      *)
-        die "Unknown scenario: '$SCENARIO'. Valid values: all | report-action | create-pr-action | none-action"
-        ;;
-    esac
-  fi
+  case "$SCENARIO" in
+    all)
+      run_scenario_report_action
+      run_scenario_create_pr_action
+      run_scenario_none_action
+      ;;
+    report-action)       run_scenario_report_action ;;
+    create-pr-action)    run_scenario_create_pr_action ;;
+    none-action)         run_scenario_none_action ;;
+    *)                   die "Unknown scenario: '$SCENARIO'. Valid values: all | report-action | create-pr-action | none-action" ;;
+  esac
 
-  log "All scenarios completed (SKIP_ALL=${SKIP_ALL})"
+  log "All scenarios completed"
 }
 
 # Source guard

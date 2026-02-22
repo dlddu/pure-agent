@@ -22,3 +22,15 @@ load_runner() {
   # shellcheck disable=SC1090
   source "$LIB_DIR/runner.sh" --source-only
 }
+
+# Source setup-real.sh in --source-only mode.
+load_setup_real() {
+  # shellcheck disable=SC1090
+  source "$LIB_DIR/setup-real.sh" --source-only
+}
+
+# Source teardown-real.sh in --source-only mode.
+load_teardown_real() {
+  # shellcheck disable=SC1090
+  source "$LIB_DIR/teardown-real.sh" --source-only
+}
