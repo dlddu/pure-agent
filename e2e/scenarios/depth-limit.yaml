@@ -1,10 +1,14 @@
 name: depth-limit
 description: "export_config 없음, max_depth=2 → depth 도달 시 강제 종료"
-level: [2, 3]
+level: [2]
+
+# ── Level 2: mock cycle 정의 ──
 max_depth: 2
 cycles:
   - export_config: null
     agent_result: "Depth limit reached"
+
+# ── 공유 assertions ──
 assertions:
   router_decision: "stop"
   export_handler_exit: 0
