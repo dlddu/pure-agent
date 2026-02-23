@@ -66,22 +66,6 @@ log()  { echo "[run-argo] $*" >&2; }
 warn() { echo "[run-argo] WARN: $*" >&2; }
 die()  { echo "[run-argo] ERROR: $*" >&2; exit 1; }
 
-# ── Source guard (must be before arg parsing) ────────────────────────────────
-if [[ "${1:-}" == "--source-only" ]]; then
-  return 0 2>/dev/null || true
-fi
-
-# ── Arg parsing ──────────────────────────────────────────────────────────────
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --scenario)   SCENARIO="$2";   shift 2 ;;
-    --level)      LEVEL="$2";      shift 2 ;;
-    --namespace)  NAMESPACE="$2";  shift 2 ;;
-    --context)    KUBE_CONTEXT="$2"; shift 2 ;;
-    *)            die "Unknown argument: $1" ;;
-  esac
-done
-
 # ── Prerequisites check ──────────────────────────────────────────────────────
 check_prerequisites() {
   command -v argo    >/dev/null 2>&1 || die "argo CLI is not installed"
@@ -566,5 +550,21 @@ main() {
 
   log "All scenarios completed"
 }
+
+# ── Source guard (must be after all function definitions) ─────────────────────
+if [[ "${1:-}" == "--source-only" ]]; then
+  return 0 2>/dev/null || true
+fi
+
+# ── Arg parsing ──────────────────────────────────────────────────────────────
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --scenario)   SCENARIO="$2";   shift 2 ;;
+    --level)      LEVEL="$2";      shift 2 ;;
+    --namespace)  NAMESPACE="$2";  shift 2 ;;
+    --context)    KUBE_CONTEXT="$2"; shift 2 ;;
+    *)            die "Unknown argument: $1" ;;
+  esac
+done
 
 main "$@"
