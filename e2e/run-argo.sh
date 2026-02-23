@@ -219,16 +219,11 @@ run_scenario() {
   local max_depth
   max_depth=$(yaml_get "$yaml_file" '.real.max_depth // 5')
 
-  # setup/teardown 목록 (YAML 배열 → 줄바꿈 구분 문자열)
-  local setups teardowns
+  # setup/teardown/verify 목록 (YAML 배열 → 줄바꿈 구분 문자열)
+  local setups teardowns verifies
   setups=$(yaml_get "$yaml_file" '.real.setup[]' 2>/dev/null || true)
   teardowns=$(yaml_get "$yaml_file" '.real.teardown[]' 2>/dev/null || true)
-
-  # assertion 값
-  local assert_linear_body
-  assert_linear_body=$(yaml_get "$yaml_file" '.assertions.linear_comment.body_contains')
-  local assert_github_pr
-  assert_github_pr=$(yaml_get "$yaml_file" '.assertions.github_pr')
+  verifies=$(yaml_get "$yaml_file" '.real.verify[]' 2>/dev/null || true)
 
   # ── Setup ──
   local linear_issue_id=""
@@ -269,13 +264,21 @@ run_scenario() {
   run_argo_workflow "$scenario_name" "$prompt" "$max_depth"
 
   # ── Verify (assertions) ──
-  if [[ -n "$assert_linear_body" ]]; then
-    verify_linear_comment "$linear_issue_id" "$assert_linear_body"
-  fi
-
-  if [[ "$assert_github_pr" == "true" ]]; then
-    verify_github_pr "$github_branch"
-  fi
+  local verify_item
+  while IFS= read -r verify_item; do
+    [[ -n "$verify_item" ]] || continue
+    case "$verify_item" in
+      linear_comment)
+        local body_contains
+        body_contains=$(yaml_get "$yaml_file" '.assertions.linear_comment.body_contains')
+        verify_linear_comment "$linear_issue_id" "$body_contains"
+        ;;
+      github_pr)
+        verify_github_pr "$github_branch"
+        ;;
+      *) warn "Unknown verify type: $verify_item" ;;
+    esac
+  done <<< "$verifies"
 
   # ── Teardown (explicit, then clear trap) ──
   _teardown_handler "$teardowns"

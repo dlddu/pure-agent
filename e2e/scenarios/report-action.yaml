@@ -16,6 +16,7 @@ real:
   max_depth: 5
   prompt: "Linear 이슈 {{LINEAR_ISSUE_ID}}를 읽고 내용을 요약해서 report로 작성해주세요."
   setup: [linear_issue]
+  verify: [linear_comment]
   teardown: [linear_issue]
 
 # ── 공유 assertions ──
