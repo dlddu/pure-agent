@@ -260,7 +260,7 @@ run_scenario_report_action() {
   run_argo_workflow "$scenario_name" "$prompt" "5"
 
   # Verify
-  verify_linear_comment "$linear_issue_id" "작업 완료"
+  verify_linear_comment "$linear_issue_id" "분석 리포트"
 
   # Teardown
   teardown_linear_issue "$linear_issue_id"
@@ -292,7 +292,7 @@ run_scenario_create_pr_action() {
   run_argo_workflow "$scenario_name" "$prompt" "5"
 
   # Verify
-  verify_linear_comment "$linear_issue_id" "PR"
+  verify_linear_comment "$linear_issue_id" "Pull Request"
   verify_github_pr "$github_branch"
 
   # Teardown
@@ -324,7 +324,7 @@ run_scenario_none_action() {
   run_argo_workflow "$scenario_name" "$prompt" "5"
 
   # Verify
-  verify_linear_comment "$linear_issue_id" "완료"
+  verify_linear_comment "$linear_issue_id" "Agent 작업 요약"
 
   # Teardown
   teardown_linear_issue "$linear_issue_id"

@@ -16,7 +16,7 @@ assertions:
   mock_api:
     - type: linear_comment_created
       issue_id_from_config: true
-      body_contains: "PR"
+      body_contains: "Pull Request"
   mock_gh:
     - type: pr_created
       args_contain: "--title"

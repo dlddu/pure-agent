@@ -14,4 +14,4 @@ assertions:
   mock_api:
     - type: linear_comment_created
       issue_id_from_config: true
-      body_contains: "작업 완료"
+      body_contains: "Agent 작업 요약"
