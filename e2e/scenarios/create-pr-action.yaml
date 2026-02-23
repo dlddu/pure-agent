@@ -13,9 +13,10 @@ cycles:
       session_id: "mock-session-pr"
     agent_result: "PR created successfully"
 
-# ── Level 3: Argo 실행 설정 ──
-argo:
+# ── Level 3: real API 실행 설정 ──
+real:
   max_depth: 5
+  prompt: "테스트 레포 {{GITHUB_TEST_REPO}}에 hello.txt 파일을 생성하고 PR을 만들어주세요. 브랜치명은 {{GITHUB_BRANCH}} 를 사용하세요."
   setup: [github_branch]
   teardown: [github_branch]
 

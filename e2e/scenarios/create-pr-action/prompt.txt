@@ -1,1 +1,0 @@
-테스트 레포 {{GITHUB_TEST_REPO}}에 hello.txt 파일을 생성하고 PR을 만들어주세요. 브랜치명은 {{GITHUB_BRANCH}} 를 사용하세요.

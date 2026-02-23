@@ -11,9 +11,10 @@ cycles:
       session_id: "mock-session-report"
     agent_result: "Task completed successfully"
 
-# ── Level 3: Argo 실행 설정 ──
-argo:
+# ── Level 3: real API 실행 설정 ──
+real:
   max_depth: 5
+  prompt: "Linear 이슈 {{LINEAR_ISSUE_ID}}를 읽고 내용을 요약해서 report로 작성해주세요."
   setup: [linear_issue]
   teardown: [linear_issue]
 

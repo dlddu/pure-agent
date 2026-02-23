@@ -11,9 +11,10 @@ cycles:
       session_id: "mock-session-none"
     agent_result: "No action needed. Task already completed."
 
-# ── Level 3: Argo 실행 설정 ──
-argo:
+# ── Level 3: real API 실행 설정 ──
+real:
   max_depth: 5
+  prompt: "아무 외부 액션 없이 종료해주세요. export_config의 actions는 [\"none\"]으로 설정하세요."
   setup: []
   teardown: []
 

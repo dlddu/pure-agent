@@ -1,1 +1,0 @@
-Linear 이슈 {{LINEAR_ISSUE_ID}}를 읽고 내용을 요약해서 report로 작성해주세요.

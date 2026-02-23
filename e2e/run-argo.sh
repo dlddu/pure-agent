@@ -4,7 +4,7 @@
 # DLD-465: Level ③ 풀 e2e를 실제로 동작하게 구현.
 #
 # 시나리오 정의는 e2e/scenarios/<name>.yaml 파일에서 읽습니다.
-# YAML의 argo.setup/teardown/max_depth 및 assertions 섹션을 사용하여
+# YAML의 real.setup/teardown/max_depth 및 assertions 섹션을 사용하여
 # 제네릭하게 시나리오를 실행합니다.
 #
 # Usage:
@@ -91,19 +91,16 @@ yaml_get() {
 # RUN FUNCTIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# build_prompt: 시나리오별 프롬프트를 파일에서 읽고 변수를 치환합니다.
-# 프롬프트 파일 위치: e2e/scenarios/<scenario_name>/prompt.txt
+# build_prompt: 시나리오 YAML의 real.prompt를 읽고 변수를 치환합니다.
 build_prompt() {
-  local scenario_name="$1"
+  local yaml_file="$1"
   local linear_issue_id="${2:-}"
   local github_branch="${3:-}"
 
-  local prompt_file="${SCENARIOS_DIR}/${scenario_name}/prompt.txt"
-  [[ -f "$prompt_file" ]] \
-    || die "Prompt file not found: $prompt_file"
-
   local prompt
-  prompt=$(<"$prompt_file")
+  prompt=$(yaml_get "$yaml_file" '.real.prompt')
+  [[ -n "$prompt" ]] \
+    || die "Prompt not defined in: $yaml_file (real.prompt)"
 
   # 변수 치환
   prompt="${prompt//\{\{LINEAR_ISSUE_ID\}\}/$linear_issue_id}"
@@ -264,10 +261,10 @@ discover_scenarios() {
   local yaml_file
   for yaml_file in "$SCENARIOS_DIR"/*.yaml; do
     [[ -f "$yaml_file" ]] || continue
-    # argo 섹션이 있는 시나리오만 Level 3 대상
-    local has_argo
-    has_argo=$(yaml_get "$yaml_file" '.argo')
-    [[ -n "$has_argo" ]] || continue
+    # real 섹션이 있는 시나리오만 대상
+    local has_real
+    has_real=$(yaml_get "$yaml_file" '.real')
+    [[ -n "$has_real" ]] || continue
     yaml_get "$yaml_file" '.name'
   done
 }
@@ -284,12 +281,12 @@ run_scenario() {
 
   # ── YAML에서 설정 읽기 ──
   local max_depth
-  max_depth=$(yaml_get "$yaml_file" '.argo.max_depth // 5')
+  max_depth=$(yaml_get "$yaml_file" '.real.max_depth // 5')
 
   # setup/teardown 목록 (YAML 배열 → 줄바꿈 구분 문자열)
   local setups teardowns
-  setups=$(yaml_get "$yaml_file" '.argo.setup[]' 2>/dev/null || true)
-  teardowns=$(yaml_get "$yaml_file" '.argo.teardown[]' 2>/dev/null || true)
+  setups=$(yaml_get "$yaml_file" '.real.setup[]' 2>/dev/null || true)
+  teardowns=$(yaml_get "$yaml_file" '.real.teardown[]' 2>/dev/null || true)
 
   # assertion 값
   local assert_linear_body
@@ -332,7 +329,7 @@ run_scenario() {
 
   # ── Run ──
   local prompt
-  prompt=$(build_prompt "$scenario_name" "$linear_issue_id" "$github_branch")
+  prompt=$(build_prompt "$yaml_file" "$linear_issue_id" "$github_branch")
   run_argo_workflow "$scenario_name" "$prompt" "$max_depth"
 
   # ── Verify (assertions) ──
@@ -365,7 +362,7 @@ main() {
     local scenarios
     scenarios=$(discover_scenarios)
     [[ -n "$scenarios" ]] \
-      || die "No Level 3 scenarios found in $SCENARIOS_DIR"
+      || die "No scenarios with 'real' section found in $SCENARIOS_DIR"
 
     local name
     while IFS= read -r name; do
