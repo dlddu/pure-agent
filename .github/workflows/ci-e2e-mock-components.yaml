@@ -7,6 +7,8 @@ on:
       - "e2e/mock-agent/**"
       - "e2e/mock-gh/**"
       - "e2e/lib/**"
+      - "e2e/run-argo.sh"
+      - "k8s/workflow-template.yaml"
       - ".github/workflows/ci-e2e-mock-components.yaml"
   pull_request:
     branches: [main]
@@ -14,6 +16,8 @@ on:
       - "e2e/mock-agent/**"
       - "e2e/mock-gh/**"
       - "e2e/lib/**"
+      - "e2e/run-argo.sh"
+      - "k8s/workflow-template.yaml"
       - ".github/workflows/ci-e2e-mock-components.yaml"
   workflow_dispatch:
 
@@ -78,3 +82,6 @@ jobs:
 
       - name: Run BATS tests for runner.sh
         run: bats e2e/lib/tests/runner.bats
+
+      - name: Run BATS tests for run-argo.sh (patch_workflow_template_for_mock)
+        run: bats e2e/lib/tests/run-argo.bats

@@ -11,7 +11,7 @@ name: "CI: e2e integration (Level 2 — mock Argo)"
 #   4. depth-limit 시나리오에서 max_depth 종료가 Workflow 레벨에서 올바르게 처리되는지
 #   5. Cleanup job 이후 /work가 비어있는지
 #
-# 모든 검증 테스트는 현재 skip 상태입니다 (DLD-466 구현 완료 후 활성화 예정).
+# DLD-467에서 Level ② 구현 완료. 모든 검증 테스트가 활성화되어 있습니다.
 
 on:
   push:
@@ -262,8 +262,8 @@ jobs:
             apply_mock_workflow_template "$dst"
           '
 
-      # ── Level 2 BATS テスト実行 (skip 상태이므로 항상 통과) ───────────────
-      - name: Run Level 2 Argo BATS tests (all skipped)
+      # ── Level 2 BATS テスト実行 ──────────────────────────────────────────
+      - name: Run Level 2 Argo BATS tests
         env:
           KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
           NAMESPACE: ${{ env.PURE_AGENT_NAMESPACE }}
@@ -271,23 +271,20 @@ jobs:
         run: |
           bats e2e/lib/tests/argo-level2.bats
 
-      # ── run-argo.sh Level 2 시나리오 실행 (구현 완료 후 활성화) ───────────
-      # 현재 이 step은 BATS 테스트가 skip 상태이므로 실행하지 않습니다.
-      # DLD-466 구현 완료 후 아래 주석을 해제하여 활성화하세요.
-      #
-      # - name: Run Level 2 E2E scenarios (run-argo.sh)
-      #   env:
-      #     KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
-      #     NAMESPACE: ${{ env.PURE_AGENT_NAMESPACE }}
-      #     MOCK_AGENT_IMAGE: ${{ env.MOCK_AGENT_IMAGE }}
-      #     MOCK_API_IMAGE: ${{ env.MOCK_API_IMAGE }}
-      #     GITHUB_TEST_REPO: "mock-org/mock-repo"
-      #   run: |
-      #     bash e2e/run-argo.sh \
-      #       --level 2 \
-      #       --scenario "${{ github.event.inputs.scenario || 'all' }}" \
-      #       --namespace "$PURE_AGENT_NAMESPACE" \
-      #       --context "kind-$CLUSTER_NAME"
+      # ── run-argo.sh Level 2 시나리오 실행 ──────────────────────────────────
+      - name: Run Level 2 E2E scenarios (run-argo.sh)
+        env:
+          KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
+          NAMESPACE: ${{ env.PURE_AGENT_NAMESPACE }}
+          MOCK_AGENT_IMAGE: ${{ env.MOCK_AGENT_IMAGE }}
+          MOCK_API_IMAGE: ${{ env.MOCK_API_IMAGE }}
+          GITHUB_TEST_REPO: "mock-org/mock-repo"
+        run: |
+          bash e2e/run-argo.sh \
+            --level 2 \
+            --scenario "${{ github.event.inputs.scenario || 'all' }}" \
+            --namespace "$PURE_AGENT_NAMESPACE" \
+            --context "kind-$CLUSTER_NAME"
 
       # ── Teardown ─────────────────────────────────────────────────────────
       - name: Tear down kind cluster

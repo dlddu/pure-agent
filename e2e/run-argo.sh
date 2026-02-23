@@ -66,21 +66,7 @@ log()  { echo "[run-argo] $*" >&2; }
 warn() { echo "[run-argo] WARN: $*" >&2; }
 die()  { echo "[run-argo] ERROR: $*" >&2; exit 1; }
 
-# ── Source guard (must be before arg parsing) ────────────────────────────────
-if [[ "${1:-}" == "--source-only" ]]; then
-  return 0 2>/dev/null || true
-fi
-
-# ── Arg parsing ──────────────────────────────────────────────────────────────
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --scenario)   SCENARIO="$2";   shift 2 ;;
-    --level)      LEVEL="$2";      shift 2 ;;
-    --namespace)  NAMESPACE="$2";  shift 2 ;;
-    --context)    KUBE_CONTEXT="$2"; shift 2 ;;
-    *)            die "Unknown argument: $1" ;;
-  esac
-done
+# (함수 정의는 아래에 계속됩니다 — source guard와 arg parsing은 함수 정의 이후에 위치합니다)
 
 # ── Prerequisites check ──────────────────────────────────────────────────────
 check_prerequisites() {
@@ -175,6 +161,21 @@ patch_workflow_template_for_mock() {
     "$dst_template"
   # livenessProbe 제거 (busybox에는 nginx liveness가 불필요)
   yq -i 'del(.spec.templates[] | select(.name == "llm-gateway-daemon") | .container.livenessProbe)' \
+    "$dst_template"
+
+  # ── scenario-data ConfigMap 마운트 주입 (Level 2 전용) ───────────────────
+  # agent-job에 SCENARIO_DIR 환경변수를 추가합니다.
+  # mock-agent는 이 경로에서 fixture 파일을 읽습니다.
+  yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.env) += [{"name": "SCENARIO_DIR", "value": "/scenario"}]' \
+    "$dst_template"
+
+  # agent-job에 scenario-data 볼륨마운트를 추가합니다.
+  yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.volumeMounts) += [{"name": "scenario-data", "mountPath": "/scenario", "readOnly": true}]' \
+    "$dst_template"
+
+  # run-cycle 템플릿에 scenario-data 볼륨(ConfigMap 참조)을 추가합니다.
+  # ConfigMap 이름은 플레이스홀더로 설정하며 submit 시 실제 이름으로 교체됩니다.
+  yq -i '(.spec.templates[] | select(.name == "run-cycle") | .volumes) = [{"name": "scenario-data", "configMap": {"name": "mock-scenario-placeholder"}}]' \
     "$dst_template"
 
   log "WorkflowTemplate patched: $dst_template"
@@ -531,6 +532,24 @@ run_scenario_level3() {
 
   log "=== PASS: $scenario_name ==="
 }
+
+# ── Source guard ─────────────────────────────────────────────────────────────
+# 함수 정의가 모두 완료된 뒤에 위치합니다.
+# `source run-argo.sh --source-only` 로 함수만 로드할 수 있습니다.
+if [[ "${1:-}" == "--source-only" ]]; then
+  return 0 2>/dev/null || exit 0
+fi
+
+# ── Arg parsing ──────────────────────────────────────────────────────────────
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --scenario)   SCENARIO="$2";   shift 2 ;;
+    --level)      LEVEL="$2";      shift 2 ;;
+    --namespace)  NAMESPACE="$2";  shift 2 ;;
+    --context)    KUBE_CONTEXT="$2"; shift 2 ;;
+    *)            die "Unknown argument: $1" ;;
+  esac
+done
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # MAIN

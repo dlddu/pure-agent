@@ -40,3 +40,12 @@ load_verify_real() {
   # shellcheck disable=SC1090
   source "$LIB_DIR/verify-real.sh" --source-only
 }
+
+# Source run-argo.sh in --source-only mode (Level 2 환경 변수 필요).
+# 호출 전에 LEVEL=2, MOCK_AGENT_IMAGE, MOCK_API_IMAGE, GITHUB_TEST_REPO 등을 export해야 합니다.
+load_run_argo() {
+  local run_argo_sh
+  run_argo_sh="$(cd "$LIB_DIR/../.." && pwd)/e2e/run-argo.sh"
+  # shellcheck disable=SC1090
+  source "$run_argo_sh" --source-only
+}
