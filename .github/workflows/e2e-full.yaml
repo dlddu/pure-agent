@@ -194,6 +194,10 @@ jobs:
           sed -i 's/storageClassName: efs/storageClassName: standard/' \
             /tmp/workflow-template-patched.yaml
 
+          # Change ReadWriteMany to ReadWriteOnce (kind local-path only supports RWO)
+          sed -i 's/ReadWriteMany/ReadWriteOnce/' \
+            /tmp/workflow-template-patched.yaml
+
           # Remove nodeSelector and tolerations (node labels not present in kind)
           yq -i 'del(.spec.templates[].nodeSelector)' \
             /tmp/workflow-template-patched.yaml
