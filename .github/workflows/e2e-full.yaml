@@ -218,6 +218,7 @@ jobs:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          GITHUB_TEST_REPO: ${{ vars.GITHUB_TEST_REPO || 'dlddu/test' }}
           KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
         run: |
           bash e2e/run-argo.sh \
