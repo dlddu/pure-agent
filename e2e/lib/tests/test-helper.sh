@@ -34,3 +34,9 @@ load_teardown_real() {
   # shellcheck disable=SC1090
   source "$LIB_DIR/teardown-real.sh" --source-only
 }
+
+# Source verify-real.sh in --source-only mode.
+load_verify_real() {
+  # shellcheck disable=SC1090
+  source "$LIB_DIR/verify-real.sh" --source-only
+}

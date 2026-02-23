@@ -36,6 +36,8 @@ SCENARIOS_DIR="${SCRIPT_DIR}/scenarios"
 source "$LIB_DIR/setup-real.sh" --source-only
 # shellcheck source=lib/teardown-real.sh
 source "$LIB_DIR/teardown-real.sh" --source-only
+# shellcheck source=lib/verify-real.sh
+source "$LIB_DIR/verify-real.sh" --source-only
 
 # ── Logging (override library prefixes) ──────────────────────────────────────
 log()  { echo "[run-argo] $*" >&2; }
@@ -187,84 +189,18 @@ run_argo_workflow() {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# VERIFY FUNCTIONS
-# ═══════════════════════════════════════════════════════════════════════════════
-
-# verify_linear_comment: Linear 이슈에 코멘트가 생성됐는지 검증합니다.
-verify_linear_comment() {
-  local linear_issue_id="$1"
-  local expected_body_contains="${2:-}"
-
-  log "Verifying Linear comment on issue: $linear_issue_id"
-
-  local response
-  response=$(curl -sf \
-    -X POST \
-    -H "Authorization: ${LINEAR_API_KEY}" \
-    -H "Content-Type: application/json" \
-    --data "$(jq -n \
-      --arg issueId "$linear_issue_id" \
-      '{
-        query: "query GetIssueComments($issueId: String!) { issue(id: $issueId) { comments { nodes { id body createdAt } } } }",
-        variables: { issueId: $issueId }
-      }')" \
-    "https://api.linear.app/graphql")
-
-  local comment_count
-  comment_count=$(echo "$response" \
-    | jq '.data.issue.comments.nodes | length')
-
-  [[ "$comment_count" -gt 0 ]] \
-    || die "FAIL verify_linear_comment: no comments found on issue $linear_issue_id"
-
-  if [[ -n "$expected_body_contains" ]]; then
-    local match_count
-    match_count=$(echo "$response" \
-      | jq --arg body "$expected_body_contains" \
-        '[.data.issue.comments.nodes[] | select(.body | contains($body))] | length')
-    [[ "$match_count" -gt 0 ]] \
-      || die "FAIL verify_linear_comment: no comment containing '$expected_body_contains' found"
-  fi
-
-  log "PASS verify_linear_comment: $comment_count comment(s) found"
-}
-
-# verify_github_pr: GitHub PR이 생성됐는지 검증합니다.
-verify_github_pr() {
-  local github_branch="$1"
-
-  log "Verifying GitHub PR for branch: $github_branch (repo=$GITHUB_TEST_REPO)"
-
-  local response
-  response=$(curl -sf \
-    -H "Authorization: token ${GITHUB_TOKEN}" \
-    -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/${GITHUB_TEST_REPO}/pulls?head=${GITHUB_TEST_REPO%%/*}:${github_branch}&state=open")
-
-  local pr_count
-  pr_count=$(echo "$response" | jq 'length')
-
-  [[ "$pr_count" -gt 0 ]] \
-    || die "FAIL verify_github_pr: no open PR found for branch $github_branch"
-
-  local pr_number
-  pr_number=$(echo "$response" | jq -r '.[0].number')
-  log "PASS verify_github_pr: PR #$pr_number found for branch $github_branch"
-}
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # GENERIC SCENARIO RUNNER
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# discover_scenarios: Level 3을 지원하는 시나리오 YAML 파일 목록을 반환합니다.
+# discover_scenarios: 현재 LEVEL을 지원하는 시나리오 YAML 파일 목록을 반환합니다.
 discover_scenarios() {
   local yaml_file
   for yaml_file in "$SCENARIOS_DIR"/*.yaml; do
     [[ -f "$yaml_file" ]] || continue
-    # real 섹션이 있는 시나리오만 대상
-    local has_real
-    has_real=$(yaml_get "$yaml_file" '.real')
-    [[ -n "$has_real" ]] || continue
+    # level 배열에 현재 LEVEL이 포함된 시나리오만 대상
+    local has_level
+    has_level=$(yq eval ".level[] | select(. == ${LEVEL})" "$yaml_file" 2>/dev/null || true)
+    [[ -n "$has_level" ]] || continue
     yaml_get "$yaml_file" '.name'
   done
 }
@@ -362,7 +298,7 @@ main() {
     local scenarios
     scenarios=$(discover_scenarios)
     [[ -n "$scenarios" ]] \
-      || die "No scenarios with 'real' section found in $SCENARIOS_DIR"
+      || die "No scenarios for level ${LEVEL} found in $SCENARIOS_DIR"
 
     local name
     while IFS= read -r name; do
