@@ -163,10 +163,8 @@ patch_workflow_template_for_mock() {
 
   # ── mock-gh 주입 (export-handler에 mock gh 바이너리 마운트) ──────────────
   # export-cycle-output 템플릿에 mock-gh ConfigMap 볼륨을 추가합니다.
-  # volumes 필드가 없으면 빈 배열로 초기화한 뒤 += 로 추가합니다.
-  # (= 代入だと既存の volumes を上書きしてしまうため)
-  yq -i '(.spec.templates[] | select(.name == "export-cycle-output")).volumes //= []' "$dst_template"
-  yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .volumes) += [{"name": "mock-gh-bin", "configMap": {"name": "mock-gh-bin", "defaultMode": 493}}]' "$dst_template"
+  # volumes가 없으면 빈 배열로 폴백한 뒤 mock-gh ConfigMap 볼륨을 append합니다.
+  yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .volumes) = ((.spec.templates[] | select(.name == "export-cycle-output") | .volumes) // []) + [{"name": "mock-gh-bin", "configMap": {"name": "mock-gh-bin", "defaultMode": 493}}]' "$dst_template"
 
   # export-cycle-output 컨테이너에 mock-gh 볼륨 마운트를 추가합니다.
   yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.volumeMounts) += [{"name": "mock-gh-bin", "mountPath": "/usr/local/bin/gh", "subPath": "gh", "readOnly": true}]' "$dst_template"
