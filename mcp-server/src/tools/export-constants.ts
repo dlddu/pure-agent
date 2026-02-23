@@ -8,7 +8,7 @@ export const EXPORT_CONFIG_FILENAME = "export_config.json";
 export const EXCLUSIVE_ACTIONS = new Set(["none", "continue"]);
 
 /** Actions that require a valid linear_issue_id. */
-export const ACTIONS_REQUIRING_ISSUE = new Set(["upload_workspace", "report"]);
+export const ACTIONS_REQUIRING_ISSUE = new Set(["upload_workspace", "report", "create_pr"]);
 
 // Validation limits (keep in sync with export-handler/src/constants.ts)
 export const MAX_PR_TITLE_LENGTH = 200;
