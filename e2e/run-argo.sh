@@ -276,28 +276,24 @@ run_scenario_create_pr_action() {
   local scenario_name="create-pr-action"
   log "=== Scenario: $scenario_name ==="
 
-  local linear_issue_id
   local github_branch
 
   # Setup
-  linear_issue_id=$(setup_linear_test_issue "$scenario_name")
   github_branch=$(setup_github_test_branch "$scenario_name")
 
   # Teardown trap (cleanup even on failure)
-  trap "teardown_linear_issue '$linear_issue_id'; teardown_github_pr_and_branch '$github_branch'" EXIT
+  trap "teardown_github_pr_and_branch '$github_branch'" EXIT
 
   # Run
   local prompt
-  prompt=$(build_prompt "$scenario_name" "$linear_issue_id" "$github_branch")
+  prompt=$(build_prompt "$scenario_name" "" "$github_branch")
   run_argo_workflow "$scenario_name" "$prompt" "5"
 
   # Verify
-  verify_linear_comment "$linear_issue_id" "Pull Request"
   verify_github_pr "$github_branch"
 
   # Teardown
   teardown_github_pr_and_branch "$github_branch"
-  teardown_linear_issue "$linear_issue_id"
   trap - EXIT
 
   log "=== PASS: $scenario_name ==="

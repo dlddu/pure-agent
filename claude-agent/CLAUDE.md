@@ -25,9 +25,6 @@ When invoked after a previous cycle:
 - Do NOT repeat completed work. Read the previous output first.
 - Structure work incrementally across cycles.
 - Call `set_export_config` when the task is complete to stop the loop.
-- When calling `set_export_config`, always include `linear_issue_id` if it is known
-  (e.g., from the prompt or a previous `get_linear_issue` call). This ensures the
-  Export Handler can post results back to the Linear issue as a comment.
 
 ## Stop Hooks
 
