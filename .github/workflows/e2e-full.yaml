@@ -171,16 +171,6 @@ jobs:
           kubectl --context "kind-${CLUSTER_NAME}" \
             apply -n "$PURE_AGENT_NAMESPACE" -f k8s/network-policy.yaml
 
-          # Patch NetworkPolicy: allow egress to K8s API server
-          # Argo executor needs API server access to report pod status and save outputs
-          # API_SERVER_IP=$(kubectl --context "kind-${CLUSTER_NAME}" \
-          #   get endpoints kubernetes -n default \
-          #   -o jsonpath='{.subsets[0].addresses[0].ip}')
-          # echo "Patching NetworkPolicy with API server IP: $API_SERVER_IP"
-          #
-          # kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
-          #   patch networkpolicy agent-network-isolation --type=json \
-          #   -p "[{\"op\":\"add\",\"path\":\"/spec/egress/-\",\"value\":{\"to\":[{\"ipBlock\":{\"cidr\":\"${API_SERVER_IP}/32\"}}],\"ports\":[{\"protocol\":\"TCP\",\"port\":443},{\"protocol\":\"TCP\",\"port\":6443}]}}]"
 
       # ── Apply WorkflowTemplate ────────────────────────────────────────────────
       - name: Apply Argo WorkflowTemplate
