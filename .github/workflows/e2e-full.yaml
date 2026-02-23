@@ -4,6 +4,8 @@ name: "E2E: full (Level 3 — real API)"
 # 실제 Linear/GitHub API로 시나리오를 실행합니다.
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       scenario:
