@@ -11,7 +11,7 @@
 set -euo pipefail
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
-GITHUB_TEST_REPO="${GITHUB_TEST_REPO:-dlddu/pure-agent-e2e-sandbox}"
+GITHUB_TEST_REPO="${GITHUB_TEST_REPO:-dlddu/test}"
 GITHUB_TEST_BRANCH_PREFIX="e2e-test"
 
 # ── Logging ──────────────────────────────────────────────────────────────────

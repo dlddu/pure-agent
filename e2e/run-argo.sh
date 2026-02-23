@@ -20,7 +20,7 @@ SCENARIO="${SCENARIO:-all}"
 LEVEL="${LEVEL:-3}"
 NAMESPACE="${NAMESPACE:-pure-agent}"
 KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-full}"
-GITHUB_TEST_REPO="${GITHUB_TEST_REPO:-dlddu/pure-agent-e2e-sandbox}"
+GITHUB_TEST_REPO="${GITHUB_TEST_REPO:-dlddu/test}"
 GITHUB_TEST_BRANCH_PREFIX="e2e-test"
 WORKFLOW_TIMEOUT="${WORKFLOW_TIMEOUT:-600}"  # seconds
 
