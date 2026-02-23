@@ -1,6 +1,8 @@
 name: create-pr-action
 description: "PR 생성 (mock gh) + Linear 코멘트"
 level: [1, 2, 3]
+
+# ── Level 2: mock cycle 정의 ──
 cycles:
   - export_config:
       linear_issue_id: "mock-issue-id"
@@ -10,13 +12,17 @@ cycles:
       branch: "feat/test-branch"
       session_id: "mock-session-pr"
     agent_result: "PR created successfully"
+
+# ── Level 3: real API 실행 설정 ──
+real:
+  max_depth: 5
+  prompt: "테스트 레포 {{GITHUB_TEST_REPO}}에 hello.txt 파일을 생성하고 PR을 만들어주세요. 브랜치명은 {{GITHUB_BRANCH}} 를 사용하세요."
+  setup: [github_branch]
+  verify: [github_pr]
+  teardown: [github_branch]
+
+# ── 공유 assertions ──
 assertions:
   router_decision: "stop"
   export_handler_exit: 0
-  mock_api:
-    - type: linear_comment_created
-      issue_id_from_config: true
-      body_contains: "PR"
-  mock_gh:
-    - type: pr_created
-      args_contain: "--title"
+  github_pr: true

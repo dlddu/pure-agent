@@ -1,6 +1,8 @@
 name: report-action
 description: "Router stop → Export Handler가 Linear 코멘트 작성"
 level: [1, 2, 3]
+
+# ── Level 2: mock cycle 정의 ──
 cycles:
   - export_config:
       linear_issue_id: "mock-issue-id"
@@ -8,10 +10,18 @@ cycles:
         - "report"
       session_id: "mock-session-report"
     agent_result: "Task completed successfully"
+
+# ── Level 3: real API 실행 설정 ──
+real:
+  max_depth: 5
+  prompt: "Linear 이슈 {{LINEAR_ISSUE_ID}}를 읽고 내용을 요약해서 report로 작성해주세요."
+  setup: [linear_issue]
+  verify: [linear_comment]
+  teardown: [linear_issue]
+
+# ── 공유 assertions ──
 assertions:
   router_decision: "stop"
   export_handler_exit: 0
-  mock_api:
-    - type: linear_comment_created
-      issue_id_from_config: true
-      body_contains: "작업 완료"
+  linear_comment:
+    body_contains: "분석 리포트"

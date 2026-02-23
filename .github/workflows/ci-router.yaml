@@ -6,14 +6,14 @@ on:
     paths:
       - "router/**"
       - ".github/workflows/ci-router.yaml"
-      - ".github/workflows/_build-image.yaml"
+      - ".github/actions/build-image/**"
       - ".github/workflows/_test-python.yaml"
   pull_request:
     branches: [main]
     paths:
       - "router/**"
       - ".github/workflows/ci-router.yaml"
-      - ".github/workflows/_build-image.yaml"
+      - ".github/actions/build-image/**"
       - ".github/workflows/_test-python.yaml"
   workflow_dispatch:
 
@@ -33,6 +33,16 @@ jobs:
 
   build:
     needs: [test]
-    uses: ./.github/workflows/_build-image.yaml
-    with:
-      service: router
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build and push image
+        uses: ./.github/actions/build-image
+        with:
+          service: router
+          token: ${{ secrets.GITHUB_TOKEN }}

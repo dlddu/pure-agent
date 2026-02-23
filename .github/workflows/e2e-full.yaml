@@ -27,7 +27,7 @@ permissions:
 # Required GitHub Actions secrets:
 #   LINEAR_API_KEY            — Linear Personal API Key (테스트 전용)
 #   LINEAR_TEAM_ID            — Linear Team ID
-#   GITHUB_TOKEN              — GitHub Token (PR 생성용, repo scope 필요)
+#   GH_PAT                    — GitHub PAT (PR 생성용, repo scope 필요)
 #   CLAUDE_CODE_OAUTH_TOKEN   — Claude Code OAuth token
 
 env:
@@ -35,10 +35,14 @@ env:
   CLUSTER_NAME: "pure-agent-e2e-full"
   ARGO_NAMESPACE: "argo"
   PURE_AGENT_NAMESPACE: "pure-agent"
+  KIND_VERSION: "v0.22.0"
+  ARGO_VERSION: "v3.6.4"
+  YQ_VERSION: "v4.43.1"
+  GH_CLI_VERSION: "2.67.0"
 
 jobs:
   e2e-full:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
 
     steps:
       - name: Checkout repository
@@ -50,28 +54,35 @@ jobs:
           set -euo pipefail
 
           # kind
-          curl -Lo /usr/local/bin/kind \
-            https://kind.sigs.k8s.io/dl/v0.22.0/kind-linux-amd64
-          chmod +x /usr/local/bin/kind
+          sudo curl -Lo /usr/local/bin/kind \
+            "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-arm64"
+          sudo chmod +x /usr/local/bin/kind
 
           # kubectl
-          curl -Lo /usr/local/bin/kubectl \
-            "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-          chmod +x /usr/local/bin/kubectl
+          sudo curl -Lo /usr/local/bin/kubectl \
+            "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
+          sudo chmod +x /usr/local/bin/kubectl
 
           # argo CLI
-          curl -sLO https://github.com/argoproj/argo-workflows/releases/download/v3.6.4/argo-linux-amd64.gz
-          gunzip argo-linux-amd64.gz
-          chmod +x argo-linux-amd64
-          mv argo-linux-amd64 /usr/local/bin/argo
+          curl -sLO "https://github.com/argoproj/argo-workflows/releases/download/${ARGO_VERSION}/argo-linux-arm64.gz"
+          gunzip argo-linux-arm64.gz
+          chmod +x argo-linux-arm64
+          sudo mv argo-linux-arm64 /usr/local/bin/argo
+
+          # gh CLI
+          curl -sLO "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_arm64.tar.gz"
+          tar -xzf "gh_${GH_CLI_VERSION}_linux_arm64.tar.gz"
+          sudo mv "gh_${GH_CLI_VERSION}_linux_arm64/bin/gh" /usr/local/bin/gh
+          sudo chmod +x /usr/local/bin/gh
+          rm -rf "gh_${GH_CLI_VERSION}_linux_arm64" "gh_${GH_CLI_VERSION}_linux_arm64.tar.gz"
 
           # jq (ubuntu-latest에 포함되어 있으나 명시적으로 보장)
           sudo apt-get update -q && sudo apt-get install -y -q jq curl
 
           # yq (YAML patching용)
-          curl -Lo /usr/local/bin/yq \
-            https://github.com/mikefarah/yq/releases/download/v4.43.1/yq_linux_amd64
-          chmod +x /usr/local/bin/yq
+          sudo curl -Lo /usr/local/bin/yq \
+            "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_arm64"
+          sudo chmod +x /usr/local/bin/yq
 
       # ── Cluster setup ─────────────────────────────────────────────────────────
       - name: Set up kind cluster and install Argo Workflows
@@ -79,22 +90,33 @@ jobs:
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME"
 
-      # ── Build and load images ─────────────────────────────────────────────────
-      - name: Build and load images into kind cluster
+      # ── Build and load images (GHA cache, no push) ──────────────────────────
+      - name: Build claude-agent image
+        uses: ./.github/actions/build-image
+        with:
+          service: claude-agent
+          push: "false"
+
+      - name: Build mcp-server image
+        uses: ./.github/actions/build-image
+        with:
+          service: mcp-server
+          push: "false"
+
+      - name: Build router image
+        uses: ./.github/actions/build-image
+        with:
+          service: router
+          push: "false"
+
+      - name: Build export-handler image
+        uses: ./.github/actions/build-image
+        with:
+          service: export-handler
+          push: "false"
+
+      - name: Load images into kind cluster
         run: |
-          set -euo pipefail
-
-          # Build service images with the same names used in workflow-template.yaml
-          docker build -t ghcr.io/dlddu/pure-agent/claude-agent:latest \
-            -f claude-agent/Dockerfile claude-agent/
-          docker build -t ghcr.io/dlddu/pure-agent/mcp-server:latest \
-            mcp-server/
-          docker build -t ghcr.io/dlddu/pure-agent/router:latest \
-            router/
-          docker build -t ghcr.io/dlddu/pure-agent/export-handler:latest \
-            export-handler/
-
-          # Load images into the kind cluster
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME" \
             --images "ghcr.io/dlddu/pure-agent/claude-agent:latest,ghcr.io/dlddu/pure-agent/mcp-server:latest,ghcr.io/dlddu/pure-agent/router:latest,ghcr.io/dlddu/pure-agent/export-handler:latest"
@@ -104,7 +126,7 @@ jobs:
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
-          GITHUB_TOKEN_SECRET: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN_SECRET: ${{ secrets.GH_PAT }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           set -euo pipefail
@@ -140,12 +162,14 @@ jobs:
       # ── Apply RBAC, ConfigMap, NetworkPolicy ──────────────────────────────────
       - name: Apply K8s resources (RBAC, ConfigMap, NetworkPolicy)
         run: |
+          set -euo pipefail
           kubectl --context "kind-${CLUSTER_NAME}" \
             apply -n "$PURE_AGENT_NAMESPACE" -f k8s/rbac.yaml
           kubectl --context "kind-${CLUSTER_NAME}" \
             apply -n "$PURE_AGENT_NAMESPACE" -f k8s/configmap.yaml
           kubectl --context "kind-${CLUSTER_NAME}" \
             apply -n "$PURE_AGENT_NAMESPACE" -f k8s/network-policy.yaml
+
 
       # ── Apply WorkflowTemplate ────────────────────────────────────────────────
       - name: Apply Argo WorkflowTemplate
@@ -159,6 +183,10 @@ jobs:
           sed -i 's/storageClassName: efs/storageClassName: standard/' \
             /tmp/workflow-template-patched.yaml
 
+          # Change ReadWriteMany to ReadWriteOnce (kind local-path only supports RWO)
+          sed -i 's/ReadWriteMany/ReadWriteOnce/' \
+            /tmp/workflow-template-patched.yaml
+
           # Remove nodeSelector and tolerations (node labels not present in kind)
           yq -i 'del(.spec.templates[].nodeSelector)' \
             /tmp/workflow-template-patched.yaml
@@ -166,7 +194,8 @@ jobs:
             /tmp/workflow-template-patched.yaml
 
           # Set imagePullPolicy to IfNotPresent so kind uses locally loaded images
-          yq -i '(.spec.templates[].container.imagePullPolicy) = "IfNotPresent"' \
+          # Only patch templates that already have a container field (skip DAG/steps templates)
+          yq -i '(.spec.templates[] | select(has("container")) | .container.imagePullPolicy) = "IfNotPresent"' \
             /tmp/workflow-template-patched.yaml
 
           kubectl --context "kind-${CLUSTER_NAME}" \
@@ -177,12 +206,12 @@ jobs:
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          KUBECONFIG: "/root/.kube/config"
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          GITHUB_TEST_REPO: ${{ vars.E2E_TEST_REPO }}
           KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
         run: |
           bash e2e/run-argo.sh \
-            --scenario "${{ github.event.inputs.scenario }}" \
+            --scenario "${{ github.event.inputs.scenario || 'all' }}" \
             --namespace "$PURE_AGENT_NAMESPACE"
 
       # ── Teardown ──────────────────────────────────────────────────────────────
