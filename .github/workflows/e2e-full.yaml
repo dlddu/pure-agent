@@ -5,7 +5,6 @@ name: "E2E: full (Level 3 — real API)"
 
 on:
   pull_request:
-    branches: [main]
   workflow_dispatch:
     inputs:
       scenario:
