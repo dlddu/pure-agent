@@ -4,9 +4,7 @@ bats_require_minimum_version 1.5.0
 #
 # DLD-466: Level ② E2E テスト (Argo 특화 검증)
 #
-# 이 파일의 테스트는 모두 skip 상태입니다.
-# Level ② 구현(DLD-466)이 완료된 후 각 @test 내의 `skip` 줄을 제거하면
-# 즉시 실행 가능한 구조로 작성되어 있습니다.
+# DLD-467: Level ② 구현 완료 — 모든 테스트가 활성화되어 있습니다.
 #
 # 전제:
 #   - kind 클러스터가 실행 중이고 KUBE_CONTEXT 환경 변수가 설정되어 있어야 합니다.
@@ -91,9 +89,6 @@ submit_level2_scenario() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "Level 2: report-action 시나리오 Workflow가 Succeeded 상태로 완료된다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   # Arrange: mock WorkflowTemplate이 클러스터에 적용되어 있어야 합니다.
   # (e2e/run-argo.sh --level 2 실행 시 patch_workflow_template_for_mock에 의해 적용됨)
 
@@ -110,9 +105,6 @@ submit_level2_scenario() {
 }
 
 @test "Level 2: none-action 시나리오 Workflow가 Succeeded 상태로 완료된다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   local workflow_name
   workflow_name=$(submit_level2_scenario "none-action" 5)
 
@@ -123,9 +115,6 @@ submit_level2_scenario() {
 }
 
 @test "Level 2: create-pr-action 시나리오 Workflow가 Succeeded 상태로 완료된다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   local workflow_name
   workflow_name=$(submit_level2_scenario "create-pr-action" 5)
 
@@ -140,9 +129,6 @@ submit_level2_scenario() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "Level 2: report-action Workflow에서 mcp-daemon pod이 Running 상태로 기동된다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   # Arrange: Workflow 제출
   local workflow_name
   workflow_name=$(submit_level2_scenario "report-action" 5)
@@ -170,9 +156,6 @@ submit_level2_scenario() {
 }
 
 @test "Level 2: report-action Workflow에서 llm-gateway-daemon pod이 Running 상태로 기동된다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   local workflow_name
   workflow_name=$(submit_level2_scenario "report-action" 5)
 
@@ -195,9 +178,6 @@ submit_level2_scenario() {
 }
 
 @test "Level 2: Workflow status.nodes에 mcp-daemon과 llm-gateway-daemon 노드가 존재한다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   local workflow_name
   workflow_name=$(submit_level2_scenario "report-action" 5)
 
@@ -225,9 +205,6 @@ submit_level2_scenario() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "Level 2: continue-then-stop 시나리오에서 run-cycle이 정확히 2회 실행된다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   # Arrange: continue-then-stop 시나리오는 level [1, 2] 지원
   # cycle-0: continue → cycle-1: none(stop) 으로 run-cycle이 2회 실행되어야 합니다.
   local workflow_name
@@ -249,9 +226,6 @@ submit_level2_scenario() {
 }
 
 @test "Level 2: continue-then-stop 시나리오에서 Workflow 최종 상태는 Succeeded이다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   local workflow_name
   workflow_name=$(submit_level2_scenario "continue-then-stop" 5)
 
@@ -262,9 +236,6 @@ submit_level2_scenario() {
 }
 
 @test "Level 2: continue-then-stop에서 첫 번째 run-cycle 노드의 phase가 Succeeded이다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   local workflow_name
   workflow_name=$(submit_level2_scenario "continue-then-stop" 5)
 
@@ -288,9 +259,6 @@ submit_level2_scenario() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "Level 2: depth-limit 시나리오에서 max_depth=2로 제출한 Workflow가 Succeeded로 완료된다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   # depth-limit 시나리오는 export_config=null, max_depth=2로 설정됩니다.
   # Router가 max_depth에 도달하면 continue=false를 반환하여 루프가 종료됩니다.
   # Workflow 전체는 Succeeded로 완료되어야 합니다 (에러가 아닌 정상 종료).
@@ -304,9 +272,6 @@ submit_level2_scenario() {
 }
 
 @test "Level 2: depth-limit 시나리오에서 run-cycle의 recurse 단계가 실행되지 않는다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   # max_depth=2, cycles=1(export_config=null)이므로 router가 continue=false를 반환합니다.
   # run-cycle의 recurse 단계는 when 조건(continue==true)이 false이므로 Skipped 상태여야 합니다.
   local workflow_name
@@ -327,9 +292,6 @@ submit_level2_scenario() {
 }
 
 @test "Level 2: depth-limit 시나리오에서 run-cycle 노드는 정확히 1개만 존재한다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   # max_depth 도달 시 재귀 호출 없이 1회만 실행되어야 합니다.
   local workflow_name
   workflow_name=$(submit_level2_scenario "depth-limit" 2)
@@ -351,9 +313,6 @@ submit_level2_scenario() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "Level 2: report-action Workflow의 cleanup-job 완료 후 /work 디렉토리가 비어있다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   # Arrange: Workflow 실행 후 cleanup-job의 출력 파라미터를 검증합니다.
   # cleanup-job은 `find /work -maxdepth 1 | tee /tmp/file_list.txt && find /work -mindepth 1 -delete`
   # 를 실행합니다. file_list.txt에는 삭제 전 파일 목록이 기록됩니다.
@@ -386,9 +345,6 @@ submit_level2_scenario() {
 }
 
 @test "Level 2: none-action Workflow의 cleanup-job 완료 후 /work 디렉토리가 비어있다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   local workflow_name
   workflow_name=$(submit_level2_scenario "none-action" 5)
 
@@ -412,9 +368,6 @@ submit_level2_scenario() {
 }
 
 @test "Level 2: cleanup-job 노드가 Workflow status.nodes에 Succeeded 상태로 존재한다" {
-  # TODO: DLD-466 구현 완료 후 아래 skip 줄 제거
-  skip "Pending implementation: DLD-466 — Level 2 mock WorkflowTemplate 미적용 상태"
-
   local workflow_name
   workflow_name=$(submit_level2_scenario "report-action" 5)
 

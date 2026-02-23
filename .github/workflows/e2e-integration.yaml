@@ -47,6 +47,7 @@ env:
   YQ_VERSION: "v4.43.1"
   MOCK_AGENT_IMAGE: "pure-agent/mock-agent:e2e"
   MOCK_API_IMAGE: "pure-agent/mock-api:e2e"
+  MOCK_GH_IMAGE: "pure-agent/mock-gh:e2e"
 
 jobs:
 
@@ -166,10 +167,17 @@ jobs:
             -t "$MOCK_API_IMAGE" \
             e2e/mock-api/
 
+      - name: Build mock-gh image
+        run: |
+          docker build \
+            -t "pure-agent/mock-gh:e2e" \
+            e2e/mock-gh/
+
       - name: Load mock images into kind cluster
         run: |
           kind load docker-image "$MOCK_AGENT_IMAGE" --name "$CLUSTER_NAME"
           kind load docker-image "$MOCK_API_IMAGE"   --name "$CLUSTER_NAME"
+          kind load docker-image "pure-agent/mock-gh:e2e" --name "$CLUSTER_NAME"
 
       # ── router / export-handler 이미지 빌드 + 로드 ─────────────────────────
       # Level 2에서도 router / export-handler는 실제 이미지를 사용합니다.
@@ -237,6 +245,16 @@ jobs:
           kubectl --context "$KUBE_CONTEXT" \
             apply -n "$PURE_AGENT_NAMESPACE" -f k8s/network-policy.yaml
 
+      # ── mock-gh ConfigMap 생성 ─────────────────────────────────────────────
+      - name: Create mock-gh ConfigMap
+        run: |
+          set -euo pipefail
+          KUBE_CONTEXT="kind-${CLUSTER_NAME}"
+          kubectl --context "$KUBE_CONTEXT" -n "$PURE_AGENT_NAMESPACE" \
+            create configmap mock-gh-bin \
+              --from-file=gh=e2e/mock-gh/gh \
+              --dry-run=client -o yaml | kubectl apply -f -
+
       # ── Level 2 mock WorkflowTemplate 적용 ────────────────────────────────
       # run-argo.sh --level 2 를 통해 mock 이미지로 패치된 WorkflowTemplate을 적용합니다.
       # 실제 시나리오 실행은 BATS 테스트에서 수행하므로 여기서는 템플릿 적용만 합니다.
@@ -245,6 +263,7 @@ jobs:
           KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
           MOCK_AGENT_IMAGE: ${{ env.MOCK_AGENT_IMAGE }}
           MOCK_API_IMAGE: ${{ env.MOCK_API_IMAGE }}
+          MOCK_GH_IMAGE: ${{ env.MOCK_GH_IMAGE }}
           NAMESPACE: ${{ env.PURE_AGENT_NAMESPACE }}
           # Level 2에서는 실제 API 키가 불필요하므로 더미 값으로 설정
           GITHUB_TEST_REPO: "mock-org/mock-repo"
@@ -262,8 +281,8 @@ jobs:
             apply_mock_workflow_template "$dst"
           '
 
-      # ── Level 2 BATS テスト実行 (skip 상태이므로 항상 통과) ───────────────
-      - name: Run Level 2 Argo BATS tests (all skipped)
+      # ── Level 2 BATS テスト実行 ───────────────────────────────────────────
+      - name: Run Level 2 Argo BATS tests
         env:
           KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
           NAMESPACE: ${{ env.PURE_AGENT_NAMESPACE }}
@@ -271,23 +290,19 @@ jobs:
         run: |
           bats e2e/lib/tests/argo-level2.bats
 
-      # ── run-argo.sh Level 2 시나리오 실행 (구현 완료 후 활성화) ───────────
-      # 현재 이 step은 BATS 테스트가 skip 상태이므로 실행하지 않습니다.
-      # DLD-466 구현 완료 후 아래 주석을 해제하여 활성화하세요.
-      #
-      # - name: Run Level 2 E2E scenarios (run-argo.sh)
-      #   env:
-      #     KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
-      #     NAMESPACE: ${{ env.PURE_AGENT_NAMESPACE }}
-      #     MOCK_AGENT_IMAGE: ${{ env.MOCK_AGENT_IMAGE }}
-      #     MOCK_API_IMAGE: ${{ env.MOCK_API_IMAGE }}
-      #     GITHUB_TEST_REPO: "mock-org/mock-repo"
-      #   run: |
-      #     bash e2e/run-argo.sh \
-      #       --level 2 \
-      #       --scenario "${{ github.event.inputs.scenario || 'all' }}" \
-      #       --namespace "$PURE_AGENT_NAMESPACE" \
-      #       --context "kind-$CLUSTER_NAME"
+      - name: Run Level 2 E2E scenarios (run-argo.sh)
+        env:
+          KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
+          NAMESPACE: ${{ env.PURE_AGENT_NAMESPACE }}
+          MOCK_AGENT_IMAGE: ${{ env.MOCK_AGENT_IMAGE }}
+          MOCK_API_IMAGE: ${{ env.MOCK_API_IMAGE }}
+          GITHUB_TEST_REPO: "mock-org/mock-repo"
+        run: |
+          bash e2e/run-argo.sh \
+            --level 2 \
+            --scenario "${{ github.event.inputs.scenario || 'all' }}" \
+            --namespace "$PURE_AGENT_NAMESPACE" \
+            --context "kind-$CLUSTER_NAME"
 
       # ── Teardown ─────────────────────────────────────────────────────────
       - name: Tear down kind cluster

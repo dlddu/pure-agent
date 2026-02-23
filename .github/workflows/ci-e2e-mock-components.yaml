@@ -57,6 +57,19 @@ jobs:
       - name: Run BATS tests for mock-gh
         run: bats e2e/mock-gh/tests/
 
+  test-mock-gh-dockerfile:
+    name: "Test mock-gh Dockerfile structure"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bats jq
+
+      - name: Run BATS tests for mock-gh Dockerfile
+        # Dockerfile 존재 및 내용 검증 테스트 (Docker 빌드 없이 실행)
+        run: bats e2e/lib/tests/mock-gh-dockerfile.bats
+
   test-lib:
     runs-on: ubuntu-latest
     steps:
@@ -78,3 +91,9 @@ jobs:
 
       - name: Run BATS tests for runner.sh
         run: bats e2e/lib/tests/runner.bats
+
+      - name: Run BATS tests for patch_workflow_template_for_mock (mock-gh injection)
+        # run-argo.sh의 patch_workflow_template_for_mock 함수에서
+        # mock-gh가 올바르게 주입되는지 검증합니다.
+        # yq가 필요하므로 test-lib job에서 실행합니다.
+        run: bats e2e/lib/tests/patch-workflow-mock-gh.bats

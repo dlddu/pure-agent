@@ -177,6 +177,13 @@ patch_workflow_template_for_mock() {
   yq -i 'del(.spec.templates[] | select(.name == "llm-gateway-daemon") | .container.livenessProbe)' \
     "$dst_template"
 
+  # ── mock-gh 주입 (export-handler에 mock gh 바이너리 마운트) ──────────────
+  # export-cycle-output 템플릿에 mock-gh ConfigMap 볼륨을 추가합니다.
+  yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .volumes) = [{"name": "mock-gh-bin", "configMap": {"name": "mock-gh-bin", "defaultMode": 493}}]' "$dst_template"
+
+  # export-cycle-output 컨테이너에 mock-gh 볼륨 마운트를 추가합니다.
+  yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.volumeMounts) += [{"name": "mock-gh-bin", "mountPath": "/usr/local/bin/gh", "subPath": "gh", "readOnly": true}]' "$dst_template"
+
   log "WorkflowTemplate patched: $dst_template"
 }
 
