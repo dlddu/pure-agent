@@ -3,6 +3,10 @@
 #
 # DLD-465: Level ③ 풀 e2e를 실제로 동작하게 구현.
 #
+# 시나리오 정의는 e2e/scenarios/<name>.yaml 파일에서 읽습니다.
+# YAML의 argo.setup/teardown/max_depth 및 assertions 섹션을 사용하여
+# 제네릭하게 시나리오를 실행합니다.
+#
 # Usage:
 #   ./e2e/run-argo.sh [--scenario <name|all>] [--level <2|3>] [--namespace <ns>]
 #
@@ -10,7 +14,7 @@
 #   LINEAR_API_KEY        — Linear Personal API Key
 #   LINEAR_TEAM_ID        — Linear Team ID
 #   GITHUB_TOKEN          — GitHub token (repo scope, PR 생성용)
-#   GITHUB_TEST_REPO      — "org/repo" 형태의 테스트용 GitHub 레포 (기본값: dlddu/pure-agent-e2e-sandbox)
+#   GITHUB_TEST_REPO      — "org/repo" 형태의 테스트용 GitHub 레포
 #   KUBE_CONTEXT          — kubectl context (기본값: kind-pure-agent-e2e-full)
 
 set -euo pipefail
@@ -27,6 +31,7 @@ WORKFLOW_TIMEOUT="${WORKFLOW_TIMEOUT:-600}"  # seconds
 # ── Source shared libraries ──────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${SCRIPT_DIR}/lib"
+SCENARIOS_DIR="${SCRIPT_DIR}/scenarios"
 # shellcheck source=lib/setup-real.sh
 source "$LIB_DIR/setup-real.sh" --source-only
 # shellcheck source=lib/teardown-real.sh
@@ -59,12 +64,27 @@ check_prerequisites() {
   command -v kubectl >/dev/null 2>&1 || die "kubectl is not installed"
   command -v curl    >/dev/null 2>&1 || die "curl is not installed"
   command -v jq      >/dev/null 2>&1 || die "jq is not installed"
+  command -v yq      >/dev/null 2>&1 || die "yq is not installed"
 
   [[ -n "${LINEAR_API_KEY:-}" ]]  || die "LINEAR_API_KEY is not set"
   [[ -n "${LINEAR_TEAM_ID:-}" ]]  || die "LINEAR_TEAM_ID is not set"
   [[ -n "${GITHUB_TOKEN:-}" ]]    || die "GITHUB_TOKEN is not set"
 
   log "Prerequisites OK"
+}
+
+# ── YAML helper ──────────────────────────────────────────────────────────────
+# yq wrapper with null → empty string conversion.
+yaml_get() {
+  local yaml_file="$1"
+  local path="$2"
+  local value
+  value=$(yq eval "$path" "$yaml_file")
+  if [[ "$value" == "null" ]]; then
+    echo ""
+  else
+    echo "$value"
+  fi
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -78,7 +98,7 @@ build_prompt() {
   local linear_issue_id="${2:-}"
   local github_branch="${3:-}"
 
-  local prompt_file="${SCRIPT_DIR}/scenarios/${scenario_name}/prompt.txt"
+  local prompt_file="${SCENARIOS_DIR}/${scenario_name}/prompt.txt"
   [[ -f "$prompt_file" ]] \
     || die "Prompt file not found: $prompt_file"
 
@@ -212,7 +232,7 @@ verify_linear_comment() {
   log "PASS verify_linear_comment: $comment_count comment(s) found"
 }
 
-# verify_github_pr: GitHub PR이 생성됐는지 검증합니다 (create-pr-action 전용).
+# verify_github_pr: GitHub PR이 생성됐는지 검증합니다.
 verify_github_pr() {
   local github_branch="$1"
 
@@ -236,82 +256,97 @@ verify_github_pr() {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# SCENARIO RUNNERS
+# GENERIC SCENARIO RUNNER
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# run_scenario_report_action: report-action 시나리오 실행
-# Agent가 set_export_config(actions: ["report"])를 호출하고
-# Export Handler가 Linear 코멘트를 작성하는지 검증합니다.
-run_scenario_report_action() {
-  local scenario_name="report-action"
-  log "=== Scenario: $scenario_name ==="
-
-  local linear_issue_id
-
-  # Setup
-  linear_issue_id=$(setup_linear_test_issue "$scenario_name")
-
-  # Teardown trap (cleanup even on failure)
-  trap "teardown_linear_issue '$linear_issue_id'" EXIT
-
-  # Run
-  local prompt
-  prompt=$(build_prompt "$scenario_name" "$linear_issue_id")
-  run_argo_workflow "$scenario_name" "$prompt" "5"
-
-  # Verify
-  verify_linear_comment "$linear_issue_id" "분석 리포트"
-
-  # Teardown
-  teardown_linear_issue "$linear_issue_id"
-  trap - EXIT
-
-  log "=== PASS: $scenario_name ==="
+# discover_scenarios: Level 3을 지원하는 시나리오 YAML 파일 목록을 반환합니다.
+discover_scenarios() {
+  local yaml_file
+  for yaml_file in "$SCENARIOS_DIR"/*.yaml; do
+    [[ -f "$yaml_file" ]] || continue
+    # argo 섹션이 있는 시나리오만 Level 3 대상
+    local has_argo
+    has_argo=$(yaml_get "$yaml_file" '.argo')
+    [[ -n "$has_argo" ]] || continue
+    yaml_get "$yaml_file" '.name'
+  done
 }
 
-# run_scenario_create_pr_action: create-pr-action 시나리오 실행
-# Agent가 set_export_config(actions: ["create_pr"])를 호출하고
-# GitHub PR 생성 + Linear 코멘트 작성을 검증합니다.
-run_scenario_create_pr_action() {
-  local scenario_name="create-pr-action"
+# run_scenario: YAML 정의를 읽고 setup → run → verify → teardown을 수행합니다.
+run_scenario() {
+  local scenario_name="$1"
+  local yaml_file="${SCENARIOS_DIR}/${scenario_name}.yaml"
+
+  [[ -f "$yaml_file" ]] \
+    || die "Scenario YAML not found: $yaml_file"
+
   log "=== Scenario: $scenario_name ==="
 
-  local github_branch
+  # ── YAML에서 설정 읽기 ──
+  local max_depth
+  max_depth=$(yaml_get "$yaml_file" '.argo.max_depth // 5')
 
-  # Setup
-  github_branch=$(setup_github_test_branch "$scenario_name")
+  # setup/teardown 목록 (YAML 배열 → 줄바꿈 구분 문자열)
+  local setups teardowns
+  setups=$(yaml_get "$yaml_file" '.argo.setup[]' 2>/dev/null || true)
+  teardowns=$(yaml_get "$yaml_file" '.argo.teardown[]' 2>/dev/null || true)
 
-  # Teardown trap (cleanup even on failure)
-  trap "teardown_github_pr_and_branch '$github_branch'" EXIT
+  # assertion 값
+  local assert_linear_body
+  assert_linear_body=$(yaml_get "$yaml_file" '.assertions.linear_comment.body_contains')
+  local assert_github_pr
+  assert_github_pr=$(yaml_get "$yaml_file" '.assertions.github_pr')
 
-  # Run
+  # ── Setup ──
+  local linear_issue_id=""
+  local github_branch=""
+
+  local setup_item
+  while IFS= read -r setup_item; do
+    [[ -n "$setup_item" ]] || continue
+    case "$setup_item" in
+      linear_issue)
+        linear_issue_id=$(setup_linear_test_issue "$scenario_name")
+        ;;
+      github_branch)
+        github_branch=$(setup_github_test_branch "$scenario_name")
+        ;;
+      *) warn "Unknown setup type: $setup_item" ;;
+    esac
+  done <<< "$setups"
+
+  # ── Teardown trap (cleanup even on failure) ──
+  _teardown_handler() {
+    local td_item
+    while IFS= read -r td_item; do
+      [[ -n "$td_item" ]] || continue
+      case "$td_item" in
+        linear_issue)  teardown_linear_issue "$linear_issue_id" ;;
+        github_branch) teardown_github_pr_and_branch "$github_branch" ;;
+        *) warn "Unknown teardown type: $td_item" ;;
+      esac
+    done <<< "$1"
+  }
+  # shellcheck disable=SC2064
+  trap "_teardown_handler '$teardowns'" EXIT
+
+  # ── Run ──
   local prompt
-  prompt=$(build_prompt "$scenario_name" "" "$github_branch")
-  run_argo_workflow "$scenario_name" "$prompt" "5"
+  prompt=$(build_prompt "$scenario_name" "$linear_issue_id" "$github_branch")
+  run_argo_workflow "$scenario_name" "$prompt" "$max_depth"
 
-  # Verify
-  verify_github_pr "$github_branch"
+  # ── Verify (assertions) ──
+  if [[ -n "$assert_linear_body" ]]; then
+    verify_linear_comment "$linear_issue_id" "$assert_linear_body"
+  fi
 
-  # Teardown
-  teardown_github_pr_and_branch "$github_branch"
+  if [[ "$assert_github_pr" == "true" ]]; then
+    verify_github_pr "$github_branch"
+  fi
+
+  # ── Teardown (explicit, then clear trap) ──
+  _teardown_handler "$teardowns"
   trap - EXIT
-
-  log "=== PASS: $scenario_name ==="
-}
-
-# run_scenario_none_action: none-action 시나리오 실행
-# Agent가 set_export_config(actions: ["none"])를 호출하고
-# 워크플로우가 정상 완료되는지 검증합니다.
-run_scenario_none_action() {
-  local scenario_name="none-action"
-  log "=== Scenario: $scenario_name ==="
-
-  # Run
-  local prompt
-  prompt=$(build_prompt "$scenario_name")
-  run_argo_workflow "$scenario_name" "$prompt" "5"
-
-  # Verify: 워크플로우 정상 완료 자체가 검증 (run_argo_workflow가 실패 시 die)
 
   log "=== PASS: $scenario_name ==="
 }
@@ -326,17 +361,20 @@ main() {
 
   check_prerequisites
 
-  case "$SCENARIO" in
-    all)
-      run_scenario_report_action
-      run_scenario_create_pr_action
-      run_scenario_none_action
-      ;;
-    report-action)       run_scenario_report_action ;;
-    create-pr-action)    run_scenario_create_pr_action ;;
-    none-action)         run_scenario_none_action ;;
-    *)                   die "Unknown scenario: '$SCENARIO'. Valid values: all | report-action | create-pr-action | none-action" ;;
-  esac
+  if [[ "$SCENARIO" == "all" ]]; then
+    local scenarios
+    scenarios=$(discover_scenarios)
+    [[ -n "$scenarios" ]] \
+      || die "No Level 3 scenarios found in $SCENARIOS_DIR"
+
+    local name
+    while IFS= read -r name; do
+      [[ -n "$name" ]] || continue
+      run_scenario "$name"
+    done <<< "$scenarios"
+  else
+    run_scenario "$SCENARIO"
+  fi
 
   log "All scenarios completed"
 }

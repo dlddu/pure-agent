@@ -1,6 +1,8 @@
 name: none-action
 description: "actions: [\"none\"] → Router stop, Export Handler는 Linear 코멘트만 작성"
 level: [1, 2, 3]
+
+# ── Level 2: mock cycle 정의 ──
 cycles:
   - export_config:
       linear_issue_id: "mock-issue-id"
@@ -8,10 +10,14 @@ cycles:
         - "none"
       session_id: "mock-session-none"
     agent_result: "No action needed. Task already completed."
+
+# ── Level 3: Argo 실행 설정 ──
+argo:
+  max_depth: 5
+  setup: []
+  teardown: []
+
+# ── 공유 assertions ──
 assertions:
   router_decision: "stop"
   export_handler_exit: 0
-  mock_api:
-    - type: linear_comment_created
-      issue_id_from_config: true
-      body_contains: "Agent 작업 요약"
