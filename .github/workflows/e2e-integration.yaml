@@ -170,14 +170,14 @@ jobs:
       - name: Build mock-gh image
         run: |
           docker build \
-            -t "pure-agent/mock-gh:e2e" \
+            -t "$MOCK_GH_IMAGE" \
             e2e/mock-gh/
 
       - name: Load mock images into kind cluster
         run: |
           kind load docker-image "$MOCK_AGENT_IMAGE" --name "$CLUSTER_NAME"
           kind load docker-image "$MOCK_API_IMAGE"   --name "$CLUSTER_NAME"
-          kind load docker-image "pure-agent/mock-gh:e2e" --name "$CLUSTER_NAME"
+          kind load docker-image "$MOCK_GH_IMAGE"    --name "$CLUSTER_NAME"
 
       # ── router / export-handler 이미지 빌드 + 로드 ─────────────────────────
       # Level 2에서도 router / export-handler는 실제 이미지를 사용합니다.
@@ -296,6 +296,7 @@ jobs:
           NAMESPACE: ${{ env.PURE_AGENT_NAMESPACE }}
           MOCK_AGENT_IMAGE: ${{ env.MOCK_AGENT_IMAGE }}
           MOCK_API_IMAGE: ${{ env.MOCK_API_IMAGE }}
+          MOCK_GH_IMAGE: ${{ env.MOCK_GH_IMAGE }}
           GITHUB_TEST_REPO: "mock-org/mock-repo"
         run: |
           bash e2e/run-argo.sh \
