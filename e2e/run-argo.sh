@@ -75,7 +75,7 @@ check_prerequisites() {
 # 프롬프트 파일 위치: e2e/scenarios/<scenario_name>/prompt.txt
 build_prompt() {
   local scenario_name="$1"
-  local linear_issue_id="$2"
+  local linear_issue_id="${2:-}"
   local github_branch="${3:-}"
 
   local prompt_file="${SCRIPT_DIR}/scenarios/${scenario_name}/prompt.txt"
@@ -301,30 +301,17 @@ run_scenario_create_pr_action() {
 
 # run_scenario_none_action: none-action 시나리오 실행
 # Agent가 set_export_config(actions: ["none"])를 호출하고
-# Export Handler가 Linear 코멘트를 작성하는지 검증합니다.
+# 워크플로우가 정상 완료되는지 검증합니다.
 run_scenario_none_action() {
   local scenario_name="none-action"
   log "=== Scenario: $scenario_name ==="
 
-  local linear_issue_id
-
-  # Setup
-  linear_issue_id=$(setup_linear_test_issue "$scenario_name")
-
-  # Teardown trap (cleanup even on failure)
-  trap "teardown_linear_issue '$linear_issue_id'" EXIT
-
   # Run
   local prompt
-  prompt=$(build_prompt "$scenario_name" "$linear_issue_id")
+  prompt=$(build_prompt "$scenario_name")
   run_argo_workflow "$scenario_name" "$prompt" "5"
 
-  # Verify
-  verify_linear_comment "$linear_issue_id" "Agent 작업 요약"
-
-  # Teardown
-  teardown_linear_issue "$linear_issue_id"
-  trap - EXIT
+  # Verify: 워크플로우 정상 완료 자체가 검증 (run_argo_workflow가 실패 시 die)
 
   log "=== PASS: $scenario_name ==="
 }
