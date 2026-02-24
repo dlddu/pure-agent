@@ -106,7 +106,7 @@ create_scenario_configmap() {
   fi
   kubectl_args+=(--dry-run=client -o yaml)
 
-  kubectl "${kubectl_args[@]}" | kubectl --context "$KUBE_CONTEXT" -n "$NAMESPACE" apply -f -
+  kubectl "${kubectl_args[@]}" | kubectl --context "$KUBE_CONTEXT" -n "$NAMESPACE" apply -f - >/dev/null
 
   rm -rf "$tmp_dir"
 }
