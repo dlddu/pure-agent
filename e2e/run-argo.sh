@@ -178,6 +178,11 @@ patch_workflow_template_for_mock() {
   # export-cycle-output 컨테이너에 mock-gh 볼륨 마운트를 추가합니다.
   yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.volumeMounts) += [{"name": "mock-gh-bin", "mountPath": "/usr/local/bin/gh", "subPath": "gh", "readOnly": true}]' "$dst_template"
 
+  # ── LINEAR_API_URL 주입 (export-handler가 mock-api를 사용하도록 설정) ──────
+  # mcp-daemon이 mock-api로 교체되어 있으므로 Linear GraphQL API를 mock-api로 향합니다.
+  # Argo 표현식 {{tasks.mcp-daemon.ip}}는 main DAG에서 해석되어 실제 pod IP로 치환됩니다.
+  yq -i '(.spec.templates[] | select(.name == "main") | .dag.tasks[] | select(.name == "export-cycle-output") | .arguments.parameters[] | select(.name == "linear_api_url") | .value) = "http://{{tasks.mcp-daemon.ip}}:4000/graphql"' "$dst_template"
+
   log "WorkflowTemplate patched: $dst_template"
 }
 

@@ -94,6 +94,10 @@ spec:
             dependencies: [run-cycle]
             continueOn:
               failed: true
+            arguments:
+              parameters:
+                - name: linear_api_url
+                  value: ""
 
           - name: cleanup
             template: cleanup-job
@@ -310,6 +314,10 @@ spec:
     # Export Cycle Output
     # =============================
     - name: export-cycle-output
+      inputs:
+        parameters:
+          - name: linear_api_url
+            default: ""
       outputs:
         parameters:
           - name: export_config
@@ -322,6 +330,8 @@ spec:
         image: ghcr.io/dlddu/pure-agent/export-handler:latest
         command: ["node", "build/index.js"]
         env:
+          - name: LINEAR_API_URL
+            value: "{{inputs.parameters.linear_api_url}}"
           - name: LINEAR_API_KEY
             valueFrom:
               secretKeyRef:
