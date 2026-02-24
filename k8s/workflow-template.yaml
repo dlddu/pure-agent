@@ -315,11 +315,9 @@ spec:
           - name: export_config
             valueFrom:
               path: /tmp/export_config.json
-              default: "{}"
           - name: action_results
             valueFrom:
               path: /tmp/action_results.json
-              default: "{}"
       container:
         image: ghcr.io/dlddu/pure-agent/export-handler:latest
         command: ["node", "build/index.js"]
