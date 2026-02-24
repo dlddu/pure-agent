@@ -16,6 +16,7 @@ name: "CI: e2e integration (Level 2 — mock Argo)"
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
     inputs:
       scenario:
@@ -113,7 +114,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [level-1-gate]
     # workflow_dispatch 시에는 level-1-gate가 없으므로 조건부로 실행
-    if: always() && (needs.level-1-gate.result == 'success' || github.event_name == 'workflow_dispatch')
+    if: always() && (needs.level-1-gate.result == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request')
 
     steps:
       - name: Checkout repository
