@@ -79,13 +79,18 @@ describe("run (index.ts entry point)", () => {
     mockLinearClientInstances.length = 0;
   });
 
-  it("export_config.json이 없으면 export action을 스킵한다", async () => {
+  it("export_config.json이 없으면 export action을 스킵하고 빈 Argo output을 작성한다", async () => {
     mockExistsSync.mockReturnValue(false);
 
     await run();
 
-    expect(mockEnsureArgoOutput).not.toHaveBeenCalled();
     expect(mockProcessExport).not.toHaveBeenCalled();
+    expect(mockEnsureArgoOutput).toHaveBeenCalledWith(
+      defaultPaths.exportConfigPath, defaultPaths.argoOutputPath,
+    );
+    expect(mockWriteActionResults).toHaveBeenCalledWith(
+      defaultPaths.actionResultsOutputPath, {},
+    );
   });
 
   it("정상 경로: config 파싱 → processExport 호출", async () => {

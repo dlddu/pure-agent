@@ -161,6 +161,15 @@ patch_workflow_template_for_mock() {
   yq -i 'del(.spec.templates[] | select(.name == "llm-gateway-daemon") | .container.livenessProbe)' \
     "$dst_template"
 
+  # ── mock-scenario-data 주입 (agent-job에 시나리오 fixture ConfigMap 마운트) ──
+  # mock-agent가 SCENARIO_DIR에서 fixture 파일(export_config.json, agent_result.txt)을
+  # 읽어 /work와 /tmp에 배치합니다. ConfigMap은 BATS 테스트에서 시나리오별로 생성합니다.
+  yq -i '(.spec.templates[] | select(.name == "agent-job") | .volumes) = ((.spec.templates[] | select(.name == "agent-job") | .volumes) // []) + [{"name": "mock-scenario-data", "configMap": {"name": "mock-scenario-data", "optional": true}}]' "$dst_template"
+
+  yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.volumeMounts) += [{"name": "mock-scenario-data", "mountPath": "/scenario", "readOnly": true}]' "$dst_template"
+
+  yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.env) += [{"name": "SCENARIO_DIR", "value": "/scenario"}]' "$dst_template"
+
   # ── mock-gh 주입 (export-handler에 mock gh 바이너리 마운트) ──────────────
   # export-cycle-output 템플릿에 mock-gh ConfigMap 볼륨을 추가합니다.
   # volumes가 없으면 빈 배열로 폴백한 뒤 mock-gh ConfigMap 볼륨을 append합니다.
@@ -191,7 +200,8 @@ submit_mock_workflow() {
   local scenario_yaml="$2"
   local cycle_index="${3:-0}"
 
-  local cm_name="mock-scenario-${scenario_name}-cycle${cycle_index}"
+  # mock-scenario-data: 패치된 WorkflowTemplate의 agent-job이 마운트하는 ConfigMap 이름
+  local cm_name="mock-scenario-data"
   local tmp_dir
   tmp_dir=$(mktemp -d)
 

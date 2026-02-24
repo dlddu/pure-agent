@@ -339,3 +339,45 @@ yaml_get_patched() {
 
   [ "$mcp_gh_mount_count" -eq 0 ]
 }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 6. mock-scenario-data (SCENARIO_DIR) 주입 검증
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@test "patch: agent-job 템플릿에 mock-scenario-data 볼륨이 추가된다" {
+  run_patch
+
+  local scenario_volume_count
+  scenario_volume_count=$(yaml_get_patched \
+    '([.spec.templates[] | select(.name == "agent-job")
+      | .volumes[]
+      | select(.name == "mock-scenario-data")] | length)')
+
+  [ "$scenario_volume_count" -eq 1 ]
+}
+
+@test "patch: agent-job 컨테이너에 mock-scenario-data 볼륨 마운트가 /scenario에 마운트된다" {
+  run_patch
+
+  local mount_path
+  mount_path=$(yaml_get_patched \
+    '(.spec.templates[] | select(.name == "agent-job")
+      | .container.volumeMounts[]
+      | select(.name == "mock-scenario-data")
+      | .mountPath)')
+
+  [ "$mount_path" = "/scenario" ]
+}
+
+@test "patch: agent-job 컨테이너에 SCENARIO_DIR 환경변수가 /scenario로 설정된다" {
+  run_patch
+
+  local scenario_dir
+  scenario_dir=$(yaml_get_patched \
+    '(.spec.templates[] | select(.name == "agent-job")
+      | .container.env[]
+      | select(.name == "SCENARIO_DIR")
+      | .value)')
+
+  [ "$scenario_dir" = "/scenario" ]
+}

@@ -69,10 +69,57 @@ get_workflow_json() {
     --output json
 }
 
-# submit_level2_scenario: Level 2 시나리오 Workflow를 제출하고 이름을 반환합니다.
+# create_scenario_configmap: 시나리오 fixture 데이터를 ConfigMap으로 생성합니다.
+# mock-agent가 SCENARIO_DIR에서 이 ConfigMap의 파일을 읽어 /work와 /tmp에 배치합니다.
+create_scenario_configmap() {
+  local scenario_name="$1"
+  local cycle_index="${2:-0}"
+  local scenario_yaml="${SCENARIOS_DIR}/${scenario_name}.yaml"
+
+  local tmp_dir
+  tmp_dir=$(mktemp -d)
+
+  # export_config 추출
+  local export_config
+  export_config=$(yq eval ".cycles[${cycle_index}].export_config" "$scenario_yaml")
+  if [[ "$export_config" != "null" && -n "$export_config" ]]; then
+    echo "$export_config" | yq -o=json > "${tmp_dir}/export_config.json"
+  fi
+
+  # agent_result 추출
+  local agent_result
+  agent_result=$(yq eval ".cycles[${cycle_index}].agent_result // \"\"" "$scenario_yaml")
+  if [[ -n "$agent_result" ]]; then
+    echo "$agent_result" > "${tmp_dir}/agent_result.txt"
+  fi
+
+  # ConfigMap 생성/갱신
+  local kubectl_args=()
+  kubectl_args+=(--context "$KUBE_CONTEXT" -n "$NAMESPACE")
+  kubectl_args+=(create configmap mock-scenario-data)
+
+  if [[ -f "${tmp_dir}/export_config.json" ]]; then
+    kubectl_args+=(--from-file="export_config.json=${tmp_dir}/export_config.json")
+  fi
+  if [[ -f "${tmp_dir}/agent_result.txt" ]]; then
+    kubectl_args+=(--from-file="agent_result.txt=${tmp_dir}/agent_result.txt")
+  fi
+  kubectl_args+=(--dry-run=client -o yaml)
+
+  kubectl "${kubectl_args[@]}" | kubectl --context "$KUBE_CONTEXT" -n "$NAMESPACE" apply -f -
+
+  rm -rf "$tmp_dir"
+}
+
+# submit_level2_scenario: Level 2 시나리오 fixture ConfigMap을 생성하고
+# Workflow를 제출하여 이름을 반환합니다.
 submit_level2_scenario() {
   local scenario_name="$1"
   local max_depth="${2:-5}"
+
+  # 시나리오 fixture ConfigMap 생성 (mock-agent가 SCENARIO_DIR에서 읽음)
+  create_scenario_configmap "$scenario_name" 0
+
   argo submit \
     --from workflowtemplate/pure-agent \
     -n "$NAMESPACE" \

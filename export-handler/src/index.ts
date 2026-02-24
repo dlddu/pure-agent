@@ -22,6 +22,8 @@ export async function run(): Promise<void> {
 
   if (!existsSync(paths.exportConfigPath)) {
     log.info("No export_config.json found. Skipping export actions.");
+    ensureArgoOutput(paths.exportConfigPath, paths.argoOutputPath);
+    writeActionResults(paths.actionResultsOutputPath, {});
     return;
   }
 
