@@ -476,9 +476,15 @@ run_scenario_level2() {
     _level2_place_cycle_fixtures "$yaml_file" "$cycle_index" "$cycle_dir"
 
     # mock Argo Workflow 제출 + 완료 대기
+    # 각 cycle은 max_depth=1로 제출 (agent 1회 실행 후 종료)
+    # depth-limit 시나리오만 시나리오 레벨 max_depth 사용
+    local cycle_max_depth=1
+    if [[ "$scenario_name" == "depth-limit" ]]; then
+      cycle_max_depth="$max_depth"
+    fi
     local workflow_name
     workflow_name=$(_level2_submit_mock_workflow \
-      "$scenario_name" "$cycle_index" "$max_depth" "$cycle_dir")
+      "$scenario_name" "$cycle_index" "$cycle_max_depth" "$cycle_dir")
 
     all_workflow_names+=("$workflow_name")
 

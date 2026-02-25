@@ -261,6 +261,14 @@ jobs:
           yq -i '(.spec.templates[] | select(.name == "agent-job") | .volumes) = [{"name": "scenario-config", "configMap": {"name": "{{inputs.parameters.scenario_configmap}}"}}]' \
             /tmp/workflow-template-level2.yaml
 
+          # 8. router를 mock으로 교체 (실제 router 바이너리 대신 depth-check sh script)
+          # 실제 router는 actions:["continue"]를 보면 depth와 무관하게 항상 continue=true를 반환하므로
+          # Level 2에서는 alpine + 인라인 shell로 depth 체크를 직접 수행합니다.
+          yq -i '(.spec.templates[] | select(.name == "router") | .container.image) = "alpine:3.20"' \
+            /tmp/workflow-template-level2.yaml
+          yq -i '(.spec.templates[] | select(.name == "router") | .container.args[0]) = "DEPTH={{inputs.parameters.depth}}; MAX_DEPTH={{inputs.parameters.max_depth}}; RESULT=false; if [ \"$DEPTH\" -lt \"$((MAX_DEPTH - 1))\" ]; then if echo \"$EXPORT_CONFIG_JSON\" | grep -q '\"continue\"' 2>/dev/null; then RESULT=true; elif [ -z \"$EXPORT_CONFIG_JSON\" ] || [ \"$EXPORT_CONFIG_JSON\" = \"{}\" ]; then RESULT=true; fi; fi; echo $RESULT > /tmp/continue.txt; echo \"[mock-router] depth=$DEPTH/$MAX_DEPTH -> $RESULT\" >&2"' \
+            /tmp/workflow-template-level2.yaml
+
           # mock-api URL을 환경 변수로 주입 (MCP_SERVER_URL, LINEAR_API_URL 등)
           # WorkflowTemplate의 env에 MOCK_API_URL 추가
           yq -i "(.spec.templates[] | select(has(\"container\")) | .container.env) += [{\"name\": \"MOCK_API_URL\", \"value\": \"http://mock-api.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4000\"}]" \
