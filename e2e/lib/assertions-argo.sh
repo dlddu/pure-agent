@@ -24,7 +24,7 @@ fi
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 _argo_assert_log()  { echo "[assertions-argo] $*" >&2; }
-_argo_assert_fail() { echo "FAIL $*" >&2; return 1; }
+_argo_assert_fail() { echo "FAIL $*" >&2; exit 1; }
 
 # ── assert_workflow_succeeded ─────────────────────────────────────────────────
 # Argo Workflow가 Succeeded 상태인지 검증합니다.

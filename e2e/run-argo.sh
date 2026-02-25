@@ -54,11 +54,6 @@ log()  { echo "[run-argo] $*" >&2; }
 warn() { echo "[run-argo] WARN: $*" >&2; }
 die()  { echo "[run-argo] ERROR: $*" >&2; exit 1; }
 
-# ── Source guard (must be before arg parsing) ────────────────────────────────
-if [[ "${1:-}" == "--source-only" ]]; then
-  return 0 2>/dev/null || true
-fi
-
 # ── Arg parsing ──────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -637,4 +632,6 @@ main() {
   log "All scenarios completed"
 }
 
-main "$@"
+if [[ "${1:-}" != "--source-only" ]]; then
+  main "$@"
+fi
