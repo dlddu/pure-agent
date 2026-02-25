@@ -40,3 +40,9 @@ load_verify_real() {
   # shellcheck disable=SC1090
   source "$LIB_DIR/verify-real.sh" --source-only
 }
+
+# Source assertions-argo.sh in --source-only mode.
+load_assertions_argo() {
+  # shellcheck disable=SC1090
+  source "$LIB_DIR/assertions-argo.sh" --source-only
+}

@@ -49,8 +49,6 @@ env:
 
 jobs:
   e2e-level2:
-    # TODO: Activate when DLD-466 is implemented (remove the if: false line below)
-    if: false
     runs-on: ubuntu-24.04-arm
 
     steps:
@@ -219,7 +217,7 @@ jobs:
             /tmp/workflow-template-level2.yaml
 
           # mock-agent 이미지로 claude-agent 이미지를 대체
-          yq -i "(.spec.templates[] | select(.name == \"run-agent\") | .container.image) = \"${MOCK_AGENT_IMAGE}\"" \
+          yq -i "(.spec.templates[] | select(.name == \"agent-job\") | .container.image) = \"${MOCK_AGENT_IMAGE}\"" \
             /tmp/workflow-template-level2.yaml
 
           # mock-api URL을 환경 변수로 주입 (MCP_SERVER_URL, LINEAR_API_URL 등)
