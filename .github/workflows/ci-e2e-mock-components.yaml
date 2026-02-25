@@ -78,3 +78,9 @@ jobs:
 
       - name: Run BATS tests for runner.sh
         run: bats e2e/lib/tests/runner.bats
+
+      - name: Run BATS tests for assertions-argo.sh
+        run: bats e2e/lib/tests/assertions-argo.bats
+
+      - name: Run BATS tests for run-argo.sh (Level 2 functions)
+        run: bats e2e/lib/tests/run-argo.bats
