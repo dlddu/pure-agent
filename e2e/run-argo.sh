@@ -57,6 +57,10 @@ fi
 if ! declare -f assert_workflow_succeeded > /dev/null 2>&1; then
   source "$LIB_DIR/assertions-argo.sh" --source-only
 fi
+# shellcheck source=lib/assertions.sh
+if ! declare -f assert_mock_api > /dev/null 2>&1; then
+  source "$LIB_DIR/assertions.sh" --source-only
+fi
 
 # ── Logging (override library prefixes) ──────────────────────────────────────
 log()  { echo "[run-argo] $*" >&2; }

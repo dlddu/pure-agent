@@ -232,8 +232,33 @@ jobs:
           yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.volumeMounts) += [{"name": "scenario-config", "mountPath": "/scenario"}]' \
             /tmp/workflow-template-level2.yaml
 
-          # agent-job 템플릿에 volumes 섹션 추가
-          yq -i '(.spec.templates[] | select(.name == "agent-job") | .volumes) = [{"name": "scenario-config", "configMap": {"name": "mock-scenario"}}]' \
+          # scenario_configmap 파라미터 체인: workflow args → main DAG → run-cycle → agent-job
+          # 1. 최상위 workflow 파라미터에 scenario_configmap 추가
+          yq -i '.spec.arguments.parameters += [{"name": "scenario_configmap", "value": "mock-scenario-default"}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # 2. main DAG → run-cycle task에 scenario_configmap 전달
+          yq -i '(.spec.templates[] | select(.name == "main") | .dag.tasks[] | select(.name == "run-cycle") | .arguments.parameters) += [{"name": "scenario_configmap", "value": "{{workflow.parameters.scenario_configmap}}"}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # 3. run-cycle 템플릿에 scenario_configmap input 추가
+          yq -i '(.spec.templates[] | select(.name == "run-cycle") | .inputs.parameters) += [{"name": "scenario_configmap"}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # 4. run-cycle → agent step에 scenario_configmap 전달
+          yq -i '(.spec.templates[] | select(.name == "run-cycle") | .steps[0][] | select(.name == "agent") | .arguments.parameters) += [{"name": "scenario_configmap", "value": "{{inputs.parameters.scenario_configmap}}"}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # 5. run-cycle → recurse step에도 scenario_configmap 전달
+          yq -i '(.spec.templates[] | select(.name == "run-cycle") | .steps[2][] | select(.name == "recurse") | .arguments.parameters) += [{"name": "scenario_configmap", "value": "{{inputs.parameters.scenario_configmap}}"}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # 6. agent-job 템플릿에 scenario_configmap input 추가
+          yq -i '(.spec.templates[] | select(.name == "agent-job") | .inputs.parameters) += [{"name": "scenario_configmap"}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # 7. agent-job의 volumes에서 동적 ConfigMap 이름 사용
+          yq -i '(.spec.templates[] | select(.name == "agent-job") | .volumes) = [{"name": "scenario-config", "configMap": {"name": "{{inputs.parameters.scenario_configmap}}"}}]' \
             /tmp/workflow-template-level2.yaml
 
           # mock-api URL을 환경 변수로 주입 (MCP_SERVER_URL, LINEAR_API_URL 등)
@@ -249,13 +274,27 @@ jobs:
         env:
           KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
           MOCK_AGENT_IMAGE: ${{ env.MOCK_AGENT_IMAGE }}
-          MOCK_API_URL: "http://mock-api.${{ env.PURE_AGENT_NAMESPACE }}.svc.cluster.local:4000"
+          MOCK_API_URL: "http://localhost:14000"
         run: |
+          # Start port-forward to access mock-api from runner
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            -n "$PURE_AGENT_NAMESPACE" \
+            port-forward svc/mock-api 14000:4000 &
+          PF_PID=$!
+          # Wait for port-forward to be ready
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:14000/health > /dev/null 2>&1 && break
+            sleep 1
+          done
+
           bash e2e/run-argo.sh \
             --level 2 \
             --scenario "${{ github.event.inputs.scenario || 'all' }}" \
             --namespace "$PURE_AGENT_NAMESPACE" \
             --context "kind-${CLUSTER_NAME}"
+
+          # Cleanup port-forward
+          kill $PF_PID 2>/dev/null || true
 
       # ── Teardown ──────────────────────────────────────────────────────────
       - name: Tear down kind cluster
