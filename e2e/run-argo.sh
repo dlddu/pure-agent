@@ -177,8 +177,7 @@ run_argo_workflow() {
   local wait_exit=0
   argo wait "$workflow_name" \
     -n "$NAMESPACE" \
-    --context "$KUBE_CONTEXT" \
-    --timeout "${WORKFLOW_TIMEOUT}s" || wait_exit=$?
+    --context "$KUBE_CONTEXT" || wait_exit=$?
 
   # Always fetch workflow status for diagnostics
   local workflow_output
@@ -344,8 +343,7 @@ _level2_submit_mock_workflow() {
   local wait_exit=0
   argo wait "$workflow_name" \
     -n "$NAMESPACE" \
-    --context "$KUBE_CONTEXT" \
-    --timeout "${WORKFLOW_TIMEOUT}s" || wait_exit=$?
+    --context "$KUBE_CONTEXT" || wait_exit=$?
 
   if [[ "$wait_exit" -ne 0 ]]; then
     local phase
