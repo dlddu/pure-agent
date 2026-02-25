@@ -353,7 +353,7 @@ _level2_submit_mock_workflow() {
   # Export argo function if it exists as a shell function (for testability)
   declare -f argo > /dev/null 2>&1 && export -f argo || true
   timeout "${WORKFLOW_TIMEOUT}s" \
-    bash -c "argo wait \"$workflow_name\" -n \"$NAMESPACE\" --context \"$KUBE_CONTEXT\"" || wait_exit=$?
+    bash -c "argo wait \"$workflow_name\" -n \"$NAMESPACE\" --context \"$KUBE_CONTEXT\"" >&2 || wait_exit=$?
 
   if [[ "$wait_exit" -ne 0 ]]; then
     local phase
