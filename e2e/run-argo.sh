@@ -67,39 +67,40 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# ── Source guard (after arg parsing, before level-specific config) ────────────
-if [[ "${_SOURCE_ONLY}" == "1" ]]; then
-  return 0 2>/dev/null || true
-fi
-
-# ── Level별 kube context 및 필수 변수 설정 (arg parsing 후) ─────────────────
-# Level ②: GITHUB_TEST_REPO 불필요, kube context 기본값 다름
-if [[ "${LEVEL}" == "2" ]]; then
-  KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
-else
-  KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-full}"
-  # Level ③은 GITHUB_TEST_REPO 필수
-  GITHUB_TEST_REPO="${GITHUB_TEST_REPO:?GITHUB_TEST_REPO is not set}"
-fi
-
 # ── Prerequisites check ──────────────────────────────────────────────────────
 check_prerequisites() {
+  local missing=()
+
   if [[ "${LEVEL}" == "2" ]]; then
     # Level ② prerequisites: kind/kubectl/argo/jq/yq のみ確認。
     # LINEAR_API_KEY / GITHUB_TOKEN は不要。
-    command -v argo    >/dev/null 2>&1 || die "argo CLI is not installed"
-    command -v kubectl >/dev/null 2>&1 || die "kubectl is not installed"
-    command -v jq      >/dev/null 2>&1 || die "jq is not installed"
-    command -v yq      >/dev/null 2>&1 || die "yq is not installed"
+    command -v argo    >/dev/null 2>&1 || missing+=("argo")
+    command -v kubectl >/dev/null 2>&1 || missing+=("kubectl")
+    command -v jq      >/dev/null 2>&1 || missing+=("jq")
+    command -v yq      >/dev/null 2>&1 || missing+=("yq")
+
+    if [[ "${#missing[@]}" -gt 0 ]]; then
+      for cmd in "${missing[@]}"; do
+        warn "$cmd is not installed"
+      done
+      die "Missing prerequisites: ${missing[*]}"
+    fi
 
     log "Prerequisites OK (Level 2)"
   else
     # Level ③: 실제 API 키 및 curl 필요
-    command -v argo    >/dev/null 2>&1 || die "argo CLI is not installed"
-    command -v kubectl >/dev/null 2>&1 || die "kubectl is not installed"
-    command -v curl    >/dev/null 2>&1 || die "curl is not installed"
-    command -v jq      >/dev/null 2>&1 || die "jq is not installed"
-    command -v yq      >/dev/null 2>&1 || die "yq is not installed"
+    command -v argo    >/dev/null 2>&1 || missing+=("argo")
+    command -v kubectl >/dev/null 2>&1 || missing+=("kubectl")
+    command -v curl    >/dev/null 2>&1 || missing+=("curl")
+    command -v jq      >/dev/null 2>&1 || missing+=("jq")
+    command -v yq      >/dev/null 2>&1 || missing+=("yq")
+
+    if [[ "${#missing[@]}" -gt 0 ]]; then
+      for cmd in "${missing[@]}"; do
+        warn "$cmd is not installed"
+      done
+      die "Missing prerequisites: ${missing[*]}"
+    fi
 
     [[ -n "${LINEAR_API_KEY:-}" ]]  || die "LINEAR_API_KEY is not set"
     [[ -n "${LINEAR_TEAM_ID:-}" ]]  || die "LINEAR_TEAM_ID is not set"
@@ -174,10 +175,10 @@ run_argo_workflow() {
   log "Submitted workflow: $workflow_name — waiting up to ${WORKFLOW_TIMEOUT}s"
 
   local wait_exit=0
-  timeout "${WORKFLOW_TIMEOUT}s" \
-    argo wait "$workflow_name" \
-      -n "$NAMESPACE" \
-      --context "$KUBE_CONTEXT" || wait_exit=$?
+  argo wait "$workflow_name" \
+    -n "$NAMESPACE" \
+    --context "$KUBE_CONTEXT" \
+    --timeout "${WORKFLOW_TIMEOUT}s" || wait_exit=$?
 
   # Always fetch workflow status for diagnostics
   local workflow_output
@@ -341,10 +342,10 @@ _level2_submit_mock_workflow() {
 
   # Workflow 완료 대기
   local wait_exit=0
-  timeout "${WORKFLOW_TIMEOUT}s" \
-    argo wait "$workflow_name" \
-      -n "$NAMESPACE" \
-      --context "$KUBE_CONTEXT" || wait_exit=$?
+  argo wait "$workflow_name" \
+    -n "$NAMESPACE" \
+    --context "$KUBE_CONTEXT" \
+    --timeout "${WORKFLOW_TIMEOUT}s" || wait_exit=$?
 
   if [[ "$wait_exit" -ne 0 ]]; then
     local phase
@@ -377,7 +378,7 @@ _level2_verify_cycle() {
   log "Verifying cycle ${cycle_index} for workflow: $workflow_name"
 
   # 1. Workflow Succeeded 검증
-  assert_workflow_succeeded "$workflow_name" "$NAMESPACE"
+  assert_workflow_succeeded "$workflow_name" "$NAMESPACE" || return 1
 
   # 2. router_decision 검증 (assertions.router_decisions 배열)
   local router_decision
@@ -639,5 +640,20 @@ main() {
 
   log "All scenarios completed"
 }
+
+# ── Source guard (after all function definitions) ────────────────────────────
+if [[ "${_SOURCE_ONLY}" == "1" ]]; then
+  return 0 2>/dev/null || true
+fi
+
+# ── Level별 kube context 및 필수 변수 설정 (arg parsing 후) ─────────────────
+# Level ②: GITHUB_TEST_REPO 불필요, kube context 기본값 다름
+if [[ "${LEVEL}" == "2" ]]; then
+  KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+else
+  KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-full}"
+  # Level ③은 GITHUB_TEST_REPO 필수
+  GITHUB_TEST_REPO="${GITHUB_TEST_REPO:?GITHUB_TEST_REPO is not set}"
+fi
 
 main "$@"

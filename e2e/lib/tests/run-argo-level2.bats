@@ -909,9 +909,6 @@ YAML
   local orig_scenarios_dir="$SCENARIOS_DIR"
   export SCENARIOS_DIR="$FIXTURE_DIR"
 
-  # Create the file with exactly the expected name
-  cp "$yaml_file" "$FIXTURE_DIR/no-cycles.yaml"
-
   yq() {
     case "${*}" in
       *"cycles | length"*)
