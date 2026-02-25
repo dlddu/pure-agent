@@ -315,14 +315,14 @@ _level2_submit_mock_workflow() {
       -n "$NAMESPACE" \
       --context "$KUBE_CONTEXT" \
       --dry-run=client -o yaml \
-      | kubectl apply -f - -n "$NAMESPACE" --context "$KUBE_CONTEXT"
+      | kubectl apply -f - -n "$NAMESPACE" --context "$KUBE_CONTEXT" >/dev/null
   else
     # 빈 ConfigMap 생성 (depth-limit 시나리오처럼 export_config가 null인 경우)
     kubectl create configmap "$cm_name_safe" \
       -n "$NAMESPACE" \
       --context "$KUBE_CONTEXT" \
       --dry-run=client -o yaml \
-      | kubectl apply -f - -n "$NAMESPACE" --context "$KUBE_CONTEXT"
+      | kubectl apply -f - -n "$NAMESPACE" --context "$KUBE_CONTEXT" >/dev/null
   fi
 
   log "Submitting mock Argo Workflow (scenario=$scenario_name, cycle=$cycle_index, max_depth=$max_depth)"
