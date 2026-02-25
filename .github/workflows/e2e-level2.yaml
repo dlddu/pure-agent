@@ -1,0 +1,250 @@
+name: "E2E: Level 2 (mock-agent + mock-api)"
+# DLD-466: Level ② e2e 테스트 작성 (skipped)
+#
+# 이 워크플로우는 현재 전체가 skip 상태입니다.
+# skip 제거 시 (if: false 조건 삭제) 바로 실행 가능한 구조입니다.
+#
+# Level ③ (e2e-full.yaml) 대비 주요 차이점:
+#   - secrets 불필요 (LINEAR_API_KEY, GH_PAT, CLAUDE_CODE_OAUTH_TOKEN)
+#   - 빌드 대상: mock-agent, mock-api 이미지만
+#   - 실제 Claude Agent / Linear / GitHub API 호출 없음
+#   - kind 클러스터에서 mock-api Deployment + Service를 배포하여 실행
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "실행할 시나리오 (all 또는 시나리오명)"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - "all"
+          - "continue-then-stop"
+          - "depth-limit"
+          - "create-pr-action"
+          - "none-action"
+          - "report-action"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CLUSTER_NAME: "pure-agent-e2e-level2"
+  ARGO_NAMESPACE: "argo"
+  PURE_AGENT_NAMESPACE: "pure-agent"
+  KIND_VERSION: "v0.22.0"
+  ARGO_VERSION: "v3.6.4"
+  YQ_VERSION: "v4.43.1"
+  MOCK_AGENT_IMAGE: "ghcr.io/dlddu/pure-agent/mock-agent:latest"
+  MOCK_API_IMAGE: "ghcr.io/dlddu/pure-agent/mock-api:latest"
+
+jobs:
+  e2e-level2:
+    # TODO: Activate when DLD-466 is implemented (remove the if: false line below)
+    if: false
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Tool installation ─────────────────────────────────────────────────
+      - name: Install dependencies (kind, kubectl, argo CLI, jq, yq)
+        run: |
+          set -euo pipefail
+
+          # kind
+          sudo curl -Lo /usr/local/bin/kind \
+            "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-arm64"
+          sudo chmod +x /usr/local/bin/kind
+
+          # kubectl
+          sudo curl -Lo /usr/local/bin/kubectl \
+            "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
+          sudo chmod +x /usr/local/bin/kubectl
+
+          # argo CLI
+          curl -sLO "https://github.com/argoproj/argo-workflows/releases/download/${ARGO_VERSION}/argo-linux-arm64.gz"
+          gunzip argo-linux-arm64.gz
+          chmod +x argo-linux-arm64
+          sudo mv argo-linux-arm64 /usr/local/bin/argo
+
+          # jq, curl (ubuntu에 포함되어 있으나 명시적 보장)
+          sudo apt-get update -q && sudo apt-get install -y -q jq curl
+
+          # yq (YAML 파싱용)
+          sudo curl -Lo /usr/local/bin/yq \
+            "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_arm64"
+          sudo chmod +x /usr/local/bin/yq
+
+      # ── Cluster setup ─────────────────────────────────────────────────────
+      - name: Set up kind cluster and install Argo Workflows
+        run: |
+          bash e2e/lib/setup-kind.sh \
+            --cluster-name "$CLUSTER_NAME"
+
+      # ── Build mock images (Level ② 전용: mock-agent, mock-api のみ) ───────
+      - name: Build mock-agent image
+        uses: ./.github/actions/build-image
+        with:
+          service: e2e/mock-agent
+          push: "false"
+
+      - name: Build mock-api image
+        uses: ./.github/actions/build-image
+        with:
+          service: e2e/mock-api
+          push: "false"
+
+      - name: Load mock images into kind cluster
+        run: |
+          bash e2e/lib/setup-kind.sh \
+            --cluster-name "$CLUSTER_NAME" \
+            --images "${MOCK_AGENT_IMAGE},${MOCK_API_IMAGE}"
+
+      # ── Kubernetes namespace setup ────────────────────────────────────────
+      - name: Create namespace for pure-agent (Level 2)
+        run: |
+          set -euo pipefail
+          kubectl --context "kind-${CLUSTER_NAME}" create namespace "$PURE_AGENT_NAMESPACE" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # Level ② 用ダミーシークレット (mock なので実際の値は不要)
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create secret generic mcp-server-secrets \
+              --from-literal=LINEAR_API_KEY="mock-key" \
+              --from-literal=LINEAR_TEAM_ID="mock-team" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create secret generic export-handler-secrets \
+              --from-literal=LINEAR_API_KEY="mock-key" \
+              --from-literal=GITHUB_TOKEN="mock-token" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create secret generic agent-secrets \
+              --from-literal=CLAUDE_CODE_OAUTH_TOKEN="mock-token" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create secret generic router-secrets \
+              --from-literal=AWS_S3_BUCKET_NAME="mock-bucket" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+      # ── Deploy mock-api as a Service in the cluster ───────────────────────
+      - name: Deploy mock-api Deployment and Service
+        run: |
+          set -euo pipefail
+          cat <<EOF | kubectl --context "kind-${CLUSTER_NAME}" apply -n "$PURE_AGENT_NAMESPACE" -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: mock-api
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: mock-api
+            template:
+              metadata:
+                labels:
+                  app: mock-api
+              spec:
+                containers:
+                  - name: mock-api
+                    image: ${MOCK_API_IMAGE}
+                    imagePullPolicy: IfNotPresent
+                    ports:
+                      - containerPort: 4000
+                    env:
+                      - name: PORT
+                        value: "4000"
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: mock-api
+          spec:
+            selector:
+              app: mock-api
+            ports:
+              - port: 4000
+                targetPort: 4000
+          EOF
+
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            -n "$PURE_AGENT_NAMESPACE" \
+            rollout status deployment/mock-api --timeout=60s
+
+      # ── Apply K8s resources ────────────────────────────────────────────────
+      - name: Apply K8s resources (RBAC, ConfigMap, NetworkPolicy)
+        run: |
+          set -euo pipefail
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            apply -n "$PURE_AGENT_NAMESPACE" -f k8s/rbac.yaml
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            apply -n "$PURE_AGENT_NAMESPACE" -f k8s/configmap.yaml
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            apply -n "$PURE_AGENT_NAMESPACE" -f k8s/network-policy.yaml
+
+      # ── Apply WorkflowTemplate (mock-agent 用パッチ) ───────────────────────
+      - name: Apply Argo WorkflowTemplate (patched for Level 2)
+        run: |
+          set -euo pipefail
+
+          cp k8s/workflow-template.yaml /tmp/workflow-template-level2.yaml
+
+          # kind 호환 패치: storageClassName, accessMode, nodeSelector, tolerations
+          sed -i 's/storageClassName: efs/storageClassName: standard/' \
+            /tmp/workflow-template-level2.yaml
+          sed -i 's/ReadWriteMany/ReadWriteOnce/' \
+            /tmp/workflow-template-level2.yaml
+          yq -i 'del(.spec.templates[].nodeSelector)' \
+            /tmp/workflow-template-level2.yaml
+          yq -i 'del(.spec.templates[].tolerations)' \
+            /tmp/workflow-template-level2.yaml
+
+          # imagePullPolicy: IfNotPresent (kind ローカル画像)
+          yq -i '(.spec.templates[] | select(has("container")) | .container.imagePullPolicy) = "IfNotPresent"' \
+            /tmp/workflow-template-level2.yaml
+
+          # mock-agent 이미지로 claude-agent 이미지를 대체
+          yq -i "(.spec.templates[] | select(.name == \"run-agent\") | .container.image) = \"${MOCK_AGENT_IMAGE}\"" \
+            /tmp/workflow-template-level2.yaml
+
+          # mock-api URL을 환경 변수로 주입 (MCP_SERVER_URL, LINEAR_API_URL 등)
+          # WorkflowTemplate의 env에 MOCK_API_URL 추가
+          yq -i "(.spec.templates[] | select(has(\"container\")) | .container.env) += [{\"name\": \"MOCK_API_URL\", \"value\": \"http://mock-api.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4000\"}]" \
+            /tmp/workflow-template-level2.yaml
+
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            apply -n "$PURE_AGENT_NAMESPACE" -f /tmp/workflow-template-level2.yaml
+
+      # ── Run Level 2 E2E scenarios ─────────────────────────────────────────
+      - name: Run Level 2 E2E scenarios (run-argo.sh --level 2)
+        env:
+          KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
+          MOCK_AGENT_IMAGE: ${{ env.MOCK_AGENT_IMAGE }}
+          MOCK_API_URL: "http://mock-api.${{ env.PURE_AGENT_NAMESPACE }}.svc.cluster.local:4000"
+        run: |
+          bash e2e/run-argo.sh \
+            --level 2 \
+            --scenario "${{ github.event.inputs.scenario || 'all' }}" \
+            --namespace "$PURE_AGENT_NAMESPACE" \
+            --context "kind-${CLUSTER_NAME}"
+
+      # ── Teardown ──────────────────────────────────────────────────────────
+      - name: Tear down kind cluster
+        if: always()
+        run: |
+          kind delete cluster --name "$CLUSTER_NAME" || true
