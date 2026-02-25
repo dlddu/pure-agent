@@ -318,22 +318,50 @@ _level2_submit_mock_workflow() {
 
   log "Submitting mock Argo Workflow (scenario=$scenario_name, cycle=$cycle_index, max_depth=$max_depth)"
 
-  # Argo Workflow 제출 — mock-agent 이미지와 SCENARIO_DIR(ConfigMap 마운트)를 사용
-  local submit_output
-  submit_output=$(argo submit \
-    --from workflowtemplate/pure-agent \
+  # WorkflowTemplate을 Workflow로 변환하고 ConfigMap 볼륨 마운트를 패치
+  local wf_file
+  wf_file=$(mktemp "/tmp/e2e-level2-workflow-XXXXXX.yaml")
+
+  # WorkflowTemplate을 export
+  kubectl get workflowtemplate pure-agent \
     -n "$NAMESPACE" \
     --context "$KUBE_CONTEXT" \
-    -p max_depth="$max_depth" \
-    -p prompt="[mock] scenario=${scenario_name} cycle=${cycle_index}" \
-    -p agent_image="$MOCK_AGENT_IMAGE" \
-    -p mock_api_url="$MOCK_API_URL" \
-    -p scenario_configmap="$cm_name_safe" \
+    -o yaml > "$wf_file"
+
+  # kind를 WorkflowTemplate에서 Workflow로 변경
+  yq -i '.kind = "Workflow"' "$wf_file"
+
+  # Workflow 전용 메타데이터 정리 (WorkflowTemplate 전용 필드 제거)
+  yq -i 'del(.metadata.resourceVersion, .metadata.uid, .metadata.creationTimestamp, .metadata.generation)' "$wf_file"
+  yq -i '.metadata.generateName = "pure-agent-mock-"' "$wf_file"
+  yq -i 'del(.metadata.name)' "$wf_file"
+
+  # 파라미터 설정 (spec.arguments.parameters 배열에 직접 값 주입)
+  yq -i "(.spec.arguments.parameters[] | select(.name == \"max_depth\") | .value) = \"${max_depth}\"" "$wf_file"
+  yq -i "(.spec.arguments.parameters[] | select(.name == \"prompt\") | .value) = \"[mock] scenario=${scenario_name} cycle=${cycle_index}\"" "$wf_file"
+
+  # agent-job 템플릿에 ConfigMap 볼륨 추가
+  yq -i "(.spec.templates[] | select(.name == \"agent-job\") | .volumes) += [{\"name\": \"scenario-fixtures\", \"configMap\": {\"name\": \"${cm_name_safe}\"}}]" "$wf_file"
+
+  # agent-job 컨테이너에 볼륨 마운트 추가
+  yq -i "(.spec.templates[] | select(.name == \"agent-job\") | .container.volumeMounts) += [{\"name\": \"scenario-fixtures\", \"mountPath\": \"/scenario\"}]" "$wf_file"
+
+  # SCENARIO_DIR 환경변수 추가
+  yq -i "(.spec.templates[] | select(.name == \"agent-job\") | .container.env) += [{\"name\": \"SCENARIO_DIR\", \"value\": \"/scenario\"}]" "$wf_file"
+
+  # Workflow YAML 직접 submit
+  local submit_output
+  submit_output=$(argo submit "$wf_file" \
+    -n "$NAMESPACE" \
+    --context "$KUBE_CONTEXT" \
     --output json 2>&1) || {
       warn "Argo workflow submission failed (scenario=$scenario_name, cycle=$cycle_index):"
       echo "$submit_output" >&2
+      rm -f "$wf_file"
       die "Workflow submission failed for: $scenario_name cycle $cycle_index"
     }
+
+  rm -f "$wf_file"
 
   local workflow_name
   workflow_name=$(echo "$submit_output" | jq -r '.metadata.name')
