@@ -54,21 +54,23 @@ log()  { echo "[run-argo] $*" >&2; }
 warn() { echo "[run-argo] WARN: $*" >&2; }
 die()  { echo "[run-argo] ERROR: $*" >&2; exit 1; }
 
-# ── Source guard (must be before arg parsing) ────────────────────────────────
-if [[ "${1:-}" == "--source-only" ]]; then
-  return 0 2>/dev/null || true
-fi
-
 # ── Arg parsing ──────────────────────────────────────────────────────────────
+_SOURCE_ONLY=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --scenario)   SCENARIO="$2";   shift 2 ;;
-    --level)      LEVEL="$2";      shift 2 ;;
-    --namespace)  NAMESPACE="$2";  shift 2 ;;
-    --context)    KUBE_CONTEXT="$2"; shift 2 ;;
-    *)            die "Unknown argument: $1" ;;
+    --scenario)    SCENARIO="$2";      shift 2 ;;
+    --level)       LEVEL="$2";         shift 2 ;;
+    --namespace)   NAMESPACE="$2";     shift 2 ;;
+    --context)     KUBE_CONTEXT="$2";  shift 2 ;;
+    --source-only) _SOURCE_ONLY=1;     shift   ;;
+    *)             die "Unknown argument: $1" ;;
   esac
 done
+
+# ── Source guard (after arg parsing, before level-specific config) ────────────
+if [[ "${_SOURCE_ONLY}" == "1" ]]; then
+  return 0 2>/dev/null || true
+fi
 
 # ── Level별 kube context 및 필수 변수 설정 (arg parsing 후) ─────────────────
 # Level ②: GITHUB_TEST_REPO 불필요, kube context 기본값 다름
