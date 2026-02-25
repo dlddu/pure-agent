@@ -209,8 +209,10 @@ assert_work_dir_clean() {
     -o json 2>/dev/null \
     | jq -r '[.status.nodes // {} | to_entries[] | .value
                | select(.templateName | ascii_downcase | contains("cleanup"))]
-              | if length > 0 then .[0].phase else "NotFound" end') \
+              | if length > 0 then .[0].phase else "NotFound" end' 2>/dev/null) \
     || _argo_assert_fail "assert_work_dir_clean: kubectl/jq failed for workflow $workflow_name"
+  # Default to "NotFound" if jq returned empty (kubectl returned empty string or invalid JSON)
+  cleanup_phase="${cleanup_phase:-NotFound}"
 
   if [[ "$cleanup_phase" == "NotFound" ]]; then
     _argo_assert_log "WARN assert_work_dir_clean: no cleanup node found — skipping phase check"

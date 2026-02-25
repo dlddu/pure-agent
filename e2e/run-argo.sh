@@ -39,15 +39,24 @@ MOCK_API_URL="${MOCK_API_URL:-http://mock-api.${NAMESPACE}.svc.cluster.local:400
 # ── Source shared libraries ──────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${SCRIPT_DIR}/lib"
-SCENARIOS_DIR="${SCRIPT_DIR}/scenarios"
+SCENARIOS_DIR="${SCENARIOS_DIR:-${SCRIPT_DIR}/scenarios}"
 # shellcheck source=lib/setup-real.sh
-source "$LIB_DIR/setup-real.sh" --source-only
+if ! declare -f setup_linear_test_issue > /dev/null 2>&1; then
+  source "$LIB_DIR/setup-real.sh" --source-only
+fi
 # shellcheck source=lib/teardown-real.sh
-source "$LIB_DIR/teardown-real.sh" --source-only
+if ! declare -f teardown_linear_issue > /dev/null 2>&1; then
+  source "$LIB_DIR/teardown-real.sh" --source-only
+fi
 # shellcheck source=lib/verify-real.sh
-source "$LIB_DIR/verify-real.sh" --source-only
+if ! declare -f verify_linear_comment > /dev/null 2>&1; then
+  source "$LIB_DIR/verify-real.sh" --source-only
+fi
 # shellcheck source=lib/assertions-argo.sh
-source "$LIB_DIR/assertions-argo.sh" --source-only
+# Only source if not already stubbed (allows test overrides)
+if ! declare -f assert_workflow_succeeded > /dev/null 2>&1; then
+  source "$LIB_DIR/assertions-argo.sh" --source-only
+fi
 
 # ── Logging (override library prefixes) ──────────────────────────────────────
 log()  { echo "[run-argo] $*" >&2; }
@@ -167,10 +176,10 @@ run_argo_workflow() {
   log "Submitted workflow: $workflow_name — waiting up to ${WORKFLOW_TIMEOUT}s"
 
   local wait_exit=0
+  # Export argo function if it exists as a shell function (for testability)
+  declare -f argo > /dev/null 2>&1 && export -f argo || true
   timeout "${WORKFLOW_TIMEOUT}s" \
-    argo wait "$workflow_name" \
-      -n "$NAMESPACE" \
-      --context "$KUBE_CONTEXT" || wait_exit=$?
+    bash -c "argo wait \"$workflow_name\" -n \"$NAMESPACE\" --context \"$KUBE_CONTEXT\"" || wait_exit=$?
 
   # Always fetch workflow status for diagnostics
   local workflow_output
@@ -227,6 +236,7 @@ run_argo_workflow() {
 #   $2  cycle_index  — 배치할 cycle 인덱스 (0-based)
 #   $3  scenario_dir — 파일을 배치할 디렉토리
 #
+if ! declare -f _level2_place_cycle_fixtures > /dev/null 2>&1; then
 _level2_place_cycle_fixtures() {
   local yaml_file="$1"
   local cycle_index="$2"
@@ -259,6 +269,7 @@ _level2_place_cycle_fixtures() {
     rm -f "${scenario_dir}/agent_result.txt"
   fi
 }
+fi
 
 # _level2_submit_mock_workflow: mock-agent를 사용하여 Argo Workflow를 제출합니다.
 # SCENARIO_DIR ConfigMap을 생성하고 Workflow를 제출합니다.
@@ -271,6 +282,7 @@ _level2_place_cycle_fixtures() {
 #
 # 출력: workflow name
 #
+if ! declare -f _level2_submit_mock_workflow > /dev/null 2>&1; then
 _level2_submit_mock_workflow() {
   local scenario_name="$1"
   local cycle_index="$2"
@@ -334,10 +346,10 @@ _level2_submit_mock_workflow() {
 
   # Workflow 완료 대기
   local wait_exit=0
+  # Export argo function if it exists as a shell function (for testability)
+  declare -f argo > /dev/null 2>&1 && export -f argo || true
   timeout "${WORKFLOW_TIMEOUT}s" \
-    argo wait "$workflow_name" \
-      -n "$NAMESPACE" \
-      --context "$KUBE_CONTEXT" || wait_exit=$?
+    bash -c "argo wait \"$workflow_name\" -n \"$NAMESPACE\" --context \"$KUBE_CONTEXT\"" || wait_exit=$?
 
   if [[ "$wait_exit" -ne 0 ]]; then
     local phase
@@ -354,6 +366,7 @@ _level2_submit_mock_workflow() {
 
   echo "$workflow_name"
 }
+fi
 
 # _level2_verify_cycle: 단일 cycle 검증 (assertions 필드 기반)
 #
@@ -362,6 +375,7 @@ _level2_submit_mock_workflow() {
 #   $2  workflow_name  — 완료된 workflow 이름
 #   $3  cycle_index    — 검증 중인 cycle 인덱스
 #
+if ! declare -f _level2_verify_cycle > /dev/null 2>&1; then
 _level2_verify_cycle() {
   local yaml_file="$1"
   local workflow_name="$2"
@@ -407,6 +421,7 @@ _level2_verify_cycle() {
 
   log "Cycle ${cycle_index} verification passed"
 }
+fi
 
 # run_scenario_level2: Level ② シナリオ実行 (mock-agent + mock-api)
 # cycles[]を순회하며 mock-agent 방식으로 실행하고 검증합니다.
@@ -632,6 +647,6 @@ main() {
   log "All scenarios completed"
 }
 
-if [[ "${1:-}" != "--source-only" ]]; then
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   main "$@"
 fi
