@@ -220,6 +220,10 @@ jobs:
           yq -i "(.spec.templates[] | select(.name == \"agent-job\") | .container.image) = \"${MOCK_AGENT_IMAGE}\"" \
             /tmp/workflow-template-level2.yaml
 
+          # mock-agent entrypoint 경로 설정 (claude-agent와 다름)
+          yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.command) = ["/app/entrypoint.sh"]' \
+            /tmp/workflow-template-level2.yaml
+
           # mock-api URL을 환경 변수로 주입 (MCP_SERVER_URL, LINEAR_API_URL 등)
           # WorkflowTemplate의 env에 MOCK_API_URL 추가
           yq -i "(.spec.templates[] | select(has(\"container\")) | .container.env) += [{\"name\": \"MOCK_API_URL\", \"value\": \"http://mock-api.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4000\"}]" \
