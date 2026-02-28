@@ -48,4 +48,5 @@ load_assertions_argo() {
 }
 
 # Resolve the repository root (two levels above e2e/lib/).
-REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../../.." && pwd)"
+# shellcheck disable=SC2034  # Used by bats test files that source this helper
+export REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../../.." && pwd)"

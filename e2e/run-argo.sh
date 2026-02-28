@@ -33,7 +33,7 @@ WORKFLOW_TIMEOUT="${WORKFLOW_TIMEOUT:-600}"  # seconds
 GITHUB_TEST_BRANCH_PREFIX="e2e-test"
 
 # Level ② 전용 설정 (arg parsing 전 환경 변수 기반 기본값 설정)
-MOCK_AGENT_IMAGE="${MOCK_AGENT_IMAGE:-ghcr.io/dlddu/pure-agent/mock-agent:latest}"
+MOCK_AGENT_IMAGE="${MOCK_AGENT_IMAGE:-ghcr.io/dlddu/pure-agent/e2e/mock-agent:latest}"
 MOCK_API_URL="${MOCK_API_URL:-http://mock-api.${NAMESPACE}.svc.cluster.local:4000}"
 
 # ── Source shared libraries ──────────────────────────────────────────────────
