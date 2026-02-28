@@ -49,8 +49,6 @@ env:
 
 jobs:
   e2e-level2:
-    # TODO: Activate when DLD-466 is implemented (remove the if: false line below)
-    if: false
     runs-on: ubuntu-24.04-arm
 
     steps:

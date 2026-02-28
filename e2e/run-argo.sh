@@ -2,7 +2,7 @@
 # e2e/run-argo.sh — Level ② / Level ③ E2E runner: kind + Argo
 #
 # DLD-465: Level ③ 풀 e2e를 실제로 동작하게 구현.
-# DLD-466: Level ② e2e 테스트 작성 (skipped) — mock-agent + mock-api 기반.
+# DLD-466: Level ② e2e 테스트 작성. — mock-agent + mock-api 기반.
 #
 # 시나리오 정의는 e2e/scenarios/<name>.yaml 파일에서 읽습니다.
 # YAML의 real.setup/teardown/max_depth 및 assertions 섹션을 사용하여
@@ -83,11 +83,8 @@ fi
 # ── Prerequisites check ──────────────────────────────────────────────────────
 check_prerequisites() {
   if [[ "${LEVEL}" == "2" ]]; then
-    # TODO: Activate when DLD-466 is implemented (remove the skip line below)
     # Level ② prerequisites: kind/kubectl/argo/jq/yq のみ確認。
     # LINEAR_API_KEY / GITHUB_TOKEN は不要。
-    echo "[SKIP] check_prerequisites (Level 2): Not yet implemented (DLD-466)" && return 0
-
     command -v argo    >/dev/null 2>&1 || die "argo CLI is not installed"
     command -v kubectl >/dev/null 2>&1 || die "kubectl is not installed"
     command -v jq      >/dev/null 2>&1 || die "jq is not installed"
@@ -224,7 +221,7 @@ run_argo_workflow() {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# LEVEL ② RUNNER (DLD-466 — skip 상태)
+# LEVEL ② RUNNER (DLD-466)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # _level2_place_cycle_fixtures: cycle 인덱스에 맞는 export_config.json, agent_result.txt를
@@ -235,10 +232,7 @@ run_argo_workflow() {
 #   $2  cycle_index  — 배치할 cycle 인덱스 (0-based)
 #   $3  scenario_dir — 파일을 배치할 디렉토리
 #
-# TODO: Activate when DLD-466 is implemented (remove the skip line below)
 _level2_place_cycle_fixtures() {
-  echo "[SKIP] _level2_place_cycle_fixtures: Not yet implemented (DLD-466)" && return 0
-
   local yaml_file="$1"
   local cycle_index="$2"
   local scenario_dir="$3"
@@ -282,10 +276,7 @@ _level2_place_cycle_fixtures() {
 #
 # 출력: workflow name
 #
-# TODO: Activate when DLD-466 is implemented (remove the skip line below)
 _level2_submit_mock_workflow() {
-  echo "[SKIP] _level2_submit_mock_workflow: Not yet implemented (DLD-466)" && return 0
-
   local scenario_name="$1"
   local cycle_index="$2"
   local max_depth="${3:-5}"
@@ -376,10 +367,7 @@ _level2_submit_mock_workflow() {
 #   $2  workflow_name  — 완료된 workflow 이름
 #   $3  cycle_index    — 검증 중인 cycle 인덱스
 #
-# TODO: Activate when DLD-466 is implemented (remove the skip line below)
 _level2_verify_cycle() {
-  echo "[SKIP] _level2_verify_cycle: Not yet implemented (DLD-466)" && return 0
-
   local yaml_file="$1"
   local workflow_name="$2"
   local cycle_index="$3"
@@ -431,10 +419,7 @@ _level2_verify_cycle() {
 # Arguments:
 #   $1  scenario_name  — 시나리오 이름
 #
-# TODO: Activate when DLD-466 is implemented (remove the skip line below)
 run_scenario_level2() {
-  echo "[SKIP] run_scenario_level2: Not yet implemented (DLD-466)" && return 0
-
   local scenario_name="$1"
   local yaml_file="${SCENARIOS_DIR}/${scenario_name}.yaml"
 
@@ -545,7 +530,6 @@ run_scenario() {
     || die "Scenario YAML not found: $yaml_file"
 
   # Level ② 분기 — mock-agent + mock-api 기반 실행
-  # TODO: Activate when DLD-466 is implemented (remove the skip block below)
   if [[ "${LEVEL}" == "2" ]]; then
     run_scenario_level2 "$scenario_name"
     return 0

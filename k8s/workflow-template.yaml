@@ -34,6 +34,12 @@ spec:
         value: "10"
       - name: prompt
         value: ""
+      - name: agent_image
+        value: "ghcr.io/dlddu/pure-agent/claude-agent:latest"
+      - name: scenario_configmap
+        value: ""
+      - name: mock_api_url
+        value: ""
 
   volumeClaimTemplates:
     - metadata:
@@ -241,8 +247,13 @@ spec:
           operator: "Equal"
           value: "on-demand"
           effect: "NoSchedule"
+      volumes:
+        - name: scenario-data
+          configMap:
+            name: "{{workflow.parameters.scenario_configmap}}"
+            optional: true
       container:
-        image: ghcr.io/dlddu/pure-agent/claude-agent:latest
+        image: "{{workflow.parameters.agent_image}}"
         command: ["/home/claude/entrypoint.sh"]
         resources:
           requests:
@@ -263,9 +274,14 @@ spec:
               secretKeyRef:
                 name: agent-secrets
                 key: CLAUDE_CODE_OAUTH_TOKEN
+          - name: SCENARIO_DIR
+            value: "/scenario"
         volumeMounts:
           - name: workdir
             mountPath: /work
+          - name: scenario-data
+            mountPath: /scenario
+            readOnly: true
 
     # =============================
     # Router

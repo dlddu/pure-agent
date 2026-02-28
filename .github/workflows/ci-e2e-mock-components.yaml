@@ -7,6 +7,9 @@ on:
       - "e2e/mock-agent/**"
       - "e2e/mock-gh/**"
       - "e2e/lib/**"
+      - "k8s/workflow-template.yaml"
+      - "k8s/rbac.yaml"
+      - ".github/workflows/e2e-level2.yaml"
       - ".github/workflows/ci-e2e-mock-components.yaml"
   pull_request:
     branches: [main]
@@ -14,6 +17,9 @@ on:
       - "e2e/mock-agent/**"
       - "e2e/mock-gh/**"
       - "e2e/lib/**"
+      - "k8s/workflow-template.yaml"
+      - "k8s/rbac.yaml"
+      - ".github/workflows/e2e-level2.yaml"
       - ".github/workflows/ci-e2e-mock-components.yaml"
   workflow_dispatch:
 
@@ -78,3 +84,15 @@ jobs:
 
       - name: Run BATS tests for runner.sh
         run: bats e2e/lib/tests/runner.bats
+
+      - name: Run BATS tests for assertions-argo.sh (DLD-467)
+        run: bats e2e/lib/tests/assertions-argo.bats
+
+      - name: Run BATS tests for k8s manifests (DLD-467)
+        run: bats e2e/lib/tests/k8s-manifests.bats
+
+      - name: Run BATS tests for run-argo.sh Level 2 (DLD-467)
+        run: bats e2e/lib/tests/run-argo-level2.bats
+
+      - name: Run BATS tests for CI level2 workflow (DLD-467)
+        run: bats e2e/lib/tests/ci-level2.bats
