@@ -46,6 +46,9 @@ env:
   YQ_VERSION: "v4.43.1"
   MOCK_AGENT_IMAGE: "ghcr.io/dlddu/pure-agent/e2e/mock-agent:latest"
   MOCK_API_IMAGE: "ghcr.io/dlddu/pure-agent/e2e/mock-api:latest"
+  ROUTER_IMAGE: "ghcr.io/dlddu/pure-agent/router:latest"
+  MCP_SERVER_IMAGE: "ghcr.io/dlddu/pure-agent/mcp-server:latest"
+  EXPORT_HANDLER_IMAGE: "ghcr.io/dlddu/pure-agent/export-handler:latest"
 
 jobs:
   e2e-level2:
@@ -103,11 +106,29 @@ jobs:
           service: e2e/mock-api
           push: "false"
 
-      - name: Load mock images into kind cluster
+      - name: Build router image
+        uses: ./.github/actions/build-image
+        with:
+          service: router
+          push: "false"
+
+      - name: Build mcp-server image
+        uses: ./.github/actions/build-image
+        with:
+          service: mcp-server
+          push: "false"
+
+      - name: Build export-handler image
+        uses: ./.github/actions/build-image
+        with:
+          service: export-handler
+          push: "false"
+
+      - name: Load images into kind cluster
         run: |
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME" \
-            --images "${MOCK_AGENT_IMAGE},${MOCK_API_IMAGE}"
+            --images "${MOCK_AGENT_IMAGE},${MOCK_API_IMAGE},${ROUTER_IMAGE},${MCP_SERVER_IMAGE},${EXPORT_HANDLER_IMAGE}"
 
       # ── Kubernetes namespace setup ────────────────────────────────────────
       - name: Create namespace for pure-agent (Level 2)
