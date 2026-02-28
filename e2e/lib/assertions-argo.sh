@@ -94,8 +94,8 @@ assert_daemon_pods_ready() {
 }
 
 # ── assert_run_cycle_count ────────────────────────────────────────────────────
-# Argo Workflow 노드 트리에서 run-cycle 템플릿 호출 횟수를 검증합니다.
-# continue-then-stop 시나리오: run-cycle이 정확히 2회 실행됐는지 확인합니다.
+# Argo Workflow 노드 트리에서 agent-job Pod 실행 횟수를 검증합니다.
+# continue-then-stop 시나리오: agent-job Pod가 정확히 기대하는 횟수만큼 실행됐는지 확인합니다.
 #
 # Arguments:
 #   $1  workflow_name    — argo workflow 이름
@@ -117,7 +117,7 @@ assert_run_cycle_count() {
     --context "$kube_context" \
     -o json 2>/dev/null \
     | jq '[.status.nodes // {} | to_entries[] | .value
-           | select(.templateName == "run-cycle" and .type == "Pod")]
+           | select(.templateName == "agent-job" and .type == "Pod")]
           | length') \
     || { _argo_assert_fail "assert_run_cycle_count: kubectl/jq failed for workflow $workflow_name"; return 1; }
 
@@ -171,7 +171,7 @@ assert_max_depth_termination() {
     --context "$kube_context" \
     -o json 2>/dev/null \
     | jq '[.status.nodes // {} | to_entries[] | .value
-           | select(.templateName == "run-cycle" and .type == "Pod")]
+           | select(.templateName == "agent-job" and .type == "Pod")]
           | length') \
     || { _argo_assert_fail "assert_max_depth_termination: jq failed for workflow $workflow_name"; return 1; }
 

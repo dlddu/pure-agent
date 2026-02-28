@@ -163,14 +163,14 @@ setup() {
 # ── assert_run_cycle_count ─────────────────────────────────────────────────────
 
 @test "assert_run_cycle_count: passes when actual count matches expected" {
-  # Arrange — mock kubectl to return workflow JSON with 2 run-cycle Pod nodes
+  # Arrange — mock kubectl to return workflow JSON with 2 agent-job Pod nodes
   kubectl() {
     cat <<'JSON'
 {
   "status": {
     "nodes": {
-      "node-1": {"templateName": "run-cycle", "type": "Pod", "phase": "Succeeded"},
-      "node-2": {"templateName": "run-cycle", "type": "Pod", "phase": "Succeeded"},
+      "node-1": {"templateName": "agent-job", "type": "Pod", "phase": "Succeeded"},
+      "node-2": {"templateName": "agent-job", "type": "Pod", "phase": "Succeeded"},
       "node-3": {"templateName": "main",      "type": "DAG", "phase": "Succeeded"}
     }
   }
@@ -195,7 +195,7 @@ JSON
 {
   "status": {
     "nodes": {
-      "node-1": {"templateName": "run-cycle", "type": "Pod", "phase": "Succeeded"}
+      "node-1": {"templateName": "agent-job", "type": "Pod", "phase": "Succeeded"}
     }
   }
 }
@@ -210,13 +210,13 @@ JSON
 }
 
 @test "assert_run_cycle_count: fails when actual count is less than expected" {
-  # Arrange — only 1 run-cycle node
+  # Arrange — only 1 agent-job node
   kubectl() {
     cat <<'JSON'
 {
   "status": {
     "nodes": {
-      "node-1": {"templateName": "run-cycle", "type": "Pod", "phase": "Succeeded"}
+      "node-1": {"templateName": "agent-job", "type": "Pod", "phase": "Succeeded"}
     }
   }
 }
@@ -231,15 +231,15 @@ JSON
 }
 
 @test "assert_run_cycle_count: fails when actual count is greater than expected" {
-  # Arrange — 3 run-cycle nodes, expected 2
+  # Arrange — 3 agent-job nodes, expected 2
   kubectl() {
     cat <<'JSON'
 {
   "status": {
     "nodes": {
-      "n1": {"templateName": "run-cycle", "type": "Pod", "phase": "Succeeded"},
-      "n2": {"templateName": "run-cycle", "type": "Pod", "phase": "Succeeded"},
-      "n3": {"templateName": "run-cycle", "type": "Pod", "phase": "Succeeded"}
+      "n1": {"templateName": "agent-job", "type": "Pod", "phase": "Succeeded"},
+      "n2": {"templateName": "agent-job", "type": "Pod", "phase": "Succeeded"},
+      "n3": {"templateName": "agent-job", "type": "Pod", "phase": "Succeeded"}
     }
   }
 }
@@ -261,7 +261,7 @@ JSON
   "status": {
     "nodes": {
       "n1": {"templateName": "run-cycle", "type": "DAG",  "phase": "Succeeded"},
-      "n2": {"templateName": "run-cycle", "type": "Pod",  "phase": "Succeeded"}
+      "n2": {"templateName": "agent-job", "type": "Pod",  "phase": "Succeeded"}
     }
   }
 }
@@ -293,7 +293,7 @@ JSON
   # Arrange — 1 node, expecting 3
   kubectl() {
     cat <<'JSON'
-{"status":{"nodes":{"n1":{"templateName":"run-cycle","type":"Pod","phase":"Succeeded"}}}}
+{"status":{"nodes":{"n1":{"templateName":"agent-job","type":"Pod","phase":"Succeeded"}}}}
 JSON
   }
   export -f kubectl
@@ -310,7 +310,7 @@ JSON
 # ── assert_max_depth_termination ───────────────────────────────────────────────
 
 @test "assert_max_depth_termination: passes when workflow Succeeded and cycle count within max_depth" {
-  # Arrange — phase=Succeeded, 2 run-cycle nodes, max_depth=2
+  # Arrange — phase=Succeeded, 2 agent-job nodes, max_depth=2
   local call_count_file="$WORK_DIR/kubectl-calls.txt"
   echo "0" > "$call_count_file"
 
@@ -325,7 +325,7 @@ JSON
     else
       # Second call: get full JSON for cycle count
       cat <<'JSON'
-{"status":{"nodes":{"n1":{"templateName":"run-cycle","type":"Pod","phase":"Succeeded"},"n2":{"templateName":"run-cycle","type":"Pod","phase":"Succeeded"}}}}
+{"status":{"nodes":{"n1":{"templateName":"agent-job","type":"Pod","phase":"Succeeded"},"n2":{"templateName":"agent-job","type":"Pod","phase":"Succeeded"}}}}
 JSON
     fi
   }
@@ -355,7 +355,7 @@ JSON
       echo "Succeeded"
     else
       cat <<'JSON'
-{"status":{"nodes":{"n1":{"templateName":"run-cycle","type":"Pod"},"n2":{"templateName":"run-cycle","type":"Pod"},"n3":{"templateName":"run-cycle","type":"Pod"}}}}
+{"status":{"nodes":{"n1":{"templateName":"agent-job","type":"Pod"},"n2":{"templateName":"agent-job","type":"Pod"},"n3":{"templateName":"agent-job","type":"Pod"}}}}
 JSON
     fi
   }
@@ -395,7 +395,7 @@ JSON
       echo "Succeeded"
     else
       cat <<'JSON'
-{"status":{"nodes":{"n1":{"templateName":"run-cycle","type":"Pod"},"n2":{"templateName":"run-cycle","type":"Pod"},"n3":{"templateName":"run-cycle","type":"Pod"},"n4":{"templateName":"run-cycle","type":"Pod"}}}}
+{"status":{"nodes":{"n1":{"templateName":"agent-job","type":"Pod"},"n2":{"templateName":"agent-job","type":"Pod"},"n3":{"templateName":"agent-job","type":"Pod"},"n4":{"templateName":"agent-job","type":"Pod"}}}}
 JSON
     fi
   }
@@ -436,7 +436,7 @@ JSON
       echo "Succeeded"
     else
       cat <<'JSON'
-{"status":{"nodes":{"n1":{"templateName":"run-cycle","type":"Pod"},"n2":{"templateName":"run-cycle","type":"Pod"},"n3":{"templateName":"run-cycle","type":"Pod"}}}}
+{"status":{"nodes":{"n1":{"templateName":"agent-job","type":"Pod"},"n2":{"templateName":"agent-job","type":"Pod"},"n3":{"templateName":"agent-job","type":"Pod"}}}}
 JSON
     fi
   }

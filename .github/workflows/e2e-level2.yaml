@@ -192,7 +192,7 @@ jobs:
           kubectl --context "kind-${CLUSTER_NAME}" \
             apply -n "$PURE_AGENT_NAMESPACE" -f k8s/network-policy.yaml
 
-      # ── Apply WorkflowTemplate (mock-agent 用パッチ) ───────────────────────
+      # ── Apply WorkflowTemplate (mock-agent + mock-router 用パッチ) ────────
       - name: Apply Argo WorkflowTemplate (patched for Level 2)
         run: |
           set -euo pipefail
@@ -235,6 +235,44 @@ jobs:
 
           # agent-job에 scenario-data 볼륨 마운트 추가
           yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.volumeMounts) += [{"name": "scenario-data", "mountPath": "/scenario", "readOnly": true}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # ── mock-router 패치 ──────────────────────────────────────────────
+          # 실제 router 바이너리는 export_config.actions에 "continue"가 있으면
+          # depth/max_depth를 무시하고 항상 continue를 반환합니다.
+          # Level 2에서는 depth >= max_depth - 1 이면 항상 stop하는 mock router로 교체합니다.
+
+          # router 이미지를 alpine으로 교체 (실제 router 바이너리 사용하지 않음)
+          yq -i '(.spec.templates[] | select(.name == "router") | .container.image) = "alpine:3.20"' \
+            /tmp/workflow-template-level2.yaml
+
+          # router에 depth/max_depth를 환경변수로 주입 (Argo 템플릿 파라미터 → 환경변수)
+          yq -i '(.spec.templates[] | select(.name == "router") | .container.env) += [{"name": "ROUTER_DEPTH", "value": "{{inputs.parameters.depth}}"}, {"name": "ROUTER_MAX_DEPTH", "value": "{{inputs.parameters.max_depth}}"}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # router의 args를 mock-router 셸 스크립트로 교체
+          # depth >= max_depth - 1 이면 stop, 그렇지 않으면 export_config 확인
+          cat > /tmp/mock-router-script.sh <<'MOCK_ROUTER'
+          DEPTH="${ROUTER_DEPTH}"
+          MAX_DEPTH="${ROUTER_MAX_DEPTH}"
+          OUTPUT="/tmp/continue.txt"
+          echo "[mock-router] depth=$DEPTH max_depth=$MAX_DEPTH" >&2
+          if [ "$DEPTH" -ge "$((MAX_DEPTH - 1))" ]; then
+            echo "[mock-router] depth limit reached ($DEPTH >= $MAX_DEPTH - 1) -> stop" >&2
+            echo "false" > "$OUTPUT"
+          else
+            CONFIG="$EXPORT_CONFIG_JSON"
+            if echo "$CONFIG" | grep -q '"continue"'; then
+              echo "[mock-router] continue action found -> continue" >&2
+              echo "true" > "$OUTPUT"
+            else
+              echo "[mock-router] no continue action -> stop" >&2
+              echo "false" > "$OUTPUT"
+            fi
+          fi
+          MOCK_ROUTER
+          MOCK_ROUTER_SCRIPT=$(cat /tmp/mock-router-script.sh)
+          yq -i "(.spec.templates[] | select(.name == \"router\") | .container.args) = [\"$MOCK_ROUTER_SCRIPT\"]" \
             /tmp/workflow-template-level2.yaml
 
           # mock-api URL을 환경 변수로 주입

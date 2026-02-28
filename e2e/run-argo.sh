@@ -484,14 +484,19 @@ run_scenario_level2() {
 
   # --- シナリオレベルの追加検証 ---
 
-  # continue-then-stop: run-cycle 재귀 2회 검증
+  # continue-then-stop: 전체 cycle 수만큼 workflow가 실행됐는지 검증
   local scenario_name_check
   scenario_name_check=$(yaml_get "$yaml_file" '.name')
   if [[ "$scenario_name_check" == "continue-then-stop" ]]; then
-    log "continue-then-stop: verifying run-cycle count across all workflows"
-    # 複数サイクルを単一Workflowで実行する実装の場合、最後のworkflowで確認
-    local last_workflow="${all_workflow_names[${#all_workflow_names[@]}-1]}"
-    assert_run_cycle_count "$last_workflow" "$cycle_count" "$NAMESPACE"
+    log "continue-then-stop: verifying workflow count matches cycle count"
+    local wf_count="${#all_workflow_names[@]}"
+    if [[ "$wf_count" -ne "$cycle_count" ]]; then
+      die "continue-then-stop: expected $cycle_count workflows but got $wf_count"
+    fi
+    # Level 2에서는 각 workflow가 독립적으로 실행되므로 각각 1회 agent-job 확인
+    for wf_name in "${all_workflow_names[@]}"; do
+      assert_run_cycle_count "$wf_name" 1 "$NAMESPACE"
+    done
   fi
 
   # depth-limit: max_depth 종료 검증
