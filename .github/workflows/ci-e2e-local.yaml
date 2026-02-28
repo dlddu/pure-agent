@@ -1,0 +1,76 @@
+name: "CI: e2e Level 1 (Docker Compose, skipped)"
+# DLD-468: Level ① e2e 테스트 작성 (skipped)
+#
+# 모든 BATS 테스트는 skip 상태이므로 워크플로우는 항상 통과합니다.
+# DLD-468 구현 완료 후 테스트의 skip을 제거하면 실제 Docker Compose 환경에서 실행됩니다.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "e2e/tests/**"
+      - "e2e/run-local.sh"
+      - "e2e/docker-compose.yml"
+      - "e2e/scenarios/**"
+      - "e2e/lib/**"
+      - "e2e/mock-api/**"
+      - "e2e/mock-agent/**"
+      - "e2e/mock-gh/**"
+      - "router/**"
+      - "export-handler/**"
+      - ".github/workflows/ci-e2e-local.yaml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "e2e/tests/**"
+      - "e2e/run-local.sh"
+      - "e2e/docker-compose.yml"
+      - "e2e/scenarios/**"
+      - "e2e/lib/**"
+      - "e2e/mock-api/**"
+      - "e2e/mock-agent/**"
+      - "e2e/mock-gh/**"
+      - "router/**"
+      - "export-handler/**"
+      - ".github/workflows/ci-e2e-local.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ── shellcheck: run-local.sh 구문 검사 ─────────────────────────────────────
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck on run-local.sh
+        run: shellcheck -s bash -S warning e2e/run-local.sh
+
+  # ── bats: Level 1 e2e 시나리오 테스트 (skip 상태) ──────────────────────────
+  bats-e2e-local:
+    runs-on: ubuntu-latest
+    needs: shellcheck
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats jq curl
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Run Level 1 e2e BATS tests (all skipped — DLD-468 pending)
+        # 모든 테스트가 skip 상태이므로 통과합니다.
+        # DLD-468 구현 후 skip을 제거하면 Docker Compose 환경에서 실제 실행됩니다.
+        run: bats e2e/tests/run-local.bats
