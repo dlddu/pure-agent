@@ -473,11 +473,10 @@ run_scenario_level2() {
     assert_max_depth_termination "$last_workflow" "$max_depth" "$NAMESPACE"
   fi
 
-  # daemon pods ready 검증 (모든 workflow에 대해)
-  for wf_name in "${all_workflow_names[@]}"; do
-    assert_daemon_pods_ready "$wf_name" "$NAMESPACE"
-    assert_work_dir_clean "$wf_name" "$NAMESPACE"
-  done
+  # daemon pods ready / work dir cleanup 검증
+  # Level ②에서는 mock-agent만 실행되며 MCP daemon/LLM gateway 사이드카가 없으므로
+  # daemon pods ready 검증은 skip합니다. cleanup도 mock 아키텍처에서는 해당 없음.
+  log "Skipping daemon_pods_ready and work_dir_clean assertions (Level 2 mock architecture)"
 
   log "=== PASS (Level 2): $scenario_name ==="
 }
