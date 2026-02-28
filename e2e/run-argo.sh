@@ -85,10 +85,10 @@ check_prerequisites() {
   if [[ "${LEVEL}" == "2" ]]; then
     # Level ② prerequisites: kind/kubectl/argo/jq/yq のみ確認。
     # LINEAR_API_KEY / GITHUB_TOKEN は不要。
-    command -v argo    >/dev/null 2>&1 || die "argo CLI is not installed"
-    command -v kubectl >/dev/null 2>&1 || die "kubectl is not installed"
-    command -v jq      >/dev/null 2>&1 || die "jq is not installed"
-    command -v yq      >/dev/null 2>&1 || die "yq is not installed"
+    command -v argo    >/dev/null 2>&1 || { die "argo CLI is not installed"; return 1; }
+    command -v kubectl >/dev/null 2>&1 || { die "kubectl is not installed"; return 1; }
+    command -v jq      >/dev/null 2>&1 || { die "jq is not installed"; return 1; }
+    command -v yq      >/dev/null 2>&1 || { die "yq is not installed"; return 1; }
 
     log "Prerequisites OK (Level 2)"
   else
@@ -375,7 +375,7 @@ _level2_verify_cycle() {
   log "Verifying cycle ${cycle_index} for workflow: $workflow_name"
 
   # 1. Workflow Succeeded 검증
-  assert_workflow_succeeded "$workflow_name" "$NAMESPACE"
+  assert_workflow_succeeded "$workflow_name" "$NAMESPACE" || return 1
 
   # 2. router_decision 검증 (assertions.router_decisions 배열)
   local router_decision

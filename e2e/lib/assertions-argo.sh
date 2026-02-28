@@ -42,10 +42,11 @@ assert_workflow_succeeded() {
     -n "$namespace" \
     --context "$kube_context" \
     -o jsonpath='{.status.phase}' 2>/dev/null) \
-    || _argo_assert_fail "assert_workflow_succeeded: kubectl get workflow failed for $workflow_name"
+    || { _argo_assert_fail "assert_workflow_succeeded: kubectl get workflow failed for $workflow_name"; return 1; }
 
   if [[ "$phase" != "Succeeded" ]]; then
     _argo_assert_fail "assert_workflow_succeeded: expected phase 'Succeeded' but got '$phase' (workflow=$workflow_name)"
+    return 1
   fi
 
   _argo_assert_log "PASS assert_workflow_succeeded: $workflow_name phase=$phase"
@@ -86,7 +87,7 @@ assert_daemon_pods_ready() {
       --context "$kube_context" \
       --timeout="$timeout" \
       2>/dev/null \
-      || _argo_assert_fail "assert_daemon_pods_ready: MCP daemon pod not ready within $timeout (workflow=$workflow_name)"
+      || { _argo_assert_fail "assert_daemon_pods_ready: MCP daemon pod not ready within $timeout (workflow=$workflow_name)"; return 1; }
   fi
 
   _argo_assert_log "PASS assert_daemon_pods_ready: daemon pods ready for $workflow_name"
@@ -118,10 +119,11 @@ assert_run_cycle_count() {
     | jq '[.status.nodes // {} | to_entries[] | .value
            | select(.templateName == "run-cycle" and .type == "Pod")]
           | length') \
-    || _argo_assert_fail "assert_run_cycle_count: kubectl/jq failed for workflow $workflow_name"
+    || { _argo_assert_fail "assert_run_cycle_count: kubectl/jq failed for workflow $workflow_name"; return 1; }
 
   if [[ "$actual_count" -ne "$expected_count" ]]; then
     _argo_assert_fail "assert_run_cycle_count: expected $expected_count run-cycle node(s) but got $actual_count (workflow=$workflow_name)"
+    return 1
   fi
 
   _argo_assert_log "PASS assert_run_cycle_count: $actual_count run-cycle node(s) for $workflow_name"
@@ -155,10 +157,11 @@ assert_max_depth_termination() {
     -n "$namespace" \
     --context "$kube_context" \
     -o jsonpath='{.status.phase}' 2>/dev/null) \
-    || _argo_assert_fail "assert_max_depth_termination: kubectl failed for $workflow_name"
+    || { _argo_assert_fail "assert_max_depth_termination: kubectl failed for $workflow_name"; return 1; }
 
   if [[ "$phase" != "Succeeded" ]]; then
     _argo_assert_fail "assert_max_depth_termination: workflow should Succeed on max_depth but got phase='$phase' (workflow=$workflow_name)"
+    return 1
   fi
 
   # 2. run-cycle 실행 횟수가 max_depth를 초과하지 않는지 확인
@@ -170,10 +173,11 @@ assert_max_depth_termination() {
     | jq '[.status.nodes // {} | to_entries[] | .value
            | select(.templateName == "run-cycle" and .type == "Pod")]
           | length') \
-    || _argo_assert_fail "assert_max_depth_termination: jq failed for workflow $workflow_name"
+    || { _argo_assert_fail "assert_max_depth_termination: jq failed for workflow $workflow_name"; return 1; }
 
   if [[ "$cycle_count" -gt "$max_depth" ]]; then
     _argo_assert_fail "assert_max_depth_termination: run-cycle count $cycle_count exceeds max_depth $max_depth (workflow=$workflow_name)"
+    return 1
   fi
 
   _argo_assert_log "PASS assert_max_depth_termination: workflow=$workflow_name phase=$phase cycle_count=$cycle_count max_depth=$max_depth"
@@ -207,12 +211,13 @@ assert_work_dir_clean() {
     | jq -r '[.status.nodes // {} | to_entries[] | .value
                | select(.templateName | ascii_downcase | contains("cleanup"))]
               | if length > 0 then .[0].phase else "NotFound" end') \
-    || _argo_assert_fail "assert_work_dir_clean: kubectl/jq failed for workflow $workflow_name"
+    || { _argo_assert_fail "assert_work_dir_clean: kubectl/jq failed for workflow $workflow_name"; return 1; }
 
   if [[ "$cleanup_phase" == "NotFound" ]]; then
     _argo_assert_log "WARN assert_work_dir_clean: no cleanup node found — skipping phase check"
   elif [[ "$cleanup_phase" != "Succeeded" ]]; then
     _argo_assert_fail "assert_work_dir_clean: cleanup node phase='$cleanup_phase' (expected Succeeded) for workflow=$workflow_name"
+    return 1
   fi
 
   # PVC 이름 추출 (workflow name 기반, pure-agent 컨벤션)
@@ -257,9 +262,10 @@ assert_work_dir_clean() {
         local count="${line#ITEM_COUNT=}"
         if [[ "$count" -ne 0 ]]; then
           _argo_assert_fail "assert_work_dir_clean: /work has $count item(s) after cleanup (workflow=$workflow_name, pvc=$pvc_name)"
+          return 1
         fi
       } \
-    || _argo_assert_fail "assert_work_dir_clean: failed to inspect /work directory via pod (workflow=$workflow_name)"
+    || { _argo_assert_fail "assert_work_dir_clean: failed to inspect /work directory via pod (workflow=$workflow_name)"; return 1; }
 
   _argo_assert_log "PASS assert_work_dir_clean: /work is clean for workflow=$workflow_name"
 }

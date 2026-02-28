@@ -386,14 +386,20 @@ YAML
 }
 
 @test "_level2_place_cycle_fixtures: removes stale agent_result.txt when cycle has no agent_result" {
-  # Arrange — create a stale file in the output dir, then use null-result cycle
-  local yaml_file
-  yaml_file=$(write_depth_limit_scenario_yaml "depth-limit")
+  # Arrange — create a stale file in the output dir, then use a cycle with no agent_result
+  local yaml_file="$SCENARIOS_DIR/no-agent-result.yaml"
+  cat > "$yaml_file" <<YAML
+name: no-agent-result
+level: [2]
+max_depth: 2
+cycles:
+  - export_config: null
+YAML
   local out_dir="$BATS_TEST_TMPDIR/stale-out"
   mkdir -p "$out_dir"
   echo "stale content" > "$out_dir/agent_result.txt"
 
-  # Act — depth-limit cycle 0 has no agent_result (or null)
+  # Act — no-agent-result cycle 0 has no agent_result field at all
   run _level2_place_cycle_fixtures "$yaml_file" 0 "$out_dir"
 
   # Assert — stale file should be gone
