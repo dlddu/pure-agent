@@ -48,6 +48,8 @@ source "$LIB_DIR/teardown-real.sh" --source-only
 source "$LIB_DIR/verify-real.sh" --source-only
 # shellcheck source=lib/assertions-argo.sh
 source "$LIB_DIR/assertions-argo.sh" --source-only
+# shellcheck source=lib/assertions.sh
+source "$LIB_DIR/assertions.sh" --source-only
 
 # ── Logging (override library prefixes) ──────────────────────────────────────
 log()  { echo "[run-argo] $*" >&2; }
@@ -87,6 +89,7 @@ check_prerequisites() {
     # LINEAR_API_KEY / GITHUB_TOKEN は不要。
     command -v argo    >/dev/null 2>&1 || { die "argo CLI is not installed"; return 1; }
     command -v kubectl >/dev/null 2>&1 || { die "kubectl is not installed"; return 1; }
+    command -v curl    >/dev/null 2>&1 || { die "curl is not installed"; return 1; }
     command -v jq      >/dev/null 2>&1 || { die "jq is not installed"; return 1; }
     command -v yq      >/dev/null 2>&1 || { die "yq is not installed"; return 1; }
 
@@ -630,6 +633,30 @@ main() {
   log "SCENARIO=${SCENARIO}, LEVEL=${LEVEL}, NAMESPACE=${NAMESPACE}"
 
   check_prerequisites
+
+  # Level ② 전용: mock-api port-forward 설정 (클러스터 외부에서 접근 가능하도록)
+  if [[ "${LEVEL}" == "2" ]]; then
+    local pf_local_port=14000
+    log "Setting up port-forward to mock-api service (localhost:${pf_local_port} → mock-api:4000)"
+    kubectl port-forward \
+      --context "$KUBE_CONTEXT" \
+      -n "$NAMESPACE" \
+      svc/mock-api "${pf_local_port}:4000" &
+    local pf_pid=$!
+    # shellcheck disable=SC2064
+    trap "kill $pf_pid 2>/dev/null || true" EXIT
+    # port-forward가 ready 될 때까지 대기
+    local pf_wait=0
+    while ! curl -sf "http://localhost:${pf_local_port}/health" > /dev/null 2>&1; do
+      sleep 1
+      pf_wait=$((pf_wait + 1))
+      if [[ "$pf_wait" -ge 15 ]]; then
+        die "port-forward to mock-api not ready after 15s"
+      fi
+    done
+    log "port-forward ready (pid=$pf_pid)"
+    MOCK_API_URL="http://localhost:${pf_local_port}"
+  fi
 
   if [[ "$SCENARIO" == "all" ]]; then
     local scenarios
