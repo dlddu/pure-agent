@@ -1,6 +1,7 @@
 name: none-action
 description: "actions: [\"none\"] → Router stop, Export Handler는 Linear 코멘트만 작성"
 level: [1, 2, 3]
+max_depth: 1
 
 # ── Level 2: mock cycle 정의 ──
 cycles:

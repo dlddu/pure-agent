@@ -454,6 +454,13 @@ run_scenario_level2() {
   for (( cycle_index=0; cycle_index<cycle_count; cycle_index++ )); do
     log "--- Cycle ${cycle_index}/${cycle_count} ---"
 
+    # per-cycle max_depth (YAML에서 cycles[i].max_depth를 확인, 없으면 시나리오 max_depth)
+    local cycle_max_depth
+    cycle_max_depth=$(yaml_get "$yaml_file" ".cycles[${cycle_index}].max_depth")
+    if [[ -z "$cycle_max_depth" ]]; then
+      cycle_max_depth="$max_depth"
+    fi
+
     # 임시 fixture 디렉토리 생성
     local cycle_dir
     cycle_dir=$(mktemp -d "/tmp/e2e-level2-${scenario_name}-cycle${cycle_index}-XXXXXX")
@@ -464,7 +471,7 @@ run_scenario_level2() {
     # mock Argo Workflow 제출 + 완료 대기
     local workflow_name
     workflow_name=$(_level2_submit_mock_workflow \
-      "$scenario_name" "$cycle_index" "$max_depth" "$cycle_dir")
+      "$scenario_name" "$cycle_index" "$cycle_max_depth" "$cycle_dir")
 
     all_workflow_names+=("$workflow_name")
 

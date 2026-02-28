@@ -4,13 +4,15 @@ level: [1, 2]
 
 # ── Level 2: mock cycle 정의 ──
 cycles:
-  - export_config:
+  - max_depth: 1
+    export_config:
       linear_issue_id: "mock-issue-id"
       actions:
         - "continue"
       session_id: "mock-session-cycle0"
     agent_result: "Cycle 0 done, continuing..."
-  - export_config:
+  - max_depth: 1
+    export_config:
       linear_issue_id: "mock-issue-id"
       actions:
         - "none"

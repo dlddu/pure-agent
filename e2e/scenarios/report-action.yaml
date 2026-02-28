@@ -1,6 +1,7 @@
 name: report-action
 description: "Router stop → Export Handler가 Linear 코멘트 작성"
 level: [1, 2, 3]
+max_depth: 1
 
 # ── Level 2: mock cycle 정의 ──
 cycles:
