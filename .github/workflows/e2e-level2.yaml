@@ -216,8 +216,8 @@ jobs:
           yq -i '(.spec.templates[] | select(has("container")) | .container.imagePullPolicy) = "IfNotPresent"' \
             /tmp/workflow-template-level2.yaml
 
-          # mock-agent 이미지로 claude-agent 이미지를 대체
-          yq -i "(.spec.templates[] | select(.name == \"run-agent\") | .container.image) = \"${MOCK_AGENT_IMAGE}\"" \
+          # mock-agent의 entrypoint 경로에 맞게 command 패치
+          yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.command) = ["/app/entrypoint.sh"]' \
             /tmp/workflow-template-level2.yaml
 
           # mock-api URL을 환경 변수로 주입 (MCP_SERVER_URL, LINEAR_API_URL 등)
