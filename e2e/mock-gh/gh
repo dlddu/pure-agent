@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # mock-gh — a drop-in replacement for the gh CLI used in e2e tests.
 #
 # Supported commands:
@@ -7,7 +7,7 @@
 #   gh api repos/<org>/<repo>  → prints {"permissions":{"push":true}}
 #   anything else              → exits 1 with error message
 
-set -euo pipefail
+set -eu
 
 : "${GH_CALLS_DIR:=/tmp/gh-calls}"
 mkdir -p "$GH_CALLS_DIR"
