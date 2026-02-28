@@ -91,7 +91,7 @@ teardown() {
   response=$(curl -sf "${MOCK_API_URL}/assertions")
   local comment_count
   comment_count=$(echo "$response" | jq \
-    '[.calls[] | select(.type == "mutation" and ((.operationName // "") | ascii_downcase | contains("comment")))] | length')
+    '[.calls[] | select(.type == "mutation" and ((.operationName // "") + " " + ((.body.query // "") | tostring) | ascii_downcase | contains("comment")))] | length')
   # none-action에서는 comment는 1건 (summary만)
   [ "$comment_count" -ge 1 ]
 }
@@ -148,7 +148,7 @@ teardown() {
   summary_count=$(echo "$response" | jq \
     '[.calls[] | select(
         .type == "mutation" and
-        ((.operationName // "") | ascii_downcase | contains("comment"))
+        ((.operationName // "") + " " + ((.body.query // "") | tostring) | ascii_downcase | contains("comment"))
      )] | length')
   [ "$summary_count" -ge 1 ]
 
@@ -186,6 +186,32 @@ teardown() {
   local cycle_dir="${BATS_TEST_TMPDIR}/create-pr-action-cycle0"
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
+
+  # Set up mock git repo on shared volume for create_pr action
+  docker compose -f "$COMPOSE_FILE" \
+    run --rm --entrypoint="" \
+    export-handler \
+    sh -c '
+      set -e
+      # Create a bare "remote" repo
+      git init --bare /work/repo-remote.git
+      # Create the working repo
+      git init /work/repo
+      cd /work/repo
+      git config user.email "test@e2e.local"
+      git config user.name "E2E Test"
+      git remote add origin /work/repo-remote.git
+      # Initial commit on main
+      echo "init" > README.md
+      git add README.md
+      git commit -m "Initial commit"
+      git push -u origin HEAD:main
+      # Create feature branch with a commit
+      git checkout -b feat/test-branch
+      echo "hello" > hello.txt
+      git add hello.txt
+      git commit -m "Add hello.txt"
+    '
 
   # router 실행 (max_depth는 YAML에서 읽어옴)
   local max_depth
