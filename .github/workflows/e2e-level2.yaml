@@ -255,6 +255,27 @@ jobs:
           yq -i '(.spec.templates[] | select(.name == "router") | .container.args) = ["D=\"$ROUTER_DEPTH\"; M=\"$ROUTER_MAX_DEPTH\"; O=/tmp/continue.txt; echo \"[mock-router] depth=$D max_depth=$M\" >&2; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > $O; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > $O; else echo false > $O; fi; fi"]' \
             /tmp/workflow-template-level2.yaml
 
+          # ── mock-export-handler 패치 ────────────────────────────────────
+          # 실제 export-handler 이미지는 kind에 로드되지 않으며 mock secrets로 동작하지 않음.
+          # alpine으로 교체하고 export_config/action_results를 passthrough하는 스크립트로 대체.
+          yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.image) = "alpine:3.20"' \
+            /tmp/workflow-template-level2.yaml
+          yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.command) = ["/bin/sh", "-c"]' \
+            /tmp/workflow-template-level2.yaml
+          yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.args) = ["echo \"[mock-export-handler] passthrough\" >&2; cp /work/export_config.json /tmp/export_config.json 2>/dev/null || echo \"{}\" > /tmp/export_config.json; echo \"{}\" > /tmp/action_results.json"]' \
+            /tmp/workflow-template-level2.yaml
+
+          # ── mock-daemon 패치 ─────────────────────────────────────────────
+          # mcp-server, llm-gateway 이미지도 kind에 로드되지 않음. alpine으로 교체.
+          yq -i '(.spec.templates[] | select(.name == "mcp-daemon") | .container.image) = "alpine:3.20"' \
+            /tmp/workflow-template-level2.yaml
+          yq -i '(.spec.templates[] | select(.name == "mcp-daemon") | .container.command) = ["/bin/sh", "-c", "echo mock-mcp-daemon; sleep 3600"]' \
+            /tmp/workflow-template-level2.yaml
+          yq -i '(.spec.templates[] | select(.name == "llm-gateway-daemon") | .container.image) = "alpine:3.20"' \
+            /tmp/workflow-template-level2.yaml
+          yq -i '(.spec.templates[] | select(.name == "llm-gateway-daemon") | .container.command) = ["/bin/sh", "-c", "echo mock-llm-gateway; sleep 3600"]' \
+            /tmp/workflow-template-level2.yaml
+
           # mock-api URL을 환경 변수로 주입
           yq -i "(.spec.templates[] | select(has(\"container\")) | .container.env) += [{\"name\": \"MOCK_API_URL\", \"value\": \"http://mock-api.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4000\"}]" \
             /tmp/workflow-template-level2.yaml
