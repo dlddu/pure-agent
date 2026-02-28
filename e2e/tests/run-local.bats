@@ -73,31 +73,31 @@ teardown() {
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
 
-  # router 실행 (max_depth は YAML から読み込む)
+  # router 실행 (max_depth는 YAML에서 읽어옴)
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
   local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
   run_router_in_compose 0 "$max_depth" "$router_output"
 
-  # Assert: router が "false" (stop) を出力すること
+  # Assert: router가 "false" (stop)를 출력할 것
   local decision
   decision=$(cat "$router_output" | tr -d '[:space:]')
   [ "$decision" = "false" ]
 
-  # export-handler 実行
+  # export-handler 실행
   local eh_exit=0
   run_export_handler || eh_exit=$?
 
-  # Assert: export-handler 終了コードが 0 であること
+  # Assert: export-handler 종료 코드가 0일 것
   [ "$eh_exit" -eq 0 ]
 
-  # mock-api に Linear コメントの記録がないこと (none-action に assertions.linear_comment は未定義)
+  # mock-api에 Linear 코멘트 기록이 없을 것 (none-action에 assertions.linear_comment 미정의)
   local response
   response=$(curl -sf "${MOCK_API_URL}/assertions")
   local comment_count
   comment_count=$(echo "$response" | jq \
     '[.calls[] | select(.type == "mutation" and ((.operationName // "") | ascii_downcase | contains("comment")))] | length')
-  # none-action では comment は 1 件 (summary のみ)
+  # none-action에서는 comment는 1건 (summary만)
   [ "$comment_count" -ge 1 ]
 }
 
@@ -128,13 +128,13 @@ teardown() {
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
 
-  # router 실행 (max_depth は YAML から読み込む)
+  # router 실행 (max_depth는 YAML에서 읽어옴)
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
   local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
   run_router_in_compose 0 "$max_depth" "$router_output"
 
-  # Assert: router が "false" (stop) を出力すること
+  # Assert: router가 "false" (stop)를 출력할 것
   local decision
   decision=$(cat "$router_output" | tr -d '[:space:]')
   [ "$decision" = "false" ]
@@ -143,15 +143,15 @@ teardown() {
   local eh_exit=0
   run_export_handler || eh_exit=$?
 
-  # Assert: export-handler 終了コードが 0 であること
+  # Assert: export-handler 종료 코드가 0일 것
   [ "$eh_exit" -eq 0 ]
 
-  # Assert: Linear コメントに "分析リポート" が含まれること
-  # (mock-api に createComment mutation が記録されているか確認)
+  # Assert: Linear 코멘트에 "분석 리포트"가 포함될 것
+  # (mock-api에 createComment mutation이 기록되어 있는지 확인)
   local response
   response=$(curl -sf "${MOCK_API_URL}/assertions")
 
-  # summary コメント (1 件目)
+  # summary 코멘트 (1건째)
   local summary_count
   summary_count=$(echo "$response" | jq \
     '[.calls[] | select(
@@ -160,7 +160,7 @@ teardown() {
      )] | length')
   [ "$summary_count" -ge 1 ]
 
-  # report コメント: body に "분석 리포트" を含むこと
+  # report 코멘트: body에 "분석 리포트"를 포함할 것
   local report_count
   report_count=$(echo "$response" | jq --arg body "분석 리포트" \
     '[.calls[] | select(
@@ -198,31 +198,31 @@ teardown() {
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
 
-  # router 실행 (max_depth は YAML から読み込む)
+  # router 실행 (max_depth는 YAML에서 읽어옴)
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
   local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
   run_router_in_compose 0 "$max_depth" "$router_output"
 
-  # Assert: router が "false" (stop) を出力すること
+  # Assert: router가 "false" (stop)를 출력할 것
   local decision
   decision=$(cat "$router_output" | tr -d '[:space:]')
   [ "$decision" = "false" ]
 
-  # export-handler 실행 (mock-gh를 PATH に優先させる)
+  # export-handler 실행 (mock-gh를 PATH에 우선 배치)
   local eh_exit=0
   run_export_handler || eh_exit=$?
 
-  # Assert: export-handler 終了コードが 0 であること
+  # Assert: export-handler 종료 코드가 0일 것
   [ "$eh_exit" -eq 0 ]
 
-  # Assert: mock-gh の "gh pr create" 호출 기록が存在すること
+  # Assert: mock-gh의 "gh pr create" 호출 기록이 존재할 것
   local pr_call_count
   pr_call_count=$(count_gh_pr_create_calls)
   [ "$pr_call_count" -ge 1 ]
 
-  # Assert: Linear コメントに PR URL が含まれること
-  # mock-gh は "https://github.com/mock-org/mock-repo/pull/1" を返す
+  # Assert: Linear 코멘트에 PR URL이 포함될 것
+  # mock-gh는 "https://github.com/mock-org/mock-repo/pull/1"을 반환
   local response
   response=$(curl -sf "${MOCK_API_URL}/assertions")
   local pr_url_count
@@ -268,7 +268,7 @@ teardown() {
   local router_output_0="${BATS_TEST_TMPDIR}/router_decision_0.txt"
   run_router_in_compose 0 "$cycle0_max_depth" "$router_output_0"
 
-  # Assert cycle-0: router が "true" (continue) を出力すること
+  # Assert cycle-0: router가 "true" (continue)를 출력할 것
   local decision_0
   decision_0=$(cat "$router_output_0" | tr -d '[:space:]')
   [ "$decision_0" = "true" ]
@@ -278,8 +278,8 @@ teardown() {
   run_export_handler || eh_exit_0=$?
   [ "$eh_exit_0" -eq 0 ]
 
-  # cycle-0 완료 후: export-handler が次の cycle のために /work/export_config.json を削除すること
-  # (continue action では export_config.json を削除して次の cycle に委ねる)
+  # cycle-0 완료 후: export-handler가 다음 cycle을 위해 /work/export_config.json을 삭제할 것
+  # (continue action에서는 export_config.json을 삭제하고 다음 cycle에 위임)
   local export_config_deleted
   export_config_deleted=$(docker compose -f "$COMPOSE_FILE" \
     run --rm --entrypoint="" router \
@@ -296,7 +296,7 @@ teardown() {
   local router_output_1="${BATS_TEST_TMPDIR}/router_decision_1.txt"
   run_router_in_compose 1 "$cycle1_max_depth" "$router_output_1"
 
-  # Assert cycle-1: router が "false" (stop) を出力すること
+  # Assert cycle-1: router가 "false" (stop)를 출력할 것
   local decision_1
   decision_1=$(cat "$router_output_1" | tr -d '[:space:]')
   [ "$decision_1" = "false" ]
@@ -306,7 +306,7 @@ teardown() {
   run_export_handler || eh_exit_1=$?
   [ "$eh_exit_1" -eq 0 ]
 
-  # Assert: Linear コメントに "作業完了" が含まれること
+  # Assert: Linear 코멘트에 "작업 완료"가 포함될 것
   local response
   response=$(curl -sf "${MOCK_API_URL}/assertions")
   local work_done_count
@@ -322,11 +322,11 @@ teardown() {
 # 시나리오 5: depth-limit
 #
 # 검증 항목:
-#   - Router 출력: false (stop) — depth >= max_depth - 1 のため強制終了
+#   - Router 출력: false (stop) — depth >= max_depth - 1이므로 강제 종료
 #   - Export Handler 종료 코드: 0
 #
-# 참고: depth-limit 시나리오는 level: [2] のみ定義 (Level 1 には未含)
-# Level ① テストでは max_depth=2, depth=1 で router が stop を返すことを確認する
+# 참고: depth-limit 시나리오는 level: [2]에서만 정의 (Level 1에는 미포함)
+# Level ① 테스트에서는 max_depth=2, depth=1로 router가 stop을 반환하는지 확인
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "scenario: depth-limit — router outputs false when depth reaches max_depth" {
@@ -334,12 +334,12 @@ teardown() {
   skip "Level 1 Docker Compose e2e: not yet implemented (DLD-468)"
 
   # Arrange
-  # depth-limit は level:[2] のみだが、Level ① テストとして
-  # max_depth=2, depth=1 の組み合わせで router が stop することを検証する
+  # depth-limit는 level:[2]에서만 정의되지만, Level ① 테스트로서
+  # max_depth=2, depth=1 조합에서 router가 stop하는지 검증
   local yaml_file="${SCENARIOS_DIR}/depth-limit.yaml"
   [ -f "$yaml_file" ]
 
-  # max_depth は YAML から読み込む (depth-limit: 2)
+  # max_depth는 YAML에서 읽어옴 (depth-limit: 2)
   local max_depth
   max_depth=$(yq eval '.max_depth // 2' "$yaml_file")
 
@@ -348,17 +348,17 @@ teardown() {
   wait_mock_api
   reset_mock_api
 
-  # Cycle 0: export_config.json が null なので fixture なし
+  # Cycle 0: export_config.json이 null이므로 fixture 없음
   local cycle_dir="${BATS_TEST_TMPDIR}/depth-limit-cycle0"
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
 
-  # router を depth=max_depth-1 で実行 (depth limit に到達する状態)
+  # router를 depth=max_depth-1로 실행 (depth limit에 도달하는 상태)
   local depth=$(( max_depth - 1 ))
   local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
   run_router_in_compose "$depth" "$max_depth" "$router_output"
 
-  # Assert: router が "false" (stop) を出力すること (depth limit)
+  # Assert: router가 "false" (stop)를 출력할 것 (depth limit)
   local decision
   decision=$(cat "$router_output" | tr -d '[:space:]')
   [ "$decision" = "false" ]
@@ -367,6 +367,6 @@ teardown() {
   local eh_exit=0
   run_export_handler || eh_exit=$?
 
-  # Assert: export-handler 終了コードが 0 であること
+  # Assert: export-handler 종료 코드가 0일 것
   [ "$eh_exit" -eq 0 ]
 }
