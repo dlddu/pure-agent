@@ -29,7 +29,6 @@ MOCK_API_URL="${MOCK_API_URL:-http://localhost:4000}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-${SCRIPT_DIR}/docker-compose.yml}"
 SCENARIOS_DIR="${SCRIPT_DIR}/scenarios"
-LIB_DIR="${SCRIPT_DIR}/lib"
 
 # ── Source guard ──────────────────────────────────────────────────────────────
 if [[ "${1:-}" == "--source-only" ]]; then
