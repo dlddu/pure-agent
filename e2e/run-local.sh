@@ -30,21 +30,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-${SCRIPT_DIR}/docker-compose.yml}"
 SCENARIOS_DIR="${SCRIPT_DIR}/scenarios"
 
-# ── Source guard ──────────────────────────────────────────────────────────────
-if [[ "${1:-}" == "--source-only" ]]; then
-  return 0 2>/dev/null || true
-fi
-
 # ── Logging ───────────────────────────────────────────────────────────────────
 log()  { echo "[run-local] $*" >&2; }
 warn() { echo "[run-local] WARN: $*" >&2; }
 die()  { echo "[run-local] ERROR: $*" >&2; exit 1; }
 
 # ── Arg parsing ───────────────────────────────────────────────────────────────
+__SOURCE_ONLY=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --scenario) SCENARIO="$2"; shift 2 ;;
-    *)          die "Unknown argument: $1" ;;
+    --source-only) __SOURCE_ONLY=true; shift ;;
+    --scenario)    SCENARIO="$2"; shift 2 ;;
+    *)             die "Unknown argument: $1" ;;
   esac
 done
 
@@ -550,5 +547,10 @@ main() {
 
   log "All Level 1 scenarios completed"
 }
+
+# ── Source guard ──────────────────────────────────────────────────────────────
+if [[ "$__SOURCE_ONLY" == "true" ]]; then
+  return 0 2>/dev/null || true
+fi
 
 main "$@"
