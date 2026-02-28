@@ -9,7 +9,6 @@ on:
       - "e2e/lib/**"
       - ".github/workflows/ci-e2e-mock-components.yaml"
   pull_request:
-    branches: [main]
     paths:
       - "e2e/mock-agent/**"
       - "e2e/mock-gh/**"

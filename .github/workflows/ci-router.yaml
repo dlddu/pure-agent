@@ -9,7 +9,6 @@ on:
       - ".github/actions/build-image/**"
       - ".github/workflows/_test-python.yaml"
   pull_request:
-    branches: [main]
     paths:
       - "router/**"
       - ".github/workflows/ci-router.yaml"

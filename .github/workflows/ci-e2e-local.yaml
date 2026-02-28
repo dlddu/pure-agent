@@ -20,7 +20,6 @@ on:
       - "export-handler/**"
       - ".github/workflows/ci-e2e-local.yaml"
   pull_request:
-    branches: [main]
     paths:
       - "e2e/tests/**"
       - "e2e/run-local.sh"
