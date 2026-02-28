@@ -217,10 +217,34 @@ jobs:
           yq -i "(.spec.templates[] | select(.name == \"agent-job\") | .container.image) = \"${MOCK_AGENT_IMAGE}\"" \
             /tmp/workflow-template-level2.yaml
 
-          # mock-api URL을 환경 변수로 주입 (MCP_SERVER_URL, LINEAR_API_URL 등)
-          # WorkflowTemplate의 env에 MOCK_API_URL 추가
+          # mock-agent 엔트리포인트 패치: /home/claude/entrypoint.sh → /app/entrypoint.sh
+          yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.command) = ["/app/entrypoint.sh"]' \
+            /tmp/workflow-template-level2.yaml
+
+          # mock-agent에 SCENARIO_DIR 환경변수 주입 (ConfigMap 마운트 경로)
+          yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.env) += [{"name": "SCENARIO_DIR", "value": "/scenario"}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # scenario_configmap 파라미터 추가 (기본값: scenario-default)
+          yq -i '.spec.arguments.parameters += [{"name": "scenario_configmap", "value": "scenario-default"}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # Workflow 최상위에 scenario-data 볼륨 추가 (ConfigMap 기반)
+          yq -i '.spec.volumes = [{"name": "scenario-data", "configMap": {"name": "{{workflow.parameters.scenario_configmap}}", "optional": true}}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # agent-job에 scenario-data 볼륨 마운트 추가
+          yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.volumeMounts) += [{"name": "scenario-data", "mountPath": "/scenario", "readOnly": true}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # mock-api URL을 환경 변수로 주입
           yq -i "(.spec.templates[] | select(has(\"container\")) | .container.env) += [{\"name\": \"MOCK_API_URL\", \"value\": \"http://mock-api.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4000\"}]" \
             /tmp/workflow-template-level2.yaml
+
+          # scenario-default 빈 ConfigMap 생성 (워크플로우 볼륨 기본값)
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create configmap scenario-default --dry-run=client -o yaml | \
+            kubectl apply -f -
 
           kubectl --context "kind-${CLUSTER_NAME}" \
             apply -n "$PURE_AGENT_NAMESPACE" -f /tmp/workflow-template-level2.yaml
