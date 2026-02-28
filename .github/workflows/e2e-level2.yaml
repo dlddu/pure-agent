@@ -252,27 +252,7 @@ jobs:
 
           # router의 args를 mock-router 셸 스크립트로 교체
           # depth >= max_depth - 1 이면 stop, 그렇지 않으면 export_config 확인
-          cat > /tmp/mock-router-script.sh <<'MOCK_ROUTER'
-          DEPTH="${ROUTER_DEPTH}"
-          MAX_DEPTH="${ROUTER_MAX_DEPTH}"
-          OUTPUT="/tmp/continue.txt"
-          echo "[mock-router] depth=$DEPTH max_depth=$MAX_DEPTH" >&2
-          if [ "$DEPTH" -ge "$((MAX_DEPTH - 1))" ]; then
-            echo "[mock-router] depth limit reached ($DEPTH >= $MAX_DEPTH - 1) -> stop" >&2
-            echo "false" > "$OUTPUT"
-          else
-            CONFIG="$EXPORT_CONFIG_JSON"
-            if echo "$CONFIG" | grep -q '"continue"'; then
-              echo "[mock-router] continue action found -> continue" >&2
-              echo "true" > "$OUTPUT"
-            else
-              echo "[mock-router] no continue action -> stop" >&2
-              echo "false" > "$OUTPUT"
-            fi
-          fi
-          MOCK_ROUTER
-          MOCK_ROUTER_SCRIPT=$(cat /tmp/mock-router-script.sh)
-          yq -i "(.spec.templates[] | select(.name == \"router\") | .container.args) = [\"$MOCK_ROUTER_SCRIPT\"]" \
+          yq -i '(.spec.templates[] | select(.name == "router") | .container.args) = ["D=\"$ROUTER_DEPTH\"; M=\"$ROUTER_MAX_DEPTH\"; O=/tmp/continue.txt; echo \"[mock-router] depth=$D max_depth=$M\" >&2; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > $O; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > $O; else echo false > $O; fi; fi"]' \
             /tmp/workflow-template-level2.yaml
 
           # mock-api URL을 환경 변수로 주입
