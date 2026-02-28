@@ -40,3 +40,87 @@ load_verify_real() {
   # shellcheck disable=SC1090
   source "$LIB_DIR/verify-real.sh" --source-only
 }
+
+# Source assertions-argo.sh in --source-only mode.
+load_assertions_argo() {
+  # shellcheck disable=SC1090
+  source "$LIB_DIR/assertions-argo.sh" --source-only
+}
+
+# Source Level-2 functions from run-argo.sh.
+#
+# run-argo.sh's --source-only guard fires BEFORE function definitions (line
+# ~58), so sourcing with --source-only only loads the helper libraries
+# (setup-real.sh, assertions-argo.sh, etc.) but NOT the functions defined
+# after the guard (check_prerequisites, _level2_*, etc.).
+#
+# Strategy: set SCRIPT_DIR so run-argo.sh can locate its lib/ directory,
+# then source each function-definition block directly after the guard.
+# We do this by sourcing the helper libraries manually and then sourcing
+# the run-argo.sh with a temporary override of the source guard variable.
+load_run_argo() {
+  local run_argo_dir
+  run_argo_dir="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+  local lib_dir="${run_argo_dir}/lib"
+  local scenarios_dir="${run_argo_dir}/scenarios"
+
+  # Export variables that run-argo.sh reads at parse time.
+  export SCRIPT_DIR="$run_argo_dir"
+  export LIB_DIR="$lib_dir"
+  export SCENARIOS_DIR="${SCENARIOS_DIR:-$scenarios_dir}"
+  export GITHUB_TEST_REPO="${GITHUB_TEST_REPO:-test-org/test-repo}"
+  export LEVEL="${LEVEL:-2}"
+  export NAMESPACE="${NAMESPACE:-pure-agent}"
+  export KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+  export MOCK_AGENT_IMAGE="${MOCK_AGENT_IMAGE:-ghcr.io/dlddu/pure-agent/e2e/mock-agent:latest}"
+  export MOCK_API_URL="${MOCK_API_URL:-http://mock-api.pure-agent.svc.cluster.local:4000}"
+  export WORKFLOW_TIMEOUT="${WORKFLOW_TIMEOUT:-600}"
+
+  # Source the shared libraries that run-argo.sh depends on.
+  # shellcheck disable=SC1090
+  source "$lib_dir/setup-real.sh"    --source-only
+  # shellcheck disable=SC1090
+  source "$lib_dir/teardown-real.sh" --source-only
+  # shellcheck disable=SC1090
+  source "$lib_dir/verify-real.sh"   --source-only
+  # shellcheck disable=SC1090
+  source "$lib_dir/assertions-argo.sh" --source-only
+
+  # Define local logging functions matching run-argo.sh so function bodies work.
+  log()  { echo "[run-argo] $*" >&2; }
+  warn() { echo "[run-argo] WARN: $*" >&2; }
+  die()  { echo "[run-argo] ERROR: $*" >&2; return 1; }
+
+  # Define a yaml_get stub so functions can call it without yq being present.
+  yaml_get() {
+    local yaml_file="$1"
+    local path="$2"
+    local value
+    value=$(yq eval "$path" "$yaml_file" 2>/dev/null || echo "null")
+    if [[ "$value" == "null" ]]; then
+      echo ""
+    else
+      echo "$value"
+    fi
+  }
+
+  # Source only the function-definition sections of run-argo.sh by extracting
+  # them from the file.  We strip:
+  #   1. Everything up to and including the --source-only guard's closing fi.
+  #   2. The top-level "main" discovery/dispatch loop at the end of the file.
+  # shellcheck disable=SC1090
+  local tmp_script
+  tmp_script=$(mktemp)
+  # Extract lines from "check_prerequisites()" onward, removing the final
+  # `main "$@"` invocation so no side effects occur.
+  awk '
+    /^check_prerequisites\(\)/ { in_funcs=1 }
+    in_funcs { print }
+  ' "$run_argo_dir/run-argo.sh" \
+    | sed 's/^main "\$@"$/: # removed/' \
+    > "$tmp_script"
+
+  # shellcheck disable=SC1090
+  source "$tmp_script"
+  rm -f "$tmp_script"
+}

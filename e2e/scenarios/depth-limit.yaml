@@ -1,11 +1,13 @@
 name: depth-limit
-description: "export_config 없음, max_depth=2 → depth 도달 시 강제 종료"
+description: "빈 export_config, max_depth=2 → depth 도달 시 강제 종료"
 level: [2]
 
 # ── Level 2: mock cycle 정의 ──
 max_depth: 2
 cycles:
-  - export_config: null
+  - export_config:
+      linear_issue_id: "mock-depth-limit"
+      actions: []
     agent_result: "Depth limit reached"
 
 # ── 공유 assertions ──

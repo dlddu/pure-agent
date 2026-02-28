@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 # e2e/lib/assertions-argo.sh — Argo/Kubernetes 특화 assertion helpers (Level ② E2E)
 #
-# DLD-466: Level ② e2e 테스트 작성 (skipped)
-#
-# 이 파일의 모든 함수는 현재 skip 상태입니다.
-# skip 제거 시 바로 실행 가능한 구조로 작성되어 있습니다.
+# DLD-467: Level ② e2e 테스트 활성화
 #
 # Usage in BATS: source this file with --source-only to load functions only.
 #
@@ -33,10 +30,7 @@ _argo_assert_fail() { echo "FAIL $*" >&2; return 1; }
 #   $1  workflow_name  — argo workflow 이름 (예: "pure-agent-abcde")
 #   $2  namespace      — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
 #
-# TODO: Activate when DLD-466 is implemented (remove the skip line below)
 assert_workflow_succeeded() {
-  echo "[SKIP] assert_workflow_succeeded: Not yet implemented (DLD-466)" && return 0
-
   local workflow_name="$1"
   local namespace="${2:-${NAMESPACE:-pure-agent}}"
   local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
@@ -48,10 +42,11 @@ assert_workflow_succeeded() {
     -n "$namespace" \
     --context "$kube_context" \
     -o jsonpath='{.status.phase}' 2>/dev/null) \
-    || _argo_assert_fail "assert_workflow_succeeded: kubectl get workflow failed for $workflow_name"
+    || { _argo_assert_fail "assert_workflow_succeeded: kubectl get workflow failed for $workflow_name"; return 1; }
 
   if [[ "$phase" != "Succeeded" ]]; then
     _argo_assert_fail "assert_workflow_succeeded: expected phase 'Succeeded' but got '$phase' (workflow=$workflow_name)"
+    return 1
   fi
 
   _argo_assert_log "PASS assert_workflow_succeeded: $workflow_name phase=$phase"
@@ -65,10 +60,7 @@ assert_workflow_succeeded() {
 #   $1  workflow_name  — argo workflow 이름 (pod label 필터링에 사용)
 #   $2  namespace      — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
 #
-# TODO: Activate when DLD-466 is implemented (remove the skip line below)
 assert_daemon_pods_ready() {
-  echo "[SKIP] assert_daemon_pods_ready: Not yet implemented (DLD-466)" && return 0
-
   local workflow_name="$1"
   local namespace="${2:-${NAMESPACE:-pure-agent}}"
   local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
@@ -95,25 +87,22 @@ assert_daemon_pods_ready() {
       --context "$kube_context" \
       --timeout="$timeout" \
       2>/dev/null \
-      || _argo_assert_fail "assert_daemon_pods_ready: MCP daemon pod not ready within $timeout (workflow=$workflow_name)"
+      || { _argo_assert_fail "assert_daemon_pods_ready: MCP daemon pod not ready within $timeout (workflow=$workflow_name)"; return 1; }
   fi
 
   _argo_assert_log "PASS assert_daemon_pods_ready: daemon pods ready for $workflow_name"
 }
 
 # ── assert_run_cycle_count ────────────────────────────────────────────────────
-# Argo Workflow 노드 트리에서 run-cycle 템플릿 호출 횟수를 검증합니다.
-# continue-then-stop 시나리오: run-cycle이 정확히 2회 실행됐는지 확인합니다.
+# Argo Workflow 노드 트리에서 agent-job Pod 실행 횟수를 검증합니다.
+# continue-then-stop 시나리오: agent-job Pod가 정확히 기대하는 횟수만큼 실행됐는지 확인합니다.
 #
 # Arguments:
 #   $1  workflow_name    — argo workflow 이름
 #   $2  expected_count   — 기대하는 run-cycle 실행 횟수 (예: 2)
 #   $3  namespace        — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
 #
-# TODO: Activate when DLD-466 is implemented (remove the skip line below)
 assert_run_cycle_count() {
-  echo "[SKIP] assert_run_cycle_count: Not yet implemented (DLD-466)" && return 0
-
   local workflow_name="$1"
   local expected_count="$2"
   local namespace="${3:-${NAMESPACE:-pure-agent}}"
@@ -128,12 +117,13 @@ assert_run_cycle_count() {
     --context "$kube_context" \
     -o json 2>/dev/null \
     | jq '[.status.nodes // {} | to_entries[] | .value
-           | select(.templateName == "run-cycle" and .type == "Pod")]
+           | select(.templateName == "agent-job" and .type == "Pod")]
           | length') \
-    || _argo_assert_fail "assert_run_cycle_count: kubectl/jq failed for workflow $workflow_name"
+    || { _argo_assert_fail "assert_run_cycle_count: kubectl/jq failed for workflow $workflow_name"; return 1; }
 
   if [[ "$actual_count" -ne "$expected_count" ]]; then
     _argo_assert_fail "assert_run_cycle_count: expected $expected_count run-cycle node(s) but got $actual_count (workflow=$workflow_name)"
+    return 1
   fi
 
   _argo_assert_log "PASS assert_run_cycle_count: $actual_count run-cycle node(s) for $workflow_name"
@@ -153,10 +143,7 @@ assert_run_cycle_count() {
 #   $2  max_depth      — 설정된 max_depth 값 (예: 2)
 #   $3  namespace      — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
 #
-# TODO: Activate when DLD-466 is implemented (remove the skip line below)
 assert_max_depth_termination() {
-  echo "[SKIP] assert_max_depth_termination: Not yet implemented (DLD-466)" && return 0
-
   local workflow_name="$1"
   local max_depth="$2"
   local namespace="${3:-${NAMESPACE:-pure-agent}}"
@@ -170,10 +157,11 @@ assert_max_depth_termination() {
     -n "$namespace" \
     --context "$kube_context" \
     -o jsonpath='{.status.phase}' 2>/dev/null) \
-    || _argo_assert_fail "assert_max_depth_termination: kubectl failed for $workflow_name"
+    || { _argo_assert_fail "assert_max_depth_termination: kubectl failed for $workflow_name"; return 1; }
 
   if [[ "$phase" != "Succeeded" ]]; then
     _argo_assert_fail "assert_max_depth_termination: workflow should Succeed on max_depth but got phase='$phase' (workflow=$workflow_name)"
+    return 1
   fi
 
   # 2. run-cycle 실행 횟수가 max_depth를 초과하지 않는지 확인
@@ -183,12 +171,13 @@ assert_max_depth_termination() {
     --context "$kube_context" \
     -o json 2>/dev/null \
     | jq '[.status.nodes // {} | to_entries[] | .value
-           | select(.templateName == "run-cycle" and .type == "Pod")]
+           | select(.templateName == "agent-job" and .type == "Pod")]
           | length') \
-    || _argo_assert_fail "assert_max_depth_termination: jq failed for workflow $workflow_name"
+    || { _argo_assert_fail "assert_max_depth_termination: jq failed for workflow $workflow_name"; return 1; }
 
   if [[ "$cycle_count" -gt "$max_depth" ]]; then
     _argo_assert_fail "assert_max_depth_termination: run-cycle count $cycle_count exceeds max_depth $max_depth (workflow=$workflow_name)"
+    return 1
   fi
 
   _argo_assert_log "PASS assert_max_depth_termination: workflow=$workflow_name phase=$phase cycle_count=$cycle_count max_depth=$max_depth"
@@ -206,10 +195,7 @@ assert_max_depth_termination() {
 #   $1  workflow_name  — argo workflow 이름
 #   $2  namespace      — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
 #
-# TODO: Activate when DLD-466 is implemented (remove the skip line below)
 assert_work_dir_clean() {
-  echo "[SKIP] assert_work_dir_clean: Not yet implemented (DLD-466)" && return 0
-
   local workflow_name="$1"
   local namespace="${2:-${NAMESPACE:-pure-agent}}"
   local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
@@ -225,12 +211,13 @@ assert_work_dir_clean() {
     | jq -r '[.status.nodes // {} | to_entries[] | .value
                | select(.templateName | ascii_downcase | contains("cleanup"))]
               | if length > 0 then .[0].phase else "NotFound" end') \
-    || _argo_assert_fail "assert_work_dir_clean: kubectl/jq failed for workflow $workflow_name"
+    || { _argo_assert_fail "assert_work_dir_clean: kubectl/jq failed for workflow $workflow_name"; return 1; }
 
   if [[ "$cleanup_phase" == "NotFound" ]]; then
     _argo_assert_log "WARN assert_work_dir_clean: no cleanup node found — skipping phase check"
   elif [[ "$cleanup_phase" != "Succeeded" ]]; then
     _argo_assert_fail "assert_work_dir_clean: cleanup node phase='$cleanup_phase' (expected Succeeded) for workflow=$workflow_name"
+    return 1
   fi
 
   # PVC 이름 추출 (workflow name 기반, pure-agent 컨벤션)
@@ -275,9 +262,10 @@ assert_work_dir_clean() {
         local count="${line#ITEM_COUNT=}"
         if [[ "$count" -ne 0 ]]; then
           _argo_assert_fail "assert_work_dir_clean: /work has $count item(s) after cleanup (workflow=$workflow_name, pvc=$pvc_name)"
+          return 1
         fi
       } \
-    || _argo_assert_fail "assert_work_dir_clean: failed to inspect /work directory via pod (workflow=$workflow_name)"
+    || { _argo_assert_fail "assert_work_dir_clean: failed to inspect /work directory via pod (workflow=$workflow_name)"; return 1; }
 
   _argo_assert_log "PASS assert_work_dir_clean: /work is clean for workflow=$workflow_name"
 }

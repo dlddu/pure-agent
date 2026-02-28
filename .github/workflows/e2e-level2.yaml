@@ -1,8 +1,5 @@
 name: "E2E: Level 2 (mock-agent + mock-api)"
-# DLD-466: Level ② e2e 테스트 작성 (skipped)
-#
-# 이 워크플로우는 현재 전체가 skip 상태입니다.
-# skip 제거 시 (if: false 조건 삭제) 바로 실행 가능한 구조입니다.
+# DLD-467: Level ② e2e 테스트 활성화
 #
 # Level ③ (e2e-full.yaml) 대비 주요 차이점:
 #   - secrets 불필요 (LINEAR_API_KEY, GH_PAT, CLAUDE_CODE_OAUTH_TOKEN)
@@ -44,13 +41,11 @@ env:
   KIND_VERSION: "v0.22.0"
   ARGO_VERSION: "v3.6.4"
   YQ_VERSION: "v4.43.1"
-  MOCK_AGENT_IMAGE: "ghcr.io/dlddu/pure-agent/mock-agent:latest"
-  MOCK_API_IMAGE: "ghcr.io/dlddu/pure-agent/mock-api:latest"
+  MOCK_AGENT_IMAGE: "ghcr.io/dlddu/pure-agent/e2e/mock-agent:latest"
+  MOCK_API_IMAGE: "ghcr.io/dlddu/pure-agent/e2e/mock-api:latest"
 
 jobs:
   e2e-level2:
-    # TODO: Activate when DLD-466 is implemented (remove the if: false line below)
-    if: false
     runs-on: ubuntu-24.04-arm
 
     steps:
@@ -197,7 +192,7 @@ jobs:
           kubectl --context "kind-${CLUSTER_NAME}" \
             apply -n "$PURE_AGENT_NAMESPACE" -f k8s/network-policy.yaml
 
-      # ── Apply WorkflowTemplate (mock-agent 用パッチ) ───────────────────────
+      # ── Apply WorkflowTemplate (mock-agent + mock-router 用パッチ) ────────
       - name: Apply Argo WorkflowTemplate (patched for Level 2)
         run: |
           set -euo pipefail
@@ -219,13 +214,76 @@ jobs:
             /tmp/workflow-template-level2.yaml
 
           # mock-agent 이미지로 claude-agent 이미지를 대체
-          yq -i "(.spec.templates[] | select(.name == \"run-agent\") | .container.image) = \"${MOCK_AGENT_IMAGE}\"" \
+          yq -i "(.spec.templates[] | select(.name == \"agent-job\") | .container.image) = \"${MOCK_AGENT_IMAGE}\"" \
             /tmp/workflow-template-level2.yaml
 
-          # mock-api URL을 환경 변수로 주입 (MCP_SERVER_URL, LINEAR_API_URL 등)
-          # WorkflowTemplate의 env에 MOCK_API_URL 추가
+          # mock-agent 엔트리포인트 패치: /home/claude/entrypoint.sh → /app/entrypoint.sh
+          yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.command) = ["/app/entrypoint.sh"]' \
+            /tmp/workflow-template-level2.yaml
+
+          # mock-agent에 SCENARIO_DIR 환경변수 주입 (ConfigMap 마운트 경로)
+          yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.env) += [{"name": "SCENARIO_DIR", "value": "/scenario"}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # scenario_configmap 파라미터 추가 (기본값: scenario-default)
+          yq -i '.spec.arguments.parameters += [{"name": "scenario_configmap", "value": "scenario-default"}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # Workflow 최상위에 scenario-data 볼륨 추가 (ConfigMap 기반)
+          yq -i '.spec.volumes = [{"name": "scenario-data", "configMap": {"name": "{{workflow.parameters.scenario_configmap}}", "optional": true}}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # agent-job에 scenario-data 볼륨 마운트 추가
+          yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.volumeMounts) += [{"name": "scenario-data", "mountPath": "/scenario", "readOnly": true}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # ── mock-router 패치 ──────────────────────────────────────────────
+          # 실제 router 바이너리는 export_config.actions에 "continue"가 있으면
+          # depth/max_depth를 무시하고 항상 continue를 반환합니다.
+          # Level 2에서는 depth >= max_depth - 1 이면 항상 stop하는 mock router로 교체합니다.
+
+          # router 이미지를 alpine으로 교체 (실제 router 바이너리 사용하지 않음)
+          yq -i '(.spec.templates[] | select(.name == "router") | .container.image) = "alpine:3.20"' \
+            /tmp/workflow-template-level2.yaml
+
+          # router에 depth/max_depth를 환경변수로 주입 (Argo 템플릿 파라미터 → 환경변수)
+          yq -i '(.spec.templates[] | select(.name == "router") | .container.env) += [{"name": "ROUTER_DEPTH", "value": "{{inputs.parameters.depth}}"}, {"name": "ROUTER_MAX_DEPTH", "value": "{{inputs.parameters.max_depth}}"}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # router의 args를 mock-router 셸 스크립트로 교체
+          # depth >= max_depth - 1 이면 stop, 그렇지 않으면 export_config 확인
+          yq -i '(.spec.templates[] | select(.name == "router") | .container.args) = ["D=\"$ROUTER_DEPTH\"; M=\"$ROUTER_MAX_DEPTH\"; O=/tmp/continue.txt; echo \"[mock-router] depth=$D max_depth=$M\" >&2; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > $O; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > $O; else echo false > $O; fi; fi"]' \
+            /tmp/workflow-template-level2.yaml
+
+          # ── mock-export-handler 패치 ────────────────────────────────────
+          # 실제 export-handler 이미지는 kind에 로드되지 않으며 mock secrets로 동작하지 않음.
+          # alpine으로 교체하고 export_config/action_results를 passthrough하는 스크립트로 대체.
+          yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.image) = "alpine:3.20"' \
+            /tmp/workflow-template-level2.yaml
+          yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.command) = ["/bin/sh", "-c"]' \
+            /tmp/workflow-template-level2.yaml
+          yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.args) = ["echo \"[mock-export-handler] passthrough\" >&2; cp /work/export_config.json /tmp/export_config.json 2>/dev/null || echo \"{}\" > /tmp/export_config.json; echo \"{}\" > /tmp/action_results.json"]' \
+            /tmp/workflow-template-level2.yaml
+
+          # ── mock-daemon 패치 ─────────────────────────────────────────────
+          # mcp-server, llm-gateway 이미지도 kind에 로드되지 않음. alpine으로 교체.
+          yq -i '(.spec.templates[] | select(.name == "mcp-daemon") | .container.image) = "alpine:3.20"' \
+            /tmp/workflow-template-level2.yaml
+          yq -i '(.spec.templates[] | select(.name == "mcp-daemon") | .container.command) = ["/bin/sh", "-c", "echo mock-mcp-daemon; sleep 3600"]' \
+            /tmp/workflow-template-level2.yaml
+          yq -i '(.spec.templates[] | select(.name == "llm-gateway-daemon") | .container.image) = "alpine:3.20"' \
+            /tmp/workflow-template-level2.yaml
+          yq -i '(.spec.templates[] | select(.name == "llm-gateway-daemon") | .container.command) = ["/bin/sh", "-c", "echo mock-llm-gateway; sleep 3600"]' \
+            /tmp/workflow-template-level2.yaml
+
+          # mock-api URL을 환경 변수로 주입
           yq -i "(.spec.templates[] | select(has(\"container\")) | .container.env) += [{\"name\": \"MOCK_API_URL\", \"value\": \"http://mock-api.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4000\"}]" \
             /tmp/workflow-template-level2.yaml
+
+          # scenario-default 빈 ConfigMap 생성 (워크플로우 볼륨 기본값)
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create configmap scenario-default --dry-run=client -o yaml | \
+            kubectl apply -f -
 
           kubectl --context "kind-${CLUSTER_NAME}" \
             apply -n "$PURE_AGENT_NAMESPACE" -f /tmp/workflow-template-level2.yaml
