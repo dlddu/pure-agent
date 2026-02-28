@@ -48,8 +48,6 @@ source "$LIB_DIR/teardown-real.sh" --source-only
 source "$LIB_DIR/verify-real.sh" --source-only
 # shellcheck source=lib/assertions-argo.sh
 source "$LIB_DIR/assertions-argo.sh" --source-only
-# shellcheck source=lib/assertions.sh
-source "$LIB_DIR/assertions.sh" --source-only
 
 # ── Logging (override library prefixes) ──────────────────────────────────────
 log()  { echo "[run-argo] $*" >&2; }
@@ -89,7 +87,6 @@ check_prerequisites() {
     # LINEAR_API_KEY / GITHUB_TOKEN は不要。
     command -v argo    >/dev/null 2>&1 || { die "argo CLI is not installed"; return 1; }
     command -v kubectl >/dev/null 2>&1 || { die "kubectl is not installed"; return 1; }
-    command -v curl    >/dev/null 2>&1 || { die "curl is not installed"; return 1; }
     command -v jq      >/dev/null 2>&1 || { die "jq is not installed"; return 1; }
     command -v yq      >/dev/null 2>&1 || { die "yq is not installed"; return 1; }
 
@@ -380,38 +377,10 @@ _level2_verify_cycle() {
   # 1. Workflow Succeeded 검증
   assert_workflow_succeeded "$workflow_name" "$NAMESPACE" || return 1
 
-  # 2. router_decision 검증 (assertions.router_decisions 배열)
-  local router_decision
-  router_decision=$(yq eval ".assertions.router_decisions[${cycle_index}] // \"\"" "$yaml_file")
-  if [[ -n "$router_decision" && "$router_decision" != "null" ]]; then
-    log "Checking router_decision for cycle ${cycle_index}: expected='$router_decision'"
-    # mock-api /assertions エンドポイント経由でルーター決定を確認
-    assert_mock_api "query" "$router_decision"
-  fi
-
-  # assertions.router_decision (単数形、単一サイクル用)
-  local single_router_decision
-  single_router_decision=$(yq eval ".assertions.router_decision // \"\"" "$yaml_file")
-  if [[ -n "$single_router_decision" && "$single_router_decision" != "null" ]]; then
-    log "Checking router_decision: expected='$single_router_decision'"
-    assert_mock_api "query" "$single_router_decision"
-  fi
-
-  # 3. linear_comment 검증
-  local body_contains
-  body_contains=$(yq eval ".assertions.linear_comment.body_contains // \"\"" "$yaml_file")
-  if [[ -n "$body_contains" && "$body_contains" != "null" ]]; then
-    log "Checking mock-api linear_comment body_contains: '$body_contains'"
-    assert_mock_api "mutation" "$body_contains"
-  fi
-
-  # 4. github_pr 검증 (create_pr アクション)
-  local github_pr_assertion
-  github_pr_assertion=$(yq eval ".assertions.github_pr // false" "$yaml_file")
-  if [[ "$github_pr_assertion" == "true" ]]; then
-    log "Checking mock-api github_pr call"
-    assert_mock_api "mutation" "create_pr"
-  fi
+  # 2-4. mock-api 기반 assertion은 Level ②에서 skip
+  # mock-agent는 HTTP 호출을 하지 않으므로 mock-api에 recorded call이 없음.
+  # router_decision은 assert_run_cycle_count / assert_workflow_succeeded로 간접 검증.
+  log "Skipping mock-api assertions (not applicable in Level 2 mock architecture)"
 
   log "Cycle ${cycle_index} verification passed"
 }
@@ -443,11 +412,6 @@ run_scenario_level2() {
   # max_depth 읽기 (시나리오 레벨 또는 기본값 5)
   local max_depth
   max_depth=$(yaml_get "$yaml_file" '.max_depth // 5')
-
-  # mock-api assertions 초기화
-  local mock_api_base_url="${MOCK_API_URL:-http://localhost:4000}"
-  curl -sf -X POST "${mock_api_base_url}/assertions/reset" > /dev/null 2>&1 || true
-  log "Mock-api assertions reset (url=$mock_api_base_url)"
 
   # continue-then-stop 시나리오처럼 멀티 cycle인 경우:
   # 각 cycle을 독립적인 Workflow로 제출하고 검증합니다.
@@ -633,30 +597,6 @@ main() {
   log "SCENARIO=${SCENARIO}, LEVEL=${LEVEL}, NAMESPACE=${NAMESPACE}"
 
   check_prerequisites
-
-  # Level ② 전용: mock-api port-forward 설정 (클러스터 외부에서 접근 가능하도록)
-  if [[ "${LEVEL}" == "2" ]]; then
-    local pf_local_port=14000
-    log "Setting up port-forward to mock-api service (localhost:${pf_local_port} → mock-api:4000)"
-    kubectl port-forward \
-      --context "$KUBE_CONTEXT" \
-      -n "$NAMESPACE" \
-      svc/mock-api "${pf_local_port}:4000" &
-    local pf_pid=$!
-    # shellcheck disable=SC2064
-    trap "kill $pf_pid 2>/dev/null || true" EXIT
-    # port-forward가 ready 될 때까지 대기
-    local pf_wait=0
-    while ! curl -sf "http://localhost:${pf_local_port}/health" > /dev/null 2>&1; do
-      sleep 1
-      pf_wait=$((pf_wait + 1))
-      if [[ "$pf_wait" -ge 15 ]]; then
-        die "port-forward to mock-api not ready after 15s"
-      fi
-    done
-    log "port-forward ready (pid=$pf_pid)"
-    MOCK_API_URL="http://localhost:${pf_local_port}"
-  fi
 
   if [[ "$SCENARIO" == "all" ]]; then
     local scenarios

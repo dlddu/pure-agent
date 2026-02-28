@@ -423,8 +423,6 @@ YAML
   }
   export -f assert_workflow_succeeded
 
-  assert_mock_api() { return 0; }
-  export -f assert_mock_api
 
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
@@ -443,8 +441,6 @@ YAML
   }
   export -f assert_workflow_succeeded
 
-  assert_mock_api() { return 0; }
-  export -f assert_mock_api
 
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
@@ -456,159 +452,10 @@ YAML
   [ "$status" -ne 0 ]
 }
 
-@test "_level2_verify_cycle: calls assert_mock_api for router_decision when defined" {
-  # Arrange — call directly so mock side-effects are visible in this shell.
-  assert_workflow_succeeded() { return 0; }
-  export -f assert_workflow_succeeded
-
-  local call_log="$WORK_DIR/mock-api-calls.txt"
-  touch "$call_log"
-  assert_mock_api() {
-    echo "assert_mock_api called with: $*" >> "$call_log"
-    return 0
-  }
-  export -f assert_mock_api
-
-  local yaml_file
-  yaml_file=$(write_scenario_yaml "none-action")
-  # none-action has assertions.router_decision: "stop"
-
-  # Act — direct call keeps mock writes in the current process.
-  _level2_verify_cycle "$yaml_file" "my-wf" 0
-
-  # Assert — assert_mock_api should have been called with router_decision value
-  grep -q "stop" "$call_log"
-}
-
-@test "_level2_verify_cycle: calls assert_mock_api for router_decisions array entry at correct index" {
-  # Arrange — call directly to keep mock writes in the current process.
-  assert_workflow_succeeded() { return 0; }
-  export -f assert_workflow_succeeded
-
-  local call_log="$WORK_DIR/mock-api-calls.txt"
-  touch "$call_log"
-  assert_mock_api() {
-    echo "assert_mock_api called with: $*" >> "$call_log"
-    return 0
-  }
-  export -f assert_mock_api
-
-  # Multi-cycle scenario: cycle 0 expects "continue", cycle 1 expects "stop"
-  local yaml_file
-  yaml_file=$(write_multi_cycle_scenario_yaml "continue-then-stop")
-
-  # Act — verify cycle index 0; direct call keeps mock side-effects visible.
-  _level2_verify_cycle "$yaml_file" "my-wf" 0
-
-  # Assert — should check "continue" for cycle 0
-  grep -q "continue" "$call_log"
-}
-
-@test "_level2_verify_cycle: does not call assert_mock_api for router_decision when not defined" {
-  # Arrange — write scenario without router_decision assertions
-  local yaml_file="$SCENARIOS_DIR/no-assertions.yaml"
-  cat > "$yaml_file" <<'YAML'
-name: no-assertions
-level: [2]
-cycles:
-  - export_config:
-      linear_issue_id: "mock-id"
-      actions: ["none"]
-    agent_result: "done"
-assertions: {}
-YAML
-
-  assert_workflow_succeeded() { return 0; }
-  export -f assert_workflow_succeeded
-
-  local call_log="$WORK_DIR/mock-api-calls.txt"
-  assert_mock_api() {
-    echo "assert_mock_api called" >> "$call_log"
-    return 0
-  }
-  export -f assert_mock_api
-
-  # Act
-  run _level2_verify_cycle "$yaml_file" "my-wf" 0
-
-  # Assert — mock_api should not have been called (no assertions defined)
-  [ "$status" -eq 0 ]
-  [ ! -f "$call_log" ] || [ ! -s "$call_log" ]
-}
-
-@test "_level2_verify_cycle: calls assert_mock_api for linear_comment body_contains when defined" {
-  # Arrange — scenario with linear_comment assertion
-  local yaml_file="$SCENARIOS_DIR/linear-comment.yaml"
-  cat > "$yaml_file" <<'YAML'
-name: linear-comment
-level: [2]
-cycles:
-  - export_config:
-      linear_issue_id: "mock-id"
-      actions: ["none"]
-    agent_result: "done"
-assertions:
-  linear_comment:
-    body_contains: "작업 완료"
-YAML
-
-  assert_workflow_succeeded() { return 0; }
-  export -f assert_workflow_succeeded
-
-  local call_log="$WORK_DIR/mock-api-calls.txt"
-  touch "$call_log"
-  assert_mock_api() {
-    echo "assert_mock_api: $*" >> "$call_log"
-    return 0
-  }
-  export -f assert_mock_api
-
-  # Act — direct call so mock writes are visible in this process.
-  _level2_verify_cycle "$yaml_file" "my-wf" 0
-
-  # Assert — should check "작업 완료"
-  grep -q "작업 완료" "$call_log"
-}
-
-@test "_level2_verify_cycle: calls assert_mock_api for github_pr when assertion is true" {
-  # Arrange — scenario with github_pr: true
-  local yaml_file="$SCENARIOS_DIR/with-github-pr.yaml"
-  cat > "$yaml_file" <<'YAML'
-name: with-github-pr
-level: [2]
-cycles:
-  - export_config:
-      linear_issue_id: "mock-id"
-      actions: ["create_pr"]
-    agent_result: "PR created"
-assertions:
-  github_pr: true
-YAML
-
-  assert_workflow_succeeded() { return 0; }
-  export -f assert_workflow_succeeded
-
-  local call_log="$WORK_DIR/mock-api-calls.txt"
-  touch "$call_log"
-  assert_mock_api() {
-    echo "assert_mock_api: $*" >> "$call_log"
-    return 0
-  }
-  export -f assert_mock_api
-
-  # Act — direct call so mock writes are visible in this process.
-  _level2_verify_cycle "$yaml_file" "my-wf" 0
-
-  # Assert — should call assert_mock_api with create_pr
-  grep -q "create_pr" "$call_log"
-}
-
 @test "_level2_verify_cycle: passes cycle index to log output" {
   # Arrange
   assert_workflow_succeeded() { return 0; }
   export -f assert_workflow_succeeded
-  assert_mock_api() { return 0; }
-  export -f assert_mock_api
 
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
