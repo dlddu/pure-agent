@@ -33,6 +33,7 @@ function buildMutationResponse(operationName: string | null): unknown {
     return {
       data: {
         commentCreate: {
+          lastSyncId: 1000,
           success: true,
           comment: {
             id: "mock-comment-id",
@@ -48,6 +49,7 @@ function buildMutationResponse(operationName: string | null): unknown {
   return {
     data: {
       mutationResult: {
+        lastSyncId: 1000,
         success: true,
       },
     },
