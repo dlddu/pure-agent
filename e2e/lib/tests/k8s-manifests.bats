@@ -113,13 +113,9 @@ setup() {
   # The rule for configmaps must list "create".
   # Strategy: extract the line block that contains "configmaps" and check verbs.
   run awk '
-    /resources:.*configmaps/ || /configmaps/ {
-      in_block=1
-    }
+    /resources:.*configmaps/ { in_block=1 }
     in_block && /verbs:/ {
-      getline; verbs=$0
-      while (verbs !~ /\]/ && (getline line) > 0) { verbs = verbs line }
-      if (verbs ~ /create/) found=1
+      if ($0 ~ /create/) { found=1 }
       in_block=0
     }
     END { exit !found }
@@ -129,13 +125,9 @@ setup() {
 
 @test "rbac: configmaps resource rule contains delete verb" {
   run awk '
-    /resources:.*configmaps/ || /configmaps/ {
-      in_block=1
-    }
+    /resources:.*configmaps/ { in_block=1 }
     in_block && /verbs:/ {
-      getline; verbs=$0
-      while (verbs !~ /\]/ && (getline line) > 0) { verbs = verbs line }
-      if (verbs ~ /delete/) found=1
+      if ($0 ~ /delete/) { found=1 }
       in_block=0
     }
     END { exit !found }
@@ -146,11 +138,9 @@ setup() {
 @test "rbac: configmaps resource rule still contains get verb" {
   # The original get verb must be preserved after adding create and delete.
   run awk '
-    /configmaps/ { in_block=1 }
+    /resources:.*configmaps/ { in_block=1 }
     in_block && /verbs:/ {
-      getline; verbs=$0
-      while (verbs !~ /\]/ && (getline line) > 0) { verbs = verbs line }
-      if (verbs ~ /get/) found=1
+      if ($0 ~ /get/) { found=1 }
       in_block=0
     }
     END { exit !found }

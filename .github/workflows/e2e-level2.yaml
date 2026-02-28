@@ -2,7 +2,7 @@ name: "E2E: Level 2 (mock-agent + mock-api)"
 # DLD-466: Level ② e2e 테스트 작성 (skipped)
 #
 # 이 워크플로우는 현재 전체가 skip 상태입니다.
-# skip 제거 시 (if: false 조건 삭제) 바로 실행 가능한 구조입니다.
+# DLD-467에서 활성화됨. CI에서 실행 가능한 구조입니다.
 #
 # Level ③ (e2e-full.yaml) 대비 주요 차이점:
 #   - secrets 불필요 (LINEAR_API_KEY, GH_PAT, CLAUDE_CODE_OAUTH_TOKEN)

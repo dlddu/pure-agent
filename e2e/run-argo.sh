@@ -54,9 +54,11 @@ log()  { echo "[run-argo] $*" >&2; }
 warn() { echo "[run-argo] WARN: $*" >&2; }
 die()  { echo "[run-argo] ERROR: $*" >&2; exit 1; }
 
-# ── Source guard (must be before arg parsing) ────────────────────────────────
+# ── Source guard flag (set before arg parsing, applied after function definitions) ──
+_SOURCE_ONLY=0
 if [[ "${1:-}" == "--source-only" ]]; then
-  return 0 2>/dev/null || true
+  _SOURCE_ONLY=1
+  shift
 fi
 
 # ── Arg parsing ──────────────────────────────────────────────────────────────
@@ -636,5 +638,10 @@ main() {
 
   log "All scenarios completed"
 }
+
+# ── Source guard ────────────────────────────────────────────────────────────
+if [[ "$_SOURCE_ONLY" -eq 1 ]]; then
+  return 0 2>/dev/null || true
+fi
 
 main "$@"
