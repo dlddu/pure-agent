@@ -1,8 +1,5 @@
 name: "E2E: Level 2 (mock-agent + mock-api)"
-# DLD-466: Level ② e2e 테스트 작성 (skipped)
-#
-# 이 워크플로우는 현재 전체가 skip 상태입니다.
-# skip 제거 시 (if: false 조건 삭제) 바로 실행 가능한 구조입니다.
+# DLD-467: Level ② e2e 테스트 활성화
 #
 # Level ③ (e2e-full.yaml) 대비 주요 차이점:
 #   - secrets 불필요 (LINEAR_API_KEY, GH_PAT, CLAUDE_CODE_OAUTH_TOKEN)
@@ -49,8 +46,6 @@ env:
 
 jobs:
   e2e-level2:
-    # TODO: Activate when DLD-466 is implemented (remove the if: false line below)
-    if: false
     runs-on: ubuntu-24.04-arm
 
     steps:
@@ -219,7 +214,7 @@ jobs:
             /tmp/workflow-template-level2.yaml
 
           # mock-agent 이미지로 claude-agent 이미지를 대체
-          yq -i "(.spec.templates[] | select(.name == \"run-agent\") | .container.image) = \"${MOCK_AGENT_IMAGE}\"" \
+          yq -i "(.spec.templates[] | select(.name == \"agent-job\") | .container.image) = \"${MOCK_AGENT_IMAGE}\"" \
             /tmp/workflow-template-level2.yaml
 
           # mock-api URL을 환경 변수로 주입 (MCP_SERVER_URL, LINEAR_API_URL 등)

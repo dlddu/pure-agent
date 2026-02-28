@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 # e2e/lib/assertions-argo.sh — Argo/Kubernetes 특화 assertion helpers (Level ② E2E)
 #
-# DLD-466: Level ② e2e 테스트 작성 (skipped)
-#
-# 이 파일의 모든 함수는 현재 skip 상태입니다.
-# skip 제거 시 바로 실행 가능한 구조로 작성되어 있습니다.
+# DLD-467: Level ② e2e 테스트 활성화
 #
 # Usage in BATS: source this file with --source-only to load functions only.
 #
@@ -33,10 +30,7 @@ _argo_assert_fail() { echo "FAIL $*" >&2; return 1; }
 #   $1  workflow_name  — argo workflow 이름 (예: "pure-agent-abcde")
 #   $2  namespace      — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
 #
-# TODO: Activate when DLD-466 is implemented (remove the skip line below)
 assert_workflow_succeeded() {
-  echo "[SKIP] assert_workflow_succeeded: Not yet implemented (DLD-466)" && return 0
-
   local workflow_name="$1"
   local namespace="${2:-${NAMESPACE:-pure-agent}}"
   local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
@@ -65,10 +59,7 @@ assert_workflow_succeeded() {
 #   $1  workflow_name  — argo workflow 이름 (pod label 필터링에 사용)
 #   $2  namespace      — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
 #
-# TODO: Activate when DLD-466 is implemented (remove the skip line below)
 assert_daemon_pods_ready() {
-  echo "[SKIP] assert_daemon_pods_ready: Not yet implemented (DLD-466)" && return 0
-
   local workflow_name="$1"
   local namespace="${2:-${NAMESPACE:-pure-agent}}"
   local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
@@ -110,10 +101,7 @@ assert_daemon_pods_ready() {
 #   $2  expected_count   — 기대하는 run-cycle 실행 횟수 (예: 2)
 #   $3  namespace        — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
 #
-# TODO: Activate when DLD-466 is implemented (remove the skip line below)
 assert_run_cycle_count() {
-  echo "[SKIP] assert_run_cycle_count: Not yet implemented (DLD-466)" && return 0
-
   local workflow_name="$1"
   local expected_count="$2"
   local namespace="${3:-${NAMESPACE:-pure-agent}}"
@@ -153,10 +141,7 @@ assert_run_cycle_count() {
 #   $2  max_depth      — 설정된 max_depth 값 (예: 2)
 #   $3  namespace      — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
 #
-# TODO: Activate when DLD-466 is implemented (remove the skip line below)
 assert_max_depth_termination() {
-  echo "[SKIP] assert_max_depth_termination: Not yet implemented (DLD-466)" && return 0
-
   local workflow_name="$1"
   local max_depth="$2"
   local namespace="${3:-${NAMESPACE:-pure-agent}}"
@@ -206,10 +191,7 @@ assert_max_depth_termination() {
 #   $1  workflow_name  — argo workflow 이름
 #   $2  namespace      — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
 #
-# TODO: Activate when DLD-466 is implemented (remove the skip line below)
 assert_work_dir_clean() {
-  echo "[SKIP] assert_work_dir_clean: Not yet implemented (DLD-466)" && return 0
-
   local workflow_name="$1"
   local namespace="${2:-${NAMESPACE:-pure-agent}}"
   local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
