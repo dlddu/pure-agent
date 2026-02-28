@@ -253,36 +253,58 @@ YAML
 }
 
 @test "check_prerequisites (Level 2): fails when argo CLI is missing" {
+  # Build an isolated PATH: system utilities + kubectl/jq/yq stubs, but NO argo.
+  # This forces command -v argo to fail inside check_prerequisites.
+  local stub_dir
+  stub_dir=$(mktemp -d)
+  for cmd in kubectl jq yq; do
+    printf '#!/bin/sh\nexit 0\n' > "${stub_dir}/${cmd}"
+    chmod +x "${stub_dir}/${cmd}"
+  done
+  # Symlink essential system utilities so the script can be sourced.
+  for sys_cmd in dirname basename mkdir mktemp grep sed awk tr cut; do
+    local sys_path
+    sys_path=$(command -v "${sys_cmd}" 2>/dev/null || true)
+    [[ -n "${sys_path}" ]] && ln -sf "${sys_path}" "${stub_dir}/${sys_cmd}" || true
+  done
+  # argo intentionally omitted from stub_dir.
+
   run bash -c "
-    # Remove argo from PATH by shadowing it with a failing stub.
-    argo()    { return 127; }
-    kubectl() { return 0; }
-    jq()      { return 0; }
-    yq()      { return 0; }
-    export -f argo kubectl jq yq
+    export PATH='${stub_dir}'
     export LEVEL=2
     export NAMESPACE=pure-agent
     export KUBE_CONTEXT=kind-pure-agent-e2e-level2
     source '${RUN_ARGO}' --source-only
-    # die() calls exit 1; use a subshell to capture it cleanly.
     (check_prerequisites)
   "
+  rm -rf "${stub_dir}"
   [ "$status" -ne 0 ]
 }
 
 @test "check_prerequisites (Level 2): fails when kubectl is missing" {
+  # Build an isolated PATH: system utilities + argo/jq/yq stubs, but NO kubectl.
+  local stub_dir
+  stub_dir=$(mktemp -d)
+  for cmd in argo jq yq; do
+    printf '#!/bin/sh\nexit 0\n' > "${stub_dir}/${cmd}"
+    chmod +x "${stub_dir}/${cmd}"
+  done
+  for sys_cmd in dirname basename mkdir mktemp grep sed awk tr cut; do
+    local sys_path
+    sys_path=$(command -v "${sys_cmd}" 2>/dev/null || true)
+    [[ -n "${sys_path}" ]] && ln -sf "${sys_path}" "${stub_dir}/${sys_cmd}" || true
+  done
+  # kubectl intentionally omitted from stub_dir.
+
   run bash -c "
-    argo()    { return 0; }
-    kubectl() { return 127; }
-    jq()      { return 0; }
-    yq()      { return 0; }
-    export -f argo kubectl jq yq
+    export PATH='${stub_dir}'
     export LEVEL=2
     export NAMESPACE=pure-agent
     export KUBE_CONTEXT=kind-pure-agent-e2e-level2
     source '${RUN_ARGO}' --source-only
     (check_prerequisites)
   "
+  rm -rf "${stub_dir}"
   [ "$status" -ne 0 ]
 }
 

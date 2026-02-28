@@ -78,8 +78,10 @@ if [[ "${LEVEL}" == "2" ]]; then
   KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
 else
   KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-full}"
-  # Level ③은 GITHUB_TEST_REPO 필수
-  GITHUB_TEST_REPO="${GITHUB_TEST_REPO:?GITHUB_TEST_REPO is not set}"
+  # Level ③은 GITHUB_TEST_REPO 필수 (--source-only 모드에서는 체크 스킵)
+  if [[ "$_SOURCE_ONLY" -eq 0 ]]; then
+    GITHUB_TEST_REPO="${GITHUB_TEST_REPO:?GITHUB_TEST_REPO is not set}"
+  fi
 fi
 
 # ── Prerequisites check ──────────────────────────────────────────────────────
