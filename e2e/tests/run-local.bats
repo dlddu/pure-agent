@@ -73,9 +73,11 @@ teardown() {
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
 
-  # router 실행
+  # router 실행 (max_depth は YAML から読み込む)
+  local max_depth
+  max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
   local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_router_in_compose 0 1 "$router_output"
+  run_router_in_compose 0 "$max_depth" "$router_output"
 
   # Assert: router が "false" (stop) を出力すること
   local decision
@@ -126,9 +128,11 @@ teardown() {
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
 
-  # router 실행
+  # router 실행 (max_depth は YAML から読み込む)
+  local max_depth
+  max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
   local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_router_in_compose 0 1 "$router_output"
+  run_router_in_compose 0 "$max_depth" "$router_output"
 
   # Assert: router が "false" (stop) を出力すること
   local decision
@@ -194,9 +198,11 @@ teardown() {
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
 
-  # router 실행
+  # router 실행 (max_depth は YAML から読み込む)
+  local max_depth
+  max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
   local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_router_in_compose 0 1 "$router_output"
+  run_router_in_compose 0 "$max_depth" "$router_output"
 
   # Assert: router が "false" (stop) を出力すること
   local decision
@@ -257,8 +263,10 @@ teardown() {
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle0_dir"
   place_fixtures_via_mock_agent "$cycle0_dir"
 
+  local cycle0_max_depth
+  cycle0_max_depth=$(yq eval '.cycles[0].max_depth // .max_depth // 5' "$yaml_file")
   local router_output_0="${BATS_TEST_TMPDIR}/router_decision_0.txt"
-  run_router_in_compose 0 1 "$router_output_0"
+  run_router_in_compose 0 "$cycle0_max_depth" "$router_output_0"
 
   # Assert cycle-0: router が "true" (continue) を出力すること
   local decision_0
@@ -283,8 +291,10 @@ teardown() {
   prepare_cycle_fixtures "$yaml_file" 1 "$cycle1_dir"
   place_fixtures_via_mock_agent "$cycle1_dir"
 
+  local cycle1_max_depth
+  cycle1_max_depth=$(yq eval '.cycles[1].max_depth // .max_depth // 5' "$yaml_file")
   local router_output_1="${BATS_TEST_TMPDIR}/router_decision_1.txt"
-  run_router_in_compose 1 1 "$router_output_1"
+  run_router_in_compose 1 "$cycle1_max_depth" "$router_output_1"
 
   # Assert cycle-1: router が "false" (stop) を出力すること
   local decision_1
