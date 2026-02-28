@@ -8,7 +8,6 @@ on:
       - ".github/workflows/ci-e2e-mock-api.yaml"
       - ".github/workflows/_test-node.yaml"
   pull_request:
-    branches: [main]
     paths:
       - "e2e/mock-api/**"
       - ".github/workflows/ci-e2e-mock-api.yaml"

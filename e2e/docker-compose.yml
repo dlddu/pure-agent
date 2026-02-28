@@ -1,0 +1,111 @@
+# e2e/docker-compose.yml — Level ① E2E Docker Compose 서비스 정의
+#
+# DLD-468: Level ① e2e 테스트 작성 (skipped)
+#
+# 서비스 구성:
+#   mock-api      — Linear GraphQL mock (포트 4000)
+#   mock-agent    — 시나리오 fixture를 /work에 복사하는 mock agent
+#   router        — Python CLI (router --depth --max-depth --export-config --output)
+#   export-handler — TypeScript (Node 22), LINEAR_API_URL=mock-api로 덮어씀
+#   mock-gh       — gh CLI mock, GH_CALLS_DIR에 호출 기록
+#
+# 사용법:
+#   SCENARIO_DIR=/path/to/scenario/fixtures docker compose -f e2e/docker-compose.yml up -d
+#   docker compose -f e2e/docker-compose.yml down -v
+
+version: "3.9"
+
+# ── 공유 볼륨 ─────────────────────────────────────────────────────────────────
+volumes:
+  work:        # /work 공유 볼륨 (export_config.json, router 출력 등)
+  gh-calls:    # /gh-calls 공유 볼륨 (mock-gh 호출 기록)
+
+# ── 네트워크 ──────────────────────────────────────────────────────────────────
+networks:
+  e2e:
+    driver: bridge
+
+# ── 서비스 ────────────────────────────────────────────────────────────────────
+services:
+
+  # ── mock-api: Linear GraphQL mock ─────────────────────────────────────────
+  mock-api:
+    build:
+      context: ./mock-api
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    networks:
+      - e2e
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+
+  # ── mock-agent: fixture를 /work 볼륨에 배치 ───────────────────────────────
+  # SCENARIO_DIR 환경 변수는 run-local.sh가 외부에서 주입합니다.
+  mock-agent:
+    build:
+      context: ./mock-agent
+      dockerfile: Dockerfile
+    environment:
+      SCENARIO_DIR: "${SCENARIO_DIR:-/scenario}"
+      WORK_DIR: /work
+    volumes:
+      - work:/work
+      # 시나리오 fixture 디렉토리를 컨테이너에 마운트 (run-local.sh가 bind-mount로 교체)
+      - "${SCENARIO_DIR:-/tmp/e2e-empty}:/scenario:ro"
+    networks:
+      - e2e
+    depends_on:
+      mock-api:
+        condition: service_healthy
+
+  # ── router: Python CLI ─────────────────────────────────────────────────────
+  # run-local.sh가 docker compose run으로 개별 실행합니다.
+  router:
+    build:
+      context: ../router
+      dockerfile: Dockerfile
+    volumes:
+      - work:/work
+    networks:
+      - e2e
+    # 기본 커맨드는 run-local.sh가 override합니다.
+    command: ["router", "--help"]
+    profiles:
+      - runner   # docker compose run으로만 실행
+
+  # ── export-handler: TypeScript (Node 22) ──────────────────────────────────
+  # run-local.sh가 docker compose run으로 개별 실행합니다.
+  export-handler:
+    build:
+      context: ../export-handler
+      dockerfile: Dockerfile
+    environment:
+      LINEAR_API_KEY: "mock-api-key"
+      LINEAR_API_URL: "http://mock-api:4000/graphql"
+      WORK_DIR: /work
+      TMP_DIR: /tmp
+    volumes:
+      - work:/work
+      - gh-calls:/gh-calls
+    networks:
+      - e2e
+    depends_on:
+      mock-api:
+        condition: service_healthy
+    profiles:
+      - runner   # docker compose run으로만 실행
+
+  # ── mock-gh: gh CLI mock ───────────────────────────────────────────────────
+  # export-handler 컨테이너 내부에서 PATH override로 사용됩니다.
+  # 독립 서비스로 실행하지 않으며, gh-calls 볼륨을 통해 호출 기록을 공유합니다.
+  # 이 서비스는 직접 실행하지 않으며 참고용입니다.
+  mock-gh:
+    image: alpine:3.20
+    entrypoint: ["sh", "-c", "echo 'mock-gh is mounted via volume, not run directly'"]
+    profiles:
+      - never    # 직접 실행하지 않음
