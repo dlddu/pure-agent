@@ -213,8 +213,8 @@ teardown() {
       echo "hello" > hello.txt
       git add hello.txt
       git commit -m "Add hello.txt"
-      # Ensure node user can access the repo
-      chown -R node:node /work/repo /work/repo-remote.git
+      # Ensure node user can access the repo and gh-calls
+      chown -R node:node /work/repo /work/repo-remote.git /gh-calls
     '
 
   # router 실행 (max_depth는 YAML에서 읽어옴)
