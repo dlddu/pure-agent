@@ -188,8 +188,10 @@ teardown() {
   place_fixtures_via_mock_agent "$cycle_dir"
 
   # Set up mock git repo on shared volume for create_pr action
+  # Run as root to create directories, then chown to node user
   docker compose -f "$COMPOSE_FILE" \
     run --rm --entrypoint="" \
+    --user root \
     export-handler \
     sh -c '
       set -e
@@ -211,6 +213,8 @@ teardown() {
       echo "hello" > hello.txt
       git add hello.txt
       git commit -m "Add hello.txt"
+      # Ensure node user can access the repo
+      chown -R node:node /work/repo /work/repo-remote.git
     '
 
   # router 실행 (max_depth는 YAML에서 읽어옴)
