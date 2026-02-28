@@ -7,6 +7,7 @@ cycles:
   - max_depth: 1
     export_config:
       linear_issue_id: "mock-issue-id"
+      summary: "Cycle 0 진행 중, 계속합니다."
       actions:
         - "continue"
       session_id: "mock-session-cycle0"
@@ -14,6 +15,7 @@ cycles:
   - max_depth: 1
     export_config:
       linear_issue_id: "mock-issue-id"
+      summary: "작업 완료"
       actions:
         - "none"
       session_id: "mock-session-cycle1"

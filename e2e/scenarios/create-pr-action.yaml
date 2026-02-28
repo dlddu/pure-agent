@@ -7,10 +7,15 @@ max_depth: 1
 cycles:
   - export_config:
       linear_issue_id: "mock-issue-id"
+      summary: "PR 생성 완료"
       actions:
         - "create_pr"
-      github_repo: "mock-org/mock-repo"
-      branch: "feat/test-branch"
+      pr:
+        title: "feat: test PR from e2e"
+        body: "E2E 테스트에서 생성된 PR입니다."
+        branch: "feat/test-branch"
+        repo: "mock-org/mock-repo"
+        repo_path: "/work/repo"
       session_id: "mock-session-pr"
     agent_result: "PR created successfully"
 

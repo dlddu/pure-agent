@@ -7,7 +7,9 @@ max_depth: 2
 cycles:
   - export_config:
       linear_issue_id: "mock-depth-limit"
-      actions: []
+      summary: "Depth limit reached"
+      actions:
+        - "none"
     agent_result: "Depth limit reached"
 
 # ── 공유 assertions ──
