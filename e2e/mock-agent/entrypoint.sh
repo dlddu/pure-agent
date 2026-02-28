@@ -19,10 +19,19 @@ set -euo pipefail
 
 # ── Copy export_config.json if present ───────────────────────────────────────
 
+MARKER_FILE="$WORK_DIR/.mock-agent-ran"
+
 if [ -f "$SCENARIO_DIR/export_config.json" ]; then
   mkdir -p "$WORK_DIR"
-  cp "$SCENARIO_DIR/export_config.json" "$WORK_DIR/export_config.json"
+  if [ ! -f "$MARKER_FILE" ]; then
+    # 첫 번째 실행: ConfigMap의 export_config를 /work에 복사
+    cp "$SCENARIO_DIR/export_config.json" "$WORK_DIR/export_config.json"
+  fi
+  # 이후 실행에서는 export_config를 복사하지 않음 (router가 삭제했으면 비어있음)
 fi
+
+# 마커 파일 생성 (첫 실행 표시)
+touch "$MARKER_FILE"
 
 # ── Write agent_result.txt ────────────────────────────────────────────────────
 

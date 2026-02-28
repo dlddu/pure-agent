@@ -1,6 +1,7 @@
 name: continue-then-stop
 description: "2 cycle. cycle-0은 continue, cycle-1은 stop"
 level: [1, 2]
+max_depth: 2
 
 # ── Level 2: mock cycle 정의 ──
 cycles:
