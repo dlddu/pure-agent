@@ -7,6 +7,7 @@ max_depth: 1
 cycles:
   - export_config:
       linear_issue_id: "mock-issue-id"
+      summary: "No action needed. Task already completed."
       actions:
         - "none"
       session_id: "mock-session-none"

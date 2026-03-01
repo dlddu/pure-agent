@@ -87,11 +87,14 @@ services:
     environment:
       LINEAR_API_KEY: "mock-api-key"
       LINEAR_API_URL: "http://mock-api:4000/graphql"
+      GITHUB_TOKEN: "mock-gh-token"
+      GH_CALLS_DIR: "/gh-calls"
       WORK_DIR: /work
       TMP_DIR: /tmp
     volumes:
       - work:/work
       - gh-calls:/gh-calls
+      - ./mock-gh/gh:/usr/local/bin/gh:ro
     networks:
       - e2e
     depends_on:

@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # mock-gh — a drop-in replacement for the gh CLI used in e2e tests.
 #
 # Supported commands:
@@ -7,7 +7,7 @@
 #   gh api repos/<org>/<repo>  → prints {"permissions":{"push":true}}
 #   anything else              → exits 1 with error message
 
-set -euo pipefail
+set -eu
 
 : "${GH_CALLS_DIR:=/tmp/gh-calls}"
 mkdir -p "$GH_CALLS_DIR"
@@ -48,6 +48,9 @@ case "$command" in
       status)
         echo "Logged in to github.com as mock-user (mock-gh)"
         ;;
+      setup-git)
+        # no-op: mock does not need to configure git credential helper
+        ;;
       *)
         echo "mock-gh: unknown auth subcommand: '$subcommand'" >&2
         exit 1
@@ -57,15 +60,45 @@ case "$command" in
 
   api)
     path="${subcommand}"
+    shift 2  # skip "api" and path
+
+    # Check for --jq flag
+    jq_filter=""
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --jq) jq_filter="$2"; shift 2 ;;
+        *) shift ;;
+      esac
+    done
+
     case "$path" in
       repos/*)
-        echo '{"permissions":{"push":true}}'
+        output='{"permissions":{"push":true}}'
         ;;
       *)
         echo "mock-gh: unknown api path: '$path'" >&2
         exit 1
         ;;
     esac
+
+    if [ -n "$jq_filter" ]; then
+      # Handle known jq filters without requiring jq binary
+      case "$jq_filter" in
+        .permissions.push)
+          echo "true"
+          ;;
+        *)
+          # Fallback: try jq if available, otherwise output raw
+          if command -v jq >/dev/null 2>&1; then
+            echo "$output" | jq -r "$jq_filter"
+          else
+            echo "$output"
+          fi
+          ;;
+      esac
+    else
+      echo "$output"
+    fi
     ;;
 
   *)

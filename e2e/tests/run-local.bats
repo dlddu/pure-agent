@@ -2,11 +2,10 @@
 bats_require_minimum_version 1.5.0
 # e2e/tests/run-local.bats — Level ① E2E 시나리오 테스트 (Docker Compose 기반)
 #
-# DLD-468: Level ① e2e 테스트 작성 (skipped)
+# DLD-469: Level ① e2e 테스트 활성화
 #
 # 테스트 구조:
-#   - 모든 테스트는 skip 상태입니다.
-#   - skip 제거 시 Docker Compose 환경에서 바로 실행 가능한 구조입니다.
+#   - Docker Compose 환경에서 실행됩니다.
 #   - 각 테스트는 하나의 시나리오만 검증합니다.
 #
 # 전제 조건 (skip 제거 시 필요):
@@ -42,7 +41,6 @@ setup() {
 
 teardown() {
   # 각 테스트 후 Docker Compose 정리 (실패 시에도 실행)
-  # skip 상태이므로 실제로는 실행되지 않음
   docker compose -f "$COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
 }
 
@@ -56,9 +54,6 @@ teardown() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "scenario: none-action — router outputs false, export-handler exits 0" {
-  # TODO: Activate when DLD-468 is implemented
-  skip "Level 1 Docker Compose e2e: not yet implemented (DLD-468)"
-
   # Arrange
   local yaml_file="${SCENARIOS_DIR}/none-action.yaml"
   [ -f "$yaml_file" ]
@@ -96,7 +91,7 @@ teardown() {
   response=$(curl -sf "${MOCK_API_URL}/assertions")
   local comment_count
   comment_count=$(echo "$response" | jq \
-    '[.calls[] | select(.type == "mutation" and ((.operationName // "") | ascii_downcase | contains("comment")))] | length')
+    '[.calls[] | select(.type == "mutation" and ((.operationName // "") + " " + ((.body.query // "") | tostring) | ascii_downcase | contains("comment")))] | length')
   # none-action에서는 comment는 1건 (summary만)
   [ "$comment_count" -ge 1 ]
 }
@@ -111,9 +106,6 @@ teardown() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "scenario: report-action — router outputs false, linear comment contains report" {
-  # TODO: Activate when DLD-468 is implemented
-  skip "Level 1 Docker Compose e2e: not yet implemented (DLD-468)"
-
   # Arrange
   local yaml_file="${SCENARIOS_DIR}/report-action.yaml"
   [ -f "$yaml_file" ]
@@ -156,7 +148,7 @@ teardown() {
   summary_count=$(echo "$response" | jq \
     '[.calls[] | select(
         .type == "mutation" and
-        ((.operationName // "") | ascii_downcase | contains("comment"))
+        ((.operationName // "") + " " + ((.body.query // "") | tostring) | ascii_downcase | contains("comment"))
      )] | length')
   [ "$summary_count" -ge 1 ]
 
@@ -181,9 +173,6 @@ teardown() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "scenario: create-pr-action — gh pr create called, linear comment contains PR URL" {
-  # TODO: Activate when DLD-468 is implemented
-  skip "Level 1 Docker Compose e2e: not yet implemented (DLD-468)"
-
   # Arrange
   local yaml_file="${SCENARIOS_DIR}/create-pr-action.yaml"
   [ -f "$yaml_file" ]
@@ -197,6 +186,36 @@ teardown() {
   local cycle_dir="${BATS_TEST_TMPDIR}/create-pr-action-cycle0"
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
+
+  # Set up mock git repo on shared volume for create_pr action
+  # Run as root to create directories, then chown to node user
+  docker compose -f "$COMPOSE_FILE" \
+    run --rm --entrypoint="" \
+    --user root \
+    export-handler \
+    sh -c '
+      set -e
+      # Create a bare "remote" repo
+      git init --bare /work/repo-remote.git
+      # Create the working repo
+      git init /work/repo
+      cd /work/repo
+      git config user.email "test@e2e.local"
+      git config user.name "E2E Test"
+      git remote add origin /work/repo-remote.git
+      # Initial commit on main
+      echo "init" > README.md
+      git add README.md
+      git commit -m "Initial commit"
+      git push -u origin HEAD:main
+      # Create feature branch with a commit
+      git checkout -b feat/test-branch
+      echo "hello" > hello.txt
+      git add hello.txt
+      git commit -m "Add hello.txt"
+      # Ensure node user can access the repo and gh-calls
+      chown -R node:node /work/repo /work/repo-remote.git /gh-calls
+    '
 
   # router 실행 (max_depth는 YAML에서 읽어옴)
   local max_depth
@@ -246,9 +265,6 @@ teardown() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "scenario: continue-then-stop — cycle-0 router outputs true, cycle-1 outputs false" {
-  # TODO: Activate when DLD-468 is implemented
-  skip "Level 1 Docker Compose e2e: not yet implemented (DLD-468)"
-
   # Arrange
   local yaml_file="${SCENARIOS_DIR}/continue-then-stop.yaml"
   [ -f "$yaml_file" ]
@@ -330,9 +346,6 @@ teardown() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "scenario: depth-limit — router outputs false when depth reaches max_depth" {
-  # TODO: Activate when DLD-468 is implemented
-  skip "Level 1 Docker Compose e2e: not yet implemented (DLD-468)"
-
   # Arrange
   # depth-limit는 level:[2]에서만 정의되지만, Level ① 테스트로서
   # max_depth=2, depth=1 조합에서 router가 stop하는지 검증

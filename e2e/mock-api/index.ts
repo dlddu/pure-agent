@@ -28,11 +28,20 @@ function isMutation(query: string): boolean {
   return /^\s*mutation\b/i.test(query);
 }
 
-function buildMutationResponse(operationName: string | null): unknown {
-  if (operationName === "createComment" || operationName === "CreateComment") {
+function buildMutationResponse(operationName: string | null, query: string): unknown {
+  // Match comment creation by operationName OR by query body content.
+  // The @linear/sdk may send different operationName formats.
+  const isCommentCreate =
+    operationName === "createComment" ||
+    operationName === "CreateComment" ||
+    operationName === "CommentCreate" ||
+    /commentCreate\s*\(/.test(query);
+
+  if (isCommentCreate) {
     return {
       data: {
         commentCreate: {
+          lastSyncId: 1000,
           success: true,
           comment: {
             id: "mock-comment-id",
@@ -48,6 +57,7 @@ function buildMutationResponse(operationName: string | null): unknown {
   return {
     data: {
       mutationResult: {
+        lastSyncId: 1000,
         success: true,
       },
     },
@@ -112,7 +122,7 @@ export function createApp(): express.Application {
 
     const response =
       type === "mutation"
-        ? buildMutationResponse(resolvedOperationName)
+        ? buildMutationResponse(resolvedOperationName, query)
         : buildQueryResponse(resolvedOperationName);
 
     res.status(200).json(response);

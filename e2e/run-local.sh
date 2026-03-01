@@ -30,21 +30,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-${SCRIPT_DIR}/docker-compose.yml}"
 SCENARIOS_DIR="${SCRIPT_DIR}/scenarios"
 
-# ── Source guard ──────────────────────────────────────────────────────────────
-if [[ "${1:-}" == "--source-only" ]]; then
-  return 0 2>/dev/null || true
-fi
-
 # ── Logging ───────────────────────────────────────────────────────────────────
 log()  { echo "[run-local] $*" >&2; }
 warn() { echo "[run-local] WARN: $*" >&2; }
 die()  { echo "[run-local] ERROR: $*" >&2; exit 1; }
 
 # ── Arg parsing ───────────────────────────────────────────────────────────────
+__SOURCE_ONLY=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --scenario) SCENARIO="$2"; shift 2 ;;
-    *)          die "Unknown argument: $1" ;;
+    --source-only) __SOURCE_ONLY=true; shift ;;
+    --scenario)    SCENARIO="$2"; shift 2 ;;
+    *)             die "Unknown argument: $1" ;;
   esac
 done
 
@@ -190,16 +187,24 @@ run_router() {
 
   log "Running router (depth=${depth}, max_depth=${max_depth}) ..."
 
+  # NOTE: --export-config는 JSON 문자열을 받으므로, 컨테이너 내부에서
+  #       파일을 읽어 전달합니다. 파일이 없으면 빈 JSON {}을 전달합니다.
   docker compose -f "$COMPOSE_FILE" \
     run --rm \
     --no-deps \
-    -v "$(docker compose -f "$COMPOSE_FILE" ps -q mock-api 2>/dev/null | head -1 || echo 'work'):/work" \
+    --entrypoint="" \
     router \
-    router \
-      --depth "${depth}" \
-      --max-depth "${max_depth}" \
-      --export-config /work/export_config.json \
-      --output "${output_file}" \
+    sh -c '
+      EC="{}";
+      if [ -f /work/export_config.json ]; then
+        EC=$(cat /work/export_config.json);
+      fi;
+      exec router \
+        --depth '"${depth}"' \
+        --max-depth '"${max_depth}"' \
+        --export-config "$EC" \
+        --output '"${output_file}"'
+    ' \
     || {
       warn "router exited non-zero for depth=${depth}"
       return 1
@@ -239,15 +244,24 @@ run_router_in_compose() {
 
   # router 컨테이너를 'work' 볼륨과 함께 실행
   # --no-deps: mock-api에 의존하지 않음 (router는 파일만 읽음)
+  # NOTE: --export-config는 JSON 문자열을 받으므로, 컨테이너 내부에서
+  #       파일을 읽어 전달합니다. 파일이 없으면 빈 JSON {}을 전달합니다.
   local exit_code=0
   docker compose -f "$COMPOSE_FILE" \
     run --rm \
+    --entrypoint="" \
     router \
-    router \
-      --depth "${depth}" \
-      --max-depth "${max_depth}" \
-      --export-config /work/export_config.json \
-      --output /work/router_decision.txt \
+    sh -c '
+      EC="{}";
+      if [ -f /work/export_config.json ]; then
+        EC=$(cat /work/export_config.json);
+      fi;
+      exec router \
+        --depth '"${depth}"' \
+        --max-depth '"${max_depth}"' \
+        --export-config "$EC" \
+        --output /work/router_decision.txt
+    ' \
     || exit_code=$?
 
   if [[ "$exit_code" -ne 0 ]]; then
@@ -550,5 +564,10 @@ main() {
 
   log "All Level 1 scenarios completed"
 }
+
+# ── Source guard ──────────────────────────────────────────────────────────────
+if [[ "$__SOURCE_ONLY" == "true" ]]; then
+  return 0 2>/dev/null || true
+fi
 
 main "$@"
