@@ -17,7 +17,7 @@ on:
       - "e2e/mock-gh/**"
       - "router/**"
       - "export-handler/**"
-      - ".github/workflows/ci-e2e-local.yaml"
+      - ".github/workflows/ci-e2e-level1.yaml"
   pull_request:
     paths:
       - "e2e/tests/**"
@@ -30,7 +30,7 @@ on:
       - "e2e/mock-gh/**"
       - "router/**"
       - "export-handler/**"
-      - ".github/workflows/ci-e2e-local.yaml"
+      - ".github/workflows/ci-e2e-level1.yaml"
   workflow_dispatch:
 
 concurrency:
