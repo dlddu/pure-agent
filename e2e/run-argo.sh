@@ -40,6 +40,8 @@ MOCK_API_URL="${MOCK_API_URL:-http://mock-api.${NAMESPACE}.svc.cluster.local:400
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${SCRIPT_DIR}/lib"
 SCENARIOS_DIR="${SCRIPT_DIR}/scenarios"
+# shellcheck source=lib/common.sh
+source "$LIB_DIR/common.sh"
 # shellcheck source=lib/setup-real.sh
 source "$LIB_DIR/setup-real.sh" --source-only
 # shellcheck source=lib/teardown-real.sh
@@ -104,20 +106,6 @@ check_prerequisites() {
     [[ -n "${GITHUB_TOKEN:-}" ]]    || die "GITHUB_TOKEN is not set"
 
     log "Prerequisites OK (Level 3)"
-  fi
-}
-
-# ── YAML helper ──────────────────────────────────────────────────────────────
-# yq wrapper with null → empty string conversion.
-yaml_get() {
-  local yaml_file="$1"
-  local path="$2"
-  local value
-  value=$(yq eval "$path" "$yaml_file")
-  if [[ "$value" == "null" ]]; then
-    echo ""
-  else
-    echo "$value"
   fi
 }
 
@@ -223,47 +211,6 @@ run_argo_workflow() {
 # ═══════════════════════════════════════════════════════════════════════════════
 # LEVEL ② RUNNER (DLD-467)
 # ═══════════════════════════════════════════════════════════════════════════════
-
-# _level2_place_cycle_fixtures: cycle 인덱스에 맞는 export_config.json, agent_result.txt를
-# SCENARIO_DIR에 배치합니다.
-#
-# Arguments:
-#   $1  yaml_file    — 시나리오 YAML 파일 경로
-#   $2  cycle_index  — 배치할 cycle 인덱스 (0-based)
-#   $3  scenario_dir — 파일을 배치할 디렉토리
-#
-_level2_place_cycle_fixtures() {
-  local yaml_file="$1"
-  local cycle_index="$2"
-  local scenario_dir="$3"
-
-  mkdir -p "$scenario_dir"
-
-  # export_config 읽기 (null이면 파일 생성 안 함)
-  local export_config_raw
-  export_config_raw=$(yq eval ".cycles[${cycle_index}].export_config" "$yaml_file")
-
-  if [[ "$export_config_raw" != "null" && -n "$export_config_raw" ]]; then
-    # YAML 오브젝트를 JSON으로 변환하여 export_config.json에 저장
-    yq eval -o=json ".cycles[${cycle_index}].export_config" "$yaml_file" \
-      > "${scenario_dir}/export_config.json"
-    log "Placed export_config.json for cycle ${cycle_index}"
-  else
-    log "No export_config for cycle ${cycle_index} — skipping export_config.json"
-    rm -f "${scenario_dir}/export_config.json"
-  fi
-
-  # agent_result 읽기
-  local agent_result
-  agent_result=$(yq eval ".cycles[${cycle_index}].agent_result // \"\"" "$yaml_file")
-
-  if [[ -n "$agent_result" && "$agent_result" != "null" ]]; then
-    echo "$agent_result" > "${scenario_dir}/agent_result.txt"
-    log "Placed agent_result.txt for cycle ${cycle_index}: $agent_result"
-  else
-    rm -f "${scenario_dir}/agent_result.txt"
-  fi
-}
 
 # _level2_submit_mock_workflow: mock-agent를 사용하여 Argo Workflow를 제출합니다.
 # SCENARIO_DIR ConfigMap을 생성하고 Workflow를 제출합니다.
@@ -433,7 +380,7 @@ run_scenario_level2() {
     cycle_dir=$(mktemp -d "/tmp/e2e-level2-${scenario_name}-cycle${cycle_index}-XXXXXX")
 
     # cycle fixtures 배치
-    _level2_place_cycle_fixtures "$yaml_file" "$cycle_index" "$cycle_dir"
+    prepare_cycle_fixtures "$yaml_file" "$cycle_index" "$cycle_dir"
 
     # mock Argo Workflow 제출 + 완료 대기
     local workflow_name
@@ -484,19 +431,6 @@ run_scenario_level2() {
 # ═══════════════════════════════════════════════════════════════════════════════
 # GENERIC SCENARIO RUNNER
 # ═══════════════════════════════════════════════════════════════════════════════
-
-# discover_scenarios: 현재 LEVEL을 지원하는 시나리오 YAML 파일 목록을 반환합니다.
-discover_scenarios() {
-  local yaml_file
-  for yaml_file in "$SCENARIOS_DIR"/*.yaml; do
-    [[ -f "$yaml_file" ]] || continue
-    # level 배열에 현재 LEVEL이 포함된 시나리오만 대상
-    local has_level
-    has_level=$(yq eval ".level[] | select(. == ${LEVEL})" "$yaml_file" 2>/dev/null || true)
-    [[ -n "$has_level" ]] || continue
-    yaml_get "$yaml_file" '.name'
-  done
-}
 
 # run_scenario: YAML 정의를 읽고 setup → run → verify → teardown을 수행합니다.
 # Level ②에서는 run_scenario_level2()로 위임합니다.
