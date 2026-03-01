@@ -1,8 +1,9 @@
 #!/bin/bash
-# Shared test helpers for e2e/lib BATS tests.
+# Shared test helpers for e2e BATS tests.
 # Usage: source "$BATS_TEST_DIRNAME/test-helper.sh"
 
-LIB_DIR="$BATS_TEST_DIRNAME/.."
+E2E_DIR="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
+LIB_DIR="$E2E_DIR/lib"
 
 common_setup() {
   export WORK_DIR="$BATS_TEST_TMPDIR/work"
@@ -65,9 +66,8 @@ load_common() {
 # We do this by sourcing the helper libraries manually and then sourcing
 # the run-argo.sh with a temporary override of the source guard variable.
 load_run_argo() {
-  local run_argo_dir
-  run_argo_dir="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-  local lib_dir="${run_argo_dir}/lib"
+  local run_argo_dir="$E2E_DIR"
+  local lib_dir="$LIB_DIR"
   local scenarios_dir="${run_argo_dir}/scenarios"
 
   # Export variables that run-argo.sh reads at parse time.
