@@ -17,11 +17,6 @@
 
 set -euo pipefail
 
-# ── Source guard ──────────────────────────────────────────────────────────────
-if [[ "${1:-}" == "--source-only" ]]; then
-  return 0 2>/dev/null || true
-fi
-
 # ── assert_local_router_decision ─────────────────────────────────────────────
 # router 결정값 검증
 #

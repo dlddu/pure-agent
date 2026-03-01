@@ -23,11 +23,6 @@
 
 set -euo pipefail
 
-# ── Source guard ──────────────────────────────────────────────────────────────
-if [[ "${1:-}" == "--source-only" ]]; then
-  return 0 2>/dev/null || true
-fi
-
 # ── mock-api 리셋 ─────────────────────────────────────────────────────────────
 reset_mock_api() {
   local url="${MOCK_API_URL}/assertions/reset"
