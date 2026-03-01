@@ -8,7 +8,7 @@ bats_require_minimum_version 1.5.0
 #
 # Covered functions:
 #   check_prerequisites (Level 2 branch)
-#   _level2_place_cycle_fixtures
+#   prepare_cycle_fixtures (from lib/common.sh)
 #   _level2_verify_cycle
 
 source "$BATS_TEST_DIRNAME/test-helper.sh"
@@ -242,10 +242,10 @@ YAML
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# _level2_place_cycle_fixtures
+# prepare_cycle_fixtures (from lib/common.sh)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@test "_level2_place_cycle_fixtures: creates export_config.json from cycle YAML" {
+@test "prepare_cycle_fixtures: creates export_config.json from cycle YAML" {
   # Arrange
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
@@ -253,14 +253,14 @@ YAML
   mkdir -p "$out_dir"
 
   # Act — cycle index 0 has export_config defined
-  run _level2_place_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  run prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
 
   # Assert
   [ "$status" -eq 0 ]
   [ -f "$out_dir/export_config.json" ]
 }
 
-@test "_level2_place_cycle_fixtures: export_config.json is valid JSON" {
+@test "prepare_cycle_fixtures: export_config.json is valid JSON" {
   # Arrange
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
@@ -268,14 +268,14 @@ YAML
   mkdir -p "$out_dir"
 
   # Act
-  _level2_place_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
 
   # Assert — jq must parse without error
   run jq . "$out_dir/export_config.json"
   [ "$status" -eq 0 ]
 }
 
-@test "_level2_place_cycle_fixtures: export_config.json contains expected field values" {
+@test "prepare_cycle_fixtures: export_config.json contains expected field values" {
   # Arrange
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
@@ -283,7 +283,7 @@ YAML
   mkdir -p "$out_dir"
 
   # Act
-  _level2_place_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
 
   # Assert — linear_issue_id must be preserved
   run jq -r '.linear_issue_id' "$out_dir/export_config.json"
@@ -291,7 +291,7 @@ YAML
   [ "$output" = "mock-issue-id" ]
 }
 
-@test "_level2_place_cycle_fixtures: creates agent_result.txt when cycle has agent_result" {
+@test "prepare_cycle_fixtures: creates agent_result.txt when cycle has agent_result" {
   # Arrange
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
@@ -299,14 +299,14 @@ YAML
   mkdir -p "$out_dir"
 
   # Act
-  run _level2_place_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  run prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
 
   # Assert
   [ "$status" -eq 0 ]
   [ -f "$out_dir/agent_result.txt" ]
 }
 
-@test "_level2_place_cycle_fixtures: agent_result.txt contains the expected text" {
+@test "prepare_cycle_fixtures: agent_result.txt contains the expected text" {
   # Arrange
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
@@ -314,14 +314,14 @@ YAML
   mkdir -p "$out_dir"
 
   # Act
-  _level2_place_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
 
   # Assert
   run grep -F "Cycle 0 done." "$out_dir/agent_result.txt"
   [ "$status" -eq 0 ]
 }
 
-@test "_level2_place_cycle_fixtures: does not create export_config.json when cycle export_config is null" {
+@test "prepare_cycle_fixtures: does not create export_config.json when cycle export_config is null" {
   # Arrange — depth-limit scenario has export_config: null
   local yaml_file
   yaml_file=$(write_depth_limit_scenario_yaml "depth-limit")
@@ -329,14 +329,14 @@ YAML
   mkdir -p "$out_dir"
 
   # Act — cycle 0 has null export_config
-  run _level2_place_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  run prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
 
   # Assert — file must NOT be present
   [ "$status" -eq 0 ]
   [ ! -f "$out_dir/export_config.json" ]
 }
 
-@test "_level2_place_cycle_fixtures: creates the scenario_dir when it does not exist" {
+@test "prepare_cycle_fixtures: creates the scenario_dir when it does not exist" {
   # Arrange
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
@@ -344,14 +344,14 @@ YAML
   # Deliberately NOT creating out_dir
 
   # Act
-  run _level2_place_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  run prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
 
   # Assert — function should create the directory and succeed
   [ "$status" -eq 0 ]
   [ -d "$out_dir" ]
 }
 
-@test "_level2_place_cycle_fixtures: places correct fixtures for cycle index 1 in multi-cycle scenario" {
+@test "prepare_cycle_fixtures: places correct fixtures for cycle index 1 in multi-cycle scenario" {
   # Arrange — write multi-cycle scenario
   local yaml_file
   yaml_file=$(write_multi_cycle_scenario_yaml "continue-then-stop")
@@ -359,7 +359,7 @@ YAML
   mkdir -p "$out_dir"
 
   # Act — request cycle index 1
-  run _level2_place_cycle_fixtures "$yaml_file" 1 "$out_dir"
+  run prepare_cycle_fixtures "$yaml_file" 1 "$out_dir"
 
   # Assert
   [ "$status" -eq 0 ]
@@ -369,7 +369,7 @@ YAML
   [ "$status" -eq 0 ]
 }
 
-@test "_level2_place_cycle_fixtures: cycle 1 actions contain 'none' in continue-then-stop scenario" {
+@test "prepare_cycle_fixtures: cycle 1 actions contain 'none' in continue-then-stop scenario" {
   # Arrange
   local yaml_file
   yaml_file=$(write_multi_cycle_scenario_yaml "continue-then-stop")
@@ -377,7 +377,7 @@ YAML
   mkdir -p "$out_dir"
 
   # Act
-  _level2_place_cycle_fixtures "$yaml_file" 1 "$out_dir"
+  prepare_cycle_fixtures "$yaml_file" 1 "$out_dir"
 
   # Assert — cycle 1 has actions: ["none"]
   run jq -r '.actions[0]' "$out_dir/export_config.json"
@@ -385,7 +385,7 @@ YAML
   [ "$output" = "none" ]
 }
 
-@test "_level2_place_cycle_fixtures: removes stale agent_result.txt when cycle has no agent_result" {
+@test "prepare_cycle_fixtures: removes stale agent_result.txt when cycle has no agent_result" {
   # Arrange — create a stale file in the output dir, then use a cycle with no agent_result
   local yaml_file="$SCENARIOS_DIR/no-agent-result.yaml"
   cat > "$yaml_file" <<YAML
@@ -400,7 +400,7 @@ YAML
   echo "stale content" > "$out_dir/agent_result.txt"
 
   # Act — no-agent-result cycle 0 has no agent_result field at all
-  run _level2_place_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  run prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
 
   # Assert — stale file should be gone
   [ "$status" -eq 0 ]

@@ -47,6 +47,12 @@ load_assertions_argo() {
   source "$LIB_DIR/assertions-argo.sh" --source-only
 }
 
+# Source common.sh (shared helpers: yaml_get, discover_scenarios, prepare_cycle_fixtures).
+load_common() {
+  # shellcheck disable=SC1090
+  source "$LIB_DIR/common.sh"
+}
+
 # Source Level-2 functions from run-argo.sh.
 #
 # run-argo.sh's --source-only guard fires BEFORE function definitions (line
@@ -78,6 +84,8 @@ load_run_argo() {
 
   # Source the shared libraries that run-argo.sh depends on.
   # shellcheck disable=SC1090
+  source "$lib_dir/common.sh"
+  # shellcheck disable=SC1090
   source "$lib_dir/setup-real.sh"    --source-only
   # shellcheck disable=SC1090
   source "$lib_dir/teardown-real.sh" --source-only
@@ -90,19 +98,6 @@ load_run_argo() {
   log()  { echo "[run-argo] $*" >&2; }
   warn() { echo "[run-argo] WARN: $*" >&2; }
   die()  { echo "[run-argo] ERROR: $*" >&2; return 1; }
-
-  # Define a yaml_get stub so functions can call it without yq being present.
-  yaml_get() {
-    local yaml_file="$1"
-    local path="$2"
-    local value
-    value=$(yq eval "$path" "$yaml_file" 2>/dev/null || echo "null")
-    if [[ "$value" == "null" ]]; then
-      echo ""
-    else
-      echo "$value"
-    fi
-  }
 
   # Source only the function-definition sections of run-argo.sh by extracting
   # them from the file.  We strip:

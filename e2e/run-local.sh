@@ -24,6 +24,7 @@ set -euo pipefail
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
 SCENARIO="${SCENARIO:-all}"
+LEVEL="${LEVEL:-1}"
 MOCK_API_URL="${MOCK_API_URL:-http://localhost:4000}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -34,6 +35,10 @@ SCENARIOS_DIR="${SCRIPT_DIR}/scenarios"
 log()  { echo "[run-local] $*" >&2; }
 warn() { echo "[run-local] WARN: $*" >&2; }
 die()  { echo "[run-local] ERROR: $*" >&2; exit 1; }
+
+# ── Source shared library ────────────────────────────────────────────────────
+# shellcheck source=lib/common.sh
+source "${SCRIPT_DIR}/lib/common.sh"
 
 # ── Arg parsing ───────────────────────────────────────────────────────────────
 __SOURCE_ONLY=false
@@ -57,19 +62,6 @@ check_prerequisites() {
     || die "docker-compose.yml not found: $COMPOSE_FILE"
 
   log "Prerequisites OK"
-}
-
-# ── YAML helper ───────────────────────────────────────────────────────────────
-yaml_get() {
-  local yaml_file="$1"
-  local path="$2"
-  local value
-  value=$(yq eval "$path" "$yaml_file" 2>/dev/null || echo "null")
-  if [[ "$value" == "null" ]]; then
-    echo ""
-  else
-    echo "$value"
-  fi
 }
 
 # ── mock-api 리셋 ─────────────────────────────────────────────────────────────
@@ -128,45 +120,6 @@ place_fixtures_via_mock_agent() {
     -v "${cycle_fixture_dir}:/scenario:ro" \
     mock-agent \
     /app/entrypoint.sh
-}
-
-# ── cycle fixture 디렉토리 생성 ───────────────────────────────────────────────
-#
-# Arguments:
-#   $1  yaml_file    — 시나리오 YAML 파일 경로
-#   $2  cycle_index  — cycle 인덱스 (0-based)
-#   $3  out_dir      — 파일을 배치할 호스트 디렉토리
-#
-prepare_cycle_fixtures() {
-  local yaml_file="$1"
-  local cycle_index="$2"
-  local out_dir="$3"
-
-  mkdir -p "$out_dir"
-
-  # export_config: YAML → JSON
-  local export_config_raw
-  export_config_raw=$(yq eval ".cycles[${cycle_index}].export_config" "$yaml_file" 2>/dev/null || echo "null")
-
-  if [[ "$export_config_raw" != "null" && -n "$export_config_raw" ]]; then
-    yq eval -o=json ".cycles[${cycle_index}].export_config" "$yaml_file" \
-      > "${out_dir}/export_config.json"
-    log "Prepared export_config.json for cycle ${cycle_index}"
-  else
-    rm -f "${out_dir}/export_config.json"
-    log "No export_config for cycle ${cycle_index}"
-  fi
-
-  # agent_result
-  local agent_result
-  agent_result=$(yq eval ".cycles[${cycle_index}].agent_result // \"\"" "$yaml_file" 2>/dev/null || echo "")
-
-  if [[ -n "$agent_result" && "$agent_result" != "null" ]]; then
-    echo "$agent_result" > "${out_dir}/agent_result.txt"
-    log "Prepared agent_result.txt for cycle ${cycle_index}: $agent_result"
-  else
-    rm -f "${out_dir}/agent_result.txt"
-  fi
 }
 
 # ── router 실행 ───────────────────────────────────────────────────────────────
@@ -523,20 +476,6 @@ run_scenario() {
   compose_down
 
   log "=== PASS (Level 1): $scenario_name ==="
-}
-
-# ── 시나리오 목록 ─────────────────────────────────────────────────────────────
-
-discover_scenarios() {
-  local yaml_file
-  for yaml_file in "${SCENARIOS_DIR}"/*.yaml; do
-    [[ -f "$yaml_file" ]] || continue
-    # level 배열에 1이 포함된 시나리오만
-    local has_level1
-    has_level1=$(yq eval '.level[] | select(. == 1)' "$yaml_file" 2>/dev/null || true)
-    [[ -n "$has_level1" ]] || continue
-    yq eval '.name' "$yaml_file"
-  done
 }
 
 # ── main ──────────────────────────────────────────────────────────────────────
