@@ -1,7 +1,7 @@
 name: "E2E: Level 2 (mock-agent + mock-api)"
 # DLD-467: Level ② e2e 테스트 활성화
 #
-# Level ③ (e2e-full.yaml) 대비 주요 차이점:
+# Level ③ (ci-e2e-level3.yaml) 대비 주요 차이점:
 #   - secrets 불필요 (LINEAR_API_KEY, GH_PAT, CLAUDE_CODE_OAUTH_TOKEN)
 #   - 빌드 대상: mock-agent, mock-api 이미지만
 #   - 실제 Claude Agent / Linear / GitHub API 호출 없음
