@@ -54,6 +54,7 @@ async function main() {
     },
     workDir: config.WORK_DIR,
     logger: createLogger("tools"),
+    fetch: globalThis.fetch,
   };
 
   const tools = createDefaultTools();

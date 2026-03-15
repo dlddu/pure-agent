@@ -113,6 +113,7 @@ export function createMockContext(overrides?: {
     exec: createMockExec(),
     workDir: overrides?.workDir ?? "/work",
     logger: createMockLogger(),
+    fetch: vi.fn() as unknown as typeof globalThis.fetch,
   };
 }
 

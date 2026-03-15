@@ -38,6 +38,7 @@ export interface McpToolContext {
   };
   workDir: string;
   logger: Logger;
+  fetch: typeof globalThis.fetch;
 }
 
 export interface McpTool {

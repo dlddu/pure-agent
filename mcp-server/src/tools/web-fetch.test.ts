@@ -1,29 +1,15 @@
-// TODO: Activate when DLD-778 is implemented
-// All tests in this file are skipped pending web-fetch.ts implementation.
-// Remove describe.skip to enable after web_fetch tool is created.
-
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { parseResponseText, createMockContext, createMockExtra } from "../test-utils.js";
+import { webFetchTool } from "./web-fetch.js";
 import type { McpToolContext } from "./types.js";
 
-// NOTE: web-fetch.ts does not exist yet. This import will resolve once DLD-778 is implemented.
-// import { webFetchTool } from "./web-fetch.js";
-
-describe.skip("webFetchTool — DLD-778 (pending implementation)", () => {
-  // Placeholder import — replace with real import when web-fetch.ts exists:
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let webFetchTool: any;
+describe("webFetchTool — DLD-778", () => {
   let context: McpToolContext;
   let mockFetch: ReturnType<typeof vi.fn>;
   let mockRequestApproval: ReturnType<typeof vi.fn>;
   let mockReadSessionId: ReturnType<typeof vi.fn>;
 
-  beforeEach(async () => {
-    // When DLD-778 is implemented, replace the dynamic import below with a static import at the top of the file:
-    // import { webFetchTool } from "./web-fetch.js";
-    const mod = await import("./web-fetch.js");
-    webFetchTool = mod.webFetchTool;
-
+  beforeEach(() => {
     context = createMockContext();
 
     // context.fetch is not yet part of McpToolContext — cast to any to attach the mock.
@@ -120,8 +106,7 @@ describe.skip("webFetchTool — DLD-778 (pending implementation)", () => {
       );
 
       // Should not fail with session error — may succeed or fail for other reasons
-      const parsed = parseResponseText(result);
-      expect(parsed.error).not.toContain("Session ID not found");
+      expect(result.isError).toBeFalsy();
     });
   });
 
