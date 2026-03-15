@@ -60,6 +60,12 @@ export class GatekeeperService implements IGatekeeperService {
         },
       );
 
+      if (!getResponse.ok) {
+        throw new Error(
+          `Gatekeeper GET failed with status ${getResponse.status}`,
+        );
+      }
+
       const getBody = await getResponse.json();
       const status: string = getBody.status;
 
@@ -67,15 +73,10 @@ export class GatekeeperService implements IGatekeeperService {
         return { status: status as ApprovalResult["status"], requestId };
       }
 
-      const elapsed = Date.now() - startTime;
-      if (elapsed >= this.timeoutMs) {
-        return { status: "TIMEOUT" };
-      }
-
       await sleep(this.pollIntervalMs);
 
-      const elapsedAfterSleep = Date.now() - startTime;
-      if (elapsedAfterSleep >= this.timeoutMs) {
+      const elapsed = Date.now() - startTime;
+      if (elapsed >= this.timeoutMs) {
         return { status: "TIMEOUT" };
       }
     }
