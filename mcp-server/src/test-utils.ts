@@ -57,6 +57,25 @@ export function createMockSessionService(
   } as ISessionService;
 }
 
+// IGatekeeperService는 아직 구현되지 않았습니다.
+// 구현 완료 후 아래 import를 추가하고 인라인 타입 정의를 제거하세요:
+// import type { IGatekeeperService } from "./services/types.js";
+type IGatekeeperService = {
+  requestApproval(
+    externalId: string,
+    metadata?: Record<string, unknown>,
+  ): Promise<{ status: "APPROVED" | "REJECTED" | "EXPIRED" | "TIMEOUT"; requestId?: string }>;
+};
+
+export function createMockGatekeeperService(
+  overrides?: Partial<Record<keyof IGatekeeperService, ReturnType<typeof vi.fn>>>,
+): IGatekeeperService {
+  return {
+    requestApproval: vi.fn().mockResolvedValue({ status: "APPROVED", requestId: "req-mock-1" }),
+    ...overrides,
+  } as IGatekeeperService;
+}
+
 export function createMockLogger() {
   return {
     info: vi.fn(),
