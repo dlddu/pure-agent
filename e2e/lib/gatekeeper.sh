@@ -35,7 +35,9 @@ fi
 #
 # TODO(DLD-781): POST ${GATEKEEPER_URL}/api/auth/signup 구현
 gatekeeper_signup() {
+  # shellcheck disable=SC2034
   local username="$1"
+  # shellcheck disable=SC2034
   local password="$2"
   : "${GATEKEEPER_URL:?GATEKEEPER_URL must be set}"
   # Implementation pending: DLD-781
@@ -58,7 +60,9 @@ gatekeeper_signup() {
 #
 # TODO(DLD-781): POST ${GATEKEEPER_URL}/api/auth/login 구현
 gatekeeper_login() {
+  # shellcheck disable=SC2034
   local username="$1"
+  # shellcheck disable=SC2034
   local password="$2"
   : "${GATEKEEPER_URL:?GATEKEEPER_URL must be set}"
   # Implementation pending: DLD-781
@@ -78,7 +82,9 @@ gatekeeper_login() {
 #
 # TODO(DLD-781): PATCH ${GATEKEEPER_URL}/api/requests/:id/approve 구현
 gatekeeper_approve() {
+  # shellcheck disable=SC2034
   local request_id="$1"
+  # shellcheck disable=SC2034
   local jwt_token="$2"
   : "${GATEKEEPER_URL:?GATEKEEPER_URL must be set}"
   # Implementation pending: DLD-781
@@ -98,7 +104,9 @@ gatekeeper_approve() {
 #
 # TODO(DLD-781): PATCH ${GATEKEEPER_URL}/api/requests/:id/reject 구현
 gatekeeper_reject() {
+  # shellcheck disable=SC2034
   local request_id="$1"
+  # shellcheck disable=SC2034
   local jwt_token="$2"
   : "${GATEKEEPER_URL:?GATEKEEPER_URL must be set}"
   # Implementation pending: DLD-781
@@ -120,6 +128,7 @@ gatekeeper_reject() {
 #
 # TODO(DLD-781): GET ${GATEKEEPER_URL}/api/requests?status=pending 구현
 gatekeeper_get_pending() {
+  # shellcheck disable=SC2034
   local jwt_token="$1"
   : "${GATEKEEPER_URL:?GATEKEEPER_URL must be set}"
   # Implementation pending: DLD-781
