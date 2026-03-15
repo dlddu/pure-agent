@@ -48,6 +48,12 @@ load_assertions_argo() {
   source "$LIB_DIR/assertions-argo.sh" --source-only
 }
 
+# Source gatekeeper.sh in --source-only mode.
+load_gatekeeper() {
+  # shellcheck disable=SC1090
+  source "$LIB_DIR/gatekeeper.sh" --source-only
+}
+
 # Source common.sh (shared helpers: yaml_get, discover_scenarios, prepare_cycle_fixtures).
 load_common() {
   # shellcheck disable=SC1090
