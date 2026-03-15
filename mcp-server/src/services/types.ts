@@ -86,6 +86,6 @@ export interface ApprovalResult {
 export interface IGatekeeperService {
   requestApproval(
     externalId: string,
-    metadata?: Record<string, unknown>,
+    context: string,
   ): Promise<ApprovalResult>;
 }

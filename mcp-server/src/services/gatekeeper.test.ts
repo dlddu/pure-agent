@@ -38,7 +38,7 @@ describe("GatekeeperService", () => {
         } as Response);
 
       const service = new GatekeeperService(defaultOptions);
-      const result: ApprovalResult = await service.requestApproval("ext-id-001");
+      const result: ApprovalResult = await service.requestApproval("ext-id-001", "Test approval context");
 
       expect(result).toEqual({ status: "APPROVED", requestId: "req-abc" });
     });
@@ -57,7 +57,7 @@ describe("GatekeeperService", () => {
         } as Response);
 
       const service = new GatekeeperService(defaultOptions);
-      const result: ApprovalResult = await service.requestApproval("ext-id-001");
+      const result: ApprovalResult = await service.requestApproval("ext-id-001", "Test approval context");
 
       expect(result).toEqual({ status: "REJECTED", requestId: "req-abc" });
     });
@@ -76,7 +76,7 @@ describe("GatekeeperService", () => {
         } as Response);
 
       const service = new GatekeeperService(defaultOptions);
-      const result: ApprovalResult = await service.requestApproval("ext-id-001");
+      const result: ApprovalResult = await service.requestApproval("ext-id-001", "Test approval context");
 
       expect(result).toEqual({ status: "EXPIRED", requestId: "req-abc" });
     });
@@ -102,8 +102,8 @@ describe("GatekeeperService", () => {
         .mockResolvedValueOnce(makeResponses()[1]);
 
       const service = new GatekeeperService(defaultOptions);
-      await service.requestApproval("same-ext-id");
-      await service.requestApproval("same-ext-id");
+      await service.requestApproval("same-ext-id", "Same context");
+      await service.requestApproval("same-ext-id", "Same context");
 
       // POST가 두 번 호출되었는지 확인 (캐시 없이 매번 새 요청)
       expect(mockFetch).toHaveBeenCalledTimes(4); // 2 POST + 2 GET
@@ -141,7 +141,7 @@ describe("GatekeeperService", () => {
         } as Response);
 
       const service = new GatekeeperService(defaultOptions);
-      const result: ApprovalResult = await service.requestApproval("ext-id-001");
+      const result: ApprovalResult = await service.requestApproval("ext-id-001", "Test approval context");
 
       expect(result).toEqual({ status: "APPROVED", requestId: "req-abc" });
       // PENDING 동안 폴링 GET 호출 횟수 확인 (POST 1 + GET 3)
@@ -171,7 +171,7 @@ describe("GatekeeperService", () => {
         } as Response);
 
       const service = new GatekeeperService(shortTimeoutOptions);
-      const resultPromise = service.requestApproval("ext-id-001");
+      const resultPromise = service.requestApproval("ext-id-001", "Test approval context");
 
       // 타임아웃 시간만큼 타이머 진행
       await vi.advanceTimersByTimeAsync(400);
@@ -208,7 +208,7 @@ describe("GatekeeperService", () => {
         } as Response);
 
       const service = new GatekeeperService(timedOptions);
-      const resultPromise = service.requestApproval("ext-id-001");
+      const resultPromise = service.requestApproval("ext-id-001", "Test approval context");
 
       // 첫 폴링 직전 — GET은 아직 1번만 호출
       await vi.advanceTimersByTimeAsync(intervalMs - 1);
@@ -224,7 +224,7 @@ describe("GatekeeperService", () => {
       mockFetch.mockRejectedValueOnce(new TypeError("fetch failed"));
 
       const service = new GatekeeperService(defaultOptions);
-      await expect(service.requestApproval("ext-id-001")).rejects.toThrow();
+      await expect(service.requestApproval("ext-id-001", "Test approval context")).rejects.toThrow();
     });
 
     it("throws when POST /api/requests returns 4xx/5xx", async () => {
@@ -235,7 +235,7 @@ describe("GatekeeperService", () => {
       } as Response);
 
       const service = new GatekeeperService(defaultOptions);
-      await expect(service.requestApproval("ext-id-001")).rejects.toThrow();
+      await expect(service.requestApproval("ext-id-001", "Test approval context")).rejects.toThrow();
     });
 
     it("throws when response parsing fails", async () => {
@@ -248,7 +248,7 @@ describe("GatekeeperService", () => {
       } as unknown as Response);
 
       const service = new GatekeeperService(defaultOptions);
-      await expect(service.requestApproval("ext-id-001")).rejects.toThrow();
+      await expect(service.requestApproval("ext-id-001", "Test approval context")).rejects.toThrow();
     });
   });
 });

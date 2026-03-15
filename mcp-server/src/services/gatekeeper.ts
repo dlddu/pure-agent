@@ -25,7 +25,7 @@ export class GatekeeperService implements IGatekeeperService {
     this.fetch = options.fetch;
   }
 
-  async requestApproval(externalId: string): Promise<ApprovalResult> {
+  async requestApproval(externalId: string, context: string): Promise<ApprovalResult> {
     const postResponse = await this.fetch(`${this.gatekeeperUrl}/api/requests`, {
       method: "POST",
       headers: {
@@ -34,7 +34,7 @@ export class GatekeeperService implements IGatekeeperService {
       },
       body: JSON.stringify({
         externalId,
-        context: externalId,
+        context,
         requesterName: this.requesterName,
       }),
     });
