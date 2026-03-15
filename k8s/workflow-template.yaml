@@ -124,7 +124,10 @@ spec:
                 name: mcp-server-secrets
                 key: LINEAR_TEAM_ID
           - name: GATEKEEPER_URL
-            value: "https://gatekeeper.example.com"
+            valueFrom:
+              secretKeyRef:
+                name: mcp-server-secrets
+                key: GATEKEEPER_URL
           - name: GATEKEEPER_API_KEY
             valueFrom:
               secretKeyRef:
