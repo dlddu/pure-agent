@@ -57,10 +57,10 @@ describe("Integration: MCP Protocol End-to-End", () => {
   });
 
   describe("tools/list", () => {
-    it("returns all 6 tool definitions with schemas", async () => {
+    it("returns all 7 tool definitions with schemas", async () => {
       const result = await client.listTools();
 
-      expect(result.tools).toHaveLength(6);
+      expect(result.tools).toHaveLength(7);
 
       const toolNames = result.tools.map((t) => t.name);
       expect(toolNames).toContain("request_feature");
@@ -69,6 +69,7 @@ describe("Integration: MCP Protocol End-to-End", () => {
       expect(toolNames).toContain("get_issue");
       expect(toolNames).toContain("get_issue_comments");
       expect(toolNames).toContain("git_clone");
+      expect(toolNames).toContain("web_fetch");
 
       for (const tool of result.tools) {
         expect(tool.inputSchema).toBeDefined();
@@ -202,36 +203,7 @@ describe("Integration: MCP Protocol End-to-End", () => {
     });
   });
 
-  // ---------------------------------------------------------------------------
-  // web_fetch integration tests — DLD-778 (pending implementation)
-  // Remove describe.skip after web_fetch tool is registered in registry.ts.
-  // ---------------------------------------------------------------------------
-
-  describe.skip("tools/list — with web_fetch (DLD-778)", () => {
-    it("returns 7 tool definitions including web_fetch", async () => {
-      // Once web_fetch is added to createDefaultTools(), re-run this against a
-      // fresh client that is built with the updated registry.
-      const result = await client.listTools();
-
-      expect(result.tools).toHaveLength(7);
-
-      const toolNames = result.tools.map((t) => t.name);
-      expect(toolNames).toContain("request_feature");
-      expect(toolNames).toContain("get_export_actions");
-      expect(toolNames).toContain("set_export_config");
-      expect(toolNames).toContain("get_issue");
-      expect(toolNames).toContain("get_issue_comments");
-      expect(toolNames).toContain("git_clone");
-      expect(toolNames).toContain("web_fetch");
-
-      for (const tool of result.tools) {
-        expect(tool.inputSchema).toBeDefined();
-        expect(tool.description).toBeDefined();
-      }
-    });
-  });
-
-  describe.skip("tools/call: web_fetch (DLD-778)", () => {
+  describe("tools/call: web_fetch (DLD-778)", () => {
     it("performs HTTP fetch and returns success response when approved", async () => {
       // Mock the gatekeeper to approve the request
       const mockApproval = context.services.gatekeeper.requestApproval as ReturnType<typeof vi.fn>;
@@ -241,7 +213,6 @@ describe("Integration: MCP Protocol End-to-End", () => {
       const mockSession = context.services.session.readSessionId as ReturnType<typeof vi.fn>;
       mockSession.mockResolvedValue("int-session-id");
 
-      // Mock fetch on context (context.fetch will exist once DLD-778 is implemented)
       const mockFetch = vi.fn().mockResolvedValue({
         status: 200,
         headers: { get: vi.fn().mockReturnValue("application/json") },
