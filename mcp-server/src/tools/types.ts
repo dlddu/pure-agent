@@ -6,6 +6,12 @@ export type McpToolMeta = {
   issueId?: string;
 };
 
+export type McpToolExtra = {
+  requestId: string | number;
+  sessionId?: string;
+  signal: AbortSignal;
+};
+
 export type McpToolResponse = {
   content: Array<{ type: "text"; text: string }>;
   isError?: boolean;
@@ -37,5 +43,5 @@ export interface McpTool {
   name: string;
   description: string;
   schema: z.ZodType;
-  handler: (args: unknown, context: McpToolContext) => Promise<McpToolResponse> | McpToolResponse;
+  handler: (args: unknown, context: McpToolContext, extra?: McpToolExtra) => Promise<McpToolResponse> | McpToolResponse;
 }

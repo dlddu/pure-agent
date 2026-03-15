@@ -1,5 +1,5 @@
 import { type z, ZodError } from "zod";
-import type { McpToolMeta, McpToolResponse, McpToolContext, McpTool } from "./types.js";
+import type { McpToolMeta, McpToolResponse, McpToolContext, McpTool, McpToolExtra } from "./types.js";
 
 export function mcpSuccess(data: unknown, meta?: McpToolMeta): McpToolResponse {
   return {
@@ -16,11 +16,11 @@ export function mcpError(errorMessage: string): McpToolResponse {
 }
 
 export function withErrorHandling(
-  handler: (args: unknown, context: McpToolContext) => Promise<McpToolResponse> | McpToolResponse,
-): (args: unknown, context: McpToolContext) => Promise<McpToolResponse> {
-  return async (args: unknown, context: McpToolContext): Promise<McpToolResponse> => {
+  handler: (args: unknown, context: McpToolContext, extra?: McpToolExtra) => Promise<McpToolResponse> | McpToolResponse,
+): (args: unknown, context: McpToolContext, extra?: McpToolExtra) => Promise<McpToolResponse> {
+  return async (args: unknown, context: McpToolContext, extra?: McpToolExtra): Promise<McpToolResponse> => {
     try {
-      return await handler(args, context);
+      return await handler(args, context, extra);
     } catch (error) {
       if (error instanceof ZodError) {
         const details = error.issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ");
@@ -40,15 +40,15 @@ export function defineTool<T extends z.ZodType>(def: {
   name: string;
   description: string;
   schema: T;
-  handler: (args: z.infer<T>, context: McpToolContext) => Promise<McpToolResponse> | McpToolResponse;
+  handler: (args: z.infer<T>, context: McpToolContext, extra?: McpToolExtra) => Promise<McpToolResponse> | McpToolResponse;
 }): McpTool {
   return {
     name: def.name,
     description: def.description,
     schema: def.schema,
-    handler: withErrorHandling(async (args: unknown, context: McpToolContext) => {
+    handler: withErrorHandling(async (args: unknown, context: McpToolContext, extra?: McpToolExtra) => {
       const validated = def.schema.parse(args);
-      return def.handler(validated, context);
+      return def.handler(validated, context, extra);
     }),
   };
 }

@@ -3,7 +3,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer, type McpServerDeps } from "./server.js";
 import type { ILinearService, ISessionService } from "./services/types.js";
-import type { McpToolContext } from "./tools/types.js";
+import type { McpToolContext, McpToolExtra } from "./tools/types.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function parseResponseText(result: Record<string, any>) {
@@ -77,6 +77,14 @@ export function createMockFs() {
 export function createMockExec() {
   return {
     execFile: vi.fn().mockResolvedValue({ stdout: "", stderr: "" }),
+  };
+}
+
+export function createMockExtra(overrides?: Partial<McpToolExtra>): McpToolExtra {
+  return {
+    requestId: "test-req-1",
+    signal: new AbortController().signal,
+    ...overrides,
   };
 }
 

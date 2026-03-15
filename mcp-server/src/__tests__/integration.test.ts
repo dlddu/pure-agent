@@ -202,9 +202,8 @@ describe("Integration: MCP Protocol End-to-End", () => {
     });
   });
 
-  // TODO: Activate when DLD-774 is implemented
   describe("extra forwarding", () => {
-    it.skip("existing tools work with new signature (extra is ignored)", async () => {
+    it("existing tools work with new signature (extra is ignored)", async () => {
       // 새 시그니처(extra 파라미터 추가) 도입 후에도 기존 도구들이
       // extra를 무시하고 정상적으로 동작하는지 end-to-end로 검증
 

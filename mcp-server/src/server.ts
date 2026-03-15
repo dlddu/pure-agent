@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SERVER_NAME, SERVER_VERSION } from "./version.js";
 import { createLogger } from "./logger.js";
 import { runPostToolHooks, type PostToolHook } from "./hooks/post-tool-hooks.js";
-import type { McpTool, McpToolContext } from "./tools/types.js";
+import type { McpTool, McpToolContext, McpToolExtra } from "./tools/types.js";
 
 const log = createLogger("server");
 
@@ -24,11 +24,16 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
     mcpServer.registerTool(tool.name, {
       description: tool.description,
       inputSchema: tool.schema,
-    }, async (args) => {
+    }, async (args, extra) => {
       log.info("Tool call started", { toolName: tool.name });
       const start = performance.now();
 
-      const fullResponse = await tool.handler(args, context);
+      const mcpExtra: McpToolExtra = {
+        requestId: extra.requestId,
+        sessionId: extra.sessionId,
+        signal: extra.signal,
+      };
+      const fullResponse = await tool.handler(args, context, mcpExtra);
       const { _meta, ...result } = fullResponse;
 
       await runPostToolHooks(postToolHooks, fullResponse, context);
