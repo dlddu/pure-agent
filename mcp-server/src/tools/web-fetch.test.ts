@@ -106,8 +106,7 @@ describe("webFetchTool — DLD-778", () => {
       );
 
       // Should not fail with session error — may succeed or fail for other reasons
-      const parsed = parseResponseText(result);
-      expect(parsed.error).not.toContain("Session ID not found");
+      expect(result.isError).toBeFalsy();
     });
   });
 
