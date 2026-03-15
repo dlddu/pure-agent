@@ -74,6 +74,7 @@ export interface GatekeeperServiceOptions {
   apiKey: string;
   pollIntervalMs?: number;
   timeoutMs?: number;
+  requesterName?: string;
   fetch: typeof globalThis.fetch;
 }
 

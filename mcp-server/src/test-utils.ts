@@ -57,7 +57,6 @@ export function createMockSessionService(
   } as ISessionService;
 }
 
-
 export function createMockGatekeeperService(
   overrides?: Partial<Record<keyof IGatekeeperService, ReturnType<typeof vi.fn>>>,
 ): IGatekeeperService {
@@ -101,12 +100,14 @@ export function createMockExtra(overrides?: Partial<McpToolExtra>): McpToolExtra
 export function createMockContext(overrides?: {
   linear?: Partial<Record<keyof ILinearService, ReturnType<typeof vi.fn>>>;
   session?: Partial<Record<keyof ISessionService, ReturnType<typeof vi.fn>>>;
+  gatekeeper?: Partial<Record<keyof IGatekeeperService, ReturnType<typeof vi.fn>>>;
   workDir?: string;
 }): McpToolContext {
   return {
     services: {
       linear: createMockLinearService(overrides?.linear),
       session: createMockSessionService(overrides?.session),
+      gatekeeper: createMockGatekeeperService(overrides?.gatekeeper),
     },
     fs: createMockFs(),
     exec: createMockExec(),
