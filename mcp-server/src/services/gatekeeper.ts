@@ -13,17 +13,19 @@ export class GatekeeperService implements IGatekeeperService {
   private apiKey: string;
   private pollIntervalMs: number;
   private timeoutMs: number;
+  private requesterName: string;
   private fetch: typeof globalThis.fetch;
 
   constructor(options: GatekeeperServiceOptions) {
     this.gatekeeperUrl = options.gatekeeperUrl;
     this.apiKey = options.apiKey;
-    this.pollIntervalMs = options.pollIntervalMs ?? 2000;
-    this.timeoutMs = options.timeoutMs ?? 300000;
+    this.pollIntervalMs = options.pollIntervalMs ?? 3000;
+    this.timeoutMs = options.timeoutMs ?? 600000;
+    this.requesterName = options.requesterName ?? "pure-agent";
     this.fetch = options.fetch;
   }
 
-  async requestApproval(externalId: string): Promise<ApprovalResult> {
+  async requestApproval(externalId: string, context: string): Promise<ApprovalResult> {
     const postResponse = await this.fetch(`${this.gatekeeperUrl}/api/requests`, {
       method: "POST",
       headers: {
@@ -32,8 +34,8 @@ export class GatekeeperService implements IGatekeeperService {
       },
       body: JSON.stringify({
         externalId,
-        context: externalId,
-        requesterName: "pure-agent",
+        context,
+        requesterName: this.requesterName,
       }),
     });
 

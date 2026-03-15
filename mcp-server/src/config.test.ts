@@ -102,8 +102,8 @@ describe("parseConfig", () => {
       GATEKEEPER_URL: "https://gatekeeper.example.com",
       GATEKEEPER_API_KEY: "gk_api_test123",
     });
-    expect(config.GATEKEEPER_POLL_INTERVAL_MS).toBe(2000);
-    expect(config.GATEKEEPER_TIMEOUT_MS).toBe(300000);
+    expect(config.GATEKEEPER_POLL_INTERVAL_MS).toBe(3000);
+    expect(config.GATEKEEPER_TIMEOUT_MS).toBe(600000);
   });
 
   it("parses custom polling configuration values", () => {

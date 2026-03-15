@@ -74,6 +74,7 @@ export interface GatekeeperServiceOptions {
   apiKey: string;
   pollIntervalMs?: number;
   timeoutMs?: number;
+  requesterName?: string;
   fetch: typeof globalThis.fetch;
 }
 
@@ -85,6 +86,6 @@ export interface ApprovalResult {
 export interface IGatekeeperService {
   requestApproval(
     externalId: string,
-    metadata?: Record<string, unknown>,
+    context: string,
   ): Promise<ApprovalResult>;
 }

@@ -13,8 +13,8 @@ const ConfigSchema = z
     LINEAR_API_URL: z.string().optional(),
     GATEKEEPER_URL: z.string().optional(),
     GATEKEEPER_API_KEY: z.string().optional(),
-    GATEKEEPER_POLL_INTERVAL_MS: z.coerce.number().default(2000),
-    GATEKEEPER_TIMEOUT_MS: z.coerce.number().default(300000),
+    GATEKEEPER_POLL_INTERVAL_MS: z.coerce.number().default(3000),
+    GATEKEEPER_TIMEOUT_MS: z.coerce.number().default(600000),
   })
   .superRefine((data, ctx) => {
     const hasUrl = data.GATEKEEPER_URL !== undefined && data.GATEKEEPER_URL !== "";

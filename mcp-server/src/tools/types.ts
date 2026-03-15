@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { ILinearService, ISessionService } from "../services/types.js";
+import type { ILinearService, ISessionService, IGatekeeperService } from "../services/types.js";
 import type { Logger } from "../logger.js";
 
 export type McpToolMeta = {
@@ -22,6 +22,7 @@ export interface McpToolContext {
   services: {
     linear: ILinearService;
     session: ISessionService;
+    gatekeeper: IGatekeeperService;
   };
   fs: {
     writeFile(path: string, data: string, encoding: BufferEncoding): Promise<void>;
