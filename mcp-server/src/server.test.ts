@@ -127,9 +127,8 @@ describe("createMcpServer", () => {
     });
   });
 
-  // TODO: Activate when DLD-774 is implemented
   describe("registerTool extra forwarding", () => {
-    it.skip("passes MCP SDK extra to tool.handler", async () => {
+    it("passes MCP SDK extra to tool.handler", async () => {
       const capturedExtras: unknown[] = [];
 
       const spyTool = {

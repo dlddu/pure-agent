@@ -126,9 +126,8 @@ describe("defineTool", () => {
   });
 });
 
-// TODO: Activate when DLD-774 is implemented
 describe("withErrorHandling — extra forwarding", () => {
-  it.skip("forwards extra to the original handler", async () => {
+  it("forwards extra to the original handler", async () => {
     const mockExtra = { requestId: "req-1", signal: new AbortController().signal, sessionId: "sess-1" };
     const receivedExtra: unknown[] = [];
 
@@ -147,7 +146,7 @@ describe("withErrorHandling — extra forwarding", () => {
     expect(receivedExtra[0]).toBe(mockExtra);
   });
 
-  it.skip("works without extra for backward compatibility", async () => {
+  it("works without extra for backward compatibility", async () => {
     const handler = withErrorHandling(() => mcpSuccess({ ok: true }));
 
     // extra 없이 호출해도 정상 동작해야 함
@@ -159,9 +158,8 @@ describe("withErrorHandling — extra forwarding", () => {
   });
 });
 
-// TODO: Activate when DLD-774 is implemented
 describe("defineTool — extra forwarding", () => {
-  it.skip("forwards extra to the validated handler", async () => {
+  it("forwards extra to the validated handler", async () => {
     const mockExtra = { requestId: "req-2", signal: new AbortController().signal, sessionId: "sess-2" };
     const receivedExtra: unknown[] = [];
 
@@ -183,7 +181,7 @@ describe("defineTool — extra forwarding", () => {
     expect(receivedExtra[0]).toBe(mockExtra);
   });
 
-  it.skip("extra contains requestId and signal", async () => {
+  it("extra contains requestId and signal", async () => {
     const abortController = new AbortController();
     const mockExtra = { requestId: "req-3", signal: abortController.signal, sessionId: "sess-3" };
     let capturedExtra: typeof mockExtra | undefined;
