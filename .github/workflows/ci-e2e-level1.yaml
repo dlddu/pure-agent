@@ -17,6 +17,7 @@ on:
       - "e2e/mock-gh/**"
       - "router/**"
       - "export-handler/**"
+      - "mcp-server/**"
       - ".github/workflows/ci-e2e-level1.yaml"
   pull_request:
     paths:
@@ -30,6 +31,7 @@ on:
       - "e2e/mock-gh/**"
       - "router/**"
       - "export-handler/**"
+      - "mcp-server/**"
       - ".github/workflows/ci-e2e-level1.yaml"
   workflow_dispatch:
 
@@ -39,6 +41,7 @@ concurrency:
 
 permissions:
   contents: read
+  packages: read
 
 jobs:
   # ── shellcheck: run-local.sh 구문 검사 ─────────────────────────────────────
@@ -60,6 +63,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -71,6 +81,16 @@ jobs:
       - name: Build Docker Compose images
         run: docker compose -f e2e/docker-compose.yml build
 
+      - name: Pull gatekeeper image
+        run: docker compose -f e2e/docker-compose.yml pull gatekeeper
+
       - name: Run Level 1 e2e BATS tests
         # DLD-469: skip이 제거된 테스트를 Docker Compose 환경에서 실제 실행합니다.
         run: bats e2e/tests/run-local.bats
+
+      - name: Run web-fetch Gatekeeper e2e BATS tests
+        # DLD-781: gatekeeper 통합 테스트 (승인/거절/만료 3개 케이스)
+        env:
+          MOCK_API_URL: http://localhost:4000
+          GATEKEEPER_URL: http://localhost:8080
+        run: bats e2e/tests/web-fetch.bats

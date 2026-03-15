@@ -14,6 +14,7 @@
 #   compose_up
 #   compose_down
 #   wait_mock_api
+#   wait_gatekeeper
 #   reset_mock_api
 #   place_fixtures_via_mock_agent <cycle_fixture_dir>
 #   run_router <depth> <max_depth>
@@ -29,6 +30,30 @@ reset_mock_api() {
   curl -sf -X POST "$url" >/dev/null \
     || { warn "Failed to reset mock-api at $url"; return 1; }
   log "mock-api assertions reset"
+}
+
+# ── gatekeeper health check ───────────────────────────────────────────────────
+# DLD-781: gatekeeper 서비스가 준비될 때까지 대기합니다.
+#
+# 필수 환경 변수:
+#   GATEKEEPER_URL  — Gatekeeper 베이스 URL (예: http://localhost:8080)
+#
+wait_gatekeeper() {
+  local max_attempts=40
+  local attempt=0
+  local url="${GATEKEEPER_URL:-http://localhost:8080}/api/health"
+
+  log "Waiting for gatekeeper at $url ..."
+  while [[ $attempt -lt $max_attempts ]]; do
+    if curl -sf "$url" >/dev/null 2>&1; then
+      log "gatekeeper is ready"
+      return 0
+    fi
+    attempt=$(( attempt + 1 ))
+    sleep 1
+  done
+
+  die "gatekeeper did not become ready within ${max_attempts}s"
 }
 
 # ── mock-api health check ─────────────────────────────────────────────────────
@@ -52,8 +77,8 @@ wait_mock_api() {
 
 # ── Docker Compose 래퍼 ───────────────────────────────────────────────────────
 compose_up() {
-  log "Starting daemon services (mock-api) ..."
-  docker compose -f "$COMPOSE_FILE" up -d mock-api
+  log "Starting daemon services (mock-api, gatekeeper) ..."
+  docker compose -f "$COMPOSE_FILE" up -d mock-api gatekeeper
 }
 
 compose_down() {

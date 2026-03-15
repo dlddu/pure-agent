@@ -30,7 +30,7 @@ SCENARIOS_DIR="${E2E_DIR}/scenarios"
 COMPOSE_FILE="${E2E_DIR}/docker-compose.yml"
 RUN_LOCAL="${E2E_DIR}/run-local.sh"
 MOCK_API_URL="${MOCK_API_URL:-http://localhost:4000}"
-GATEKEEPER_URL="${GATEKEEPER_URL:-http://localhost:8080}"
+export GATEKEEPER_URL="${GATEKEEPER_URL:-http://localhost:8080}"
 
 # ── 공통 setup / teardown ─────────────────────────────────────────────────────
 
@@ -65,8 +65,6 @@ teardown() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "web_fetch: approved — gatekeeper approval triggers successful http fetch" {
-  skip "Pending implementation: DLD-780"
-
   # Arrange
   local yaml_file="${SCENARIOS_DIR}/web-fetch-approved.yaml"
   [ -f "$yaml_file" ]
@@ -74,6 +72,7 @@ teardown() {
   # docker compose up (mock-api + gatekeeper 포함)
   compose_up
   wait_mock_api
+  wait_gatekeeper
   reset_mock_api
 
   # Cycle 0: fixture 배치 (mock-agent가 web_fetch 호출하도록 설정)
@@ -129,8 +128,6 @@ teardown() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "web_fetch: rejected — gatekeeper rejection causes web_fetch to return error" {
-  skip "Pending implementation: DLD-780"
-
   # Arrange
   local yaml_file="${SCENARIOS_DIR}/web-fetch-rejected.yaml"
   [ -f "$yaml_file" ]
@@ -138,6 +135,7 @@ teardown() {
   # docker compose up (mock-api + gatekeeper 포함)
   compose_up
   wait_mock_api
+  wait_gatekeeper
   reset_mock_api
 
   # Cycle 0: fixture 배치 (mock-agent가 web_fetch 호출하도록 설정)
@@ -190,8 +188,6 @@ teardown() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "web_fetch: expired — request timeout causes web_fetch to return error" {
-  skip "Pending implementation: DLD-780"
-
   # Arrange
   # timeoutSeconds를 매우 짧게 설정하여 승인 전에 만료되도록 함
   export WEB_FETCH_TIMEOUT_SECONDS="${WEB_FETCH_TIMEOUT_SECONDS:-1}"
@@ -202,6 +198,7 @@ teardown() {
   # docker compose up (mock-api + gatekeeper 포함)
   compose_up
   wait_mock_api
+  wait_gatekeeper
   reset_mock_api
 
   # Cycle 0: fixture 배치 (짧은 timeout으로 web_fetch 호출)

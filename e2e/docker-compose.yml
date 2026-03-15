@@ -19,6 +19,7 @@ version: "3.9"
 volumes:
   work:        # /work 공유 볼륨 (export_config.json, router 출력 등)
   gh-calls:    # /gh-calls 공유 볼륨 (mock-gh 호출 기록)
+  gk-data:     # /data 공유 볼륨 (gatekeeper SQLite DB)
 
 # ── 네트워크 ──────────────────────────────────────────────────────────────────
 networks:
@@ -27,6 +28,27 @@ networks:
 
 # ── 서비스 ────────────────────────────────────────────────────────────────────
 services:
+
+  # ── gatekeeper: 승인 요청 관리 서비스 ─────────────────────────────────────
+  # DLD-781: Gatekeeper HTTP API 서비스 (컨테이너 내부 포트 3000, 외부 포트 8080)
+  gatekeeper:
+    image: ghcr.io/dlddu/gatekeeper:latest
+    environment:
+      API_SECRET_KEY: "e2e-test-api-key"
+      DATABASE_URL: "file:/data/gatekeeper.db"
+      JWT_SECRET: "e2e-test-jwt-secret"
+    volumes:
+      - gk-data:/data
+    ports:
+      - "8080:3000"
+    networks:
+      - e2e
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
 
   # ── mock-api: Linear GraphQL mock ─────────────────────────────────────────
   mock-api:
@@ -91,6 +113,12 @@ services:
       GH_CALLS_DIR: "/gh-calls"
       WORK_DIR: /work
       TMP_DIR: /tmp
+      # DLD-781: Gatekeeper 연동 환경변수
+      GATEKEEPER_URL: "http://gatekeeper:3000"
+      GATEKEEPER_API_KEY: "e2e-test-api-key"
+      GATEKEEPER_USER_ID: "e2e-test-user"
+      GATEKEEPER_POLL_INTERVAL_MS: "500"
+      GATEKEEPER_TIMEOUT_MS: "30000"
     volumes:
       - work:/work
       - gh-calls:/gh-calls
@@ -99,6 +127,8 @@ services:
       - e2e
     depends_on:
       mock-api:
+        condition: service_healthy
+      gatekeeper:
         condition: service_healthy
     profiles:
       - runner   # docker compose run으로만 실행
