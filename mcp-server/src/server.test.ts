@@ -130,7 +130,6 @@ describe("createMcpServer", () => {
   // TODO: Activate when DLD-774 is implemented
   describe("registerTool extra forwarding", () => {
     it.skip("passes MCP SDK extra to tool.handler", async () => {
-      const mockExtra = { requestId: "req-srv-1", signal: new AbortController().signal, sessionId: "sess-srv-1" };
       const capturedExtras: unknown[] = [];
 
       const spyTool = {
@@ -161,7 +160,7 @@ describe("createMcpServer", () => {
       expect(spyTool.handler).toHaveBeenCalled();
       const handlerCall = spyTool.handler.mock.calls[0];
       // extra는 handler의 세 번째 인자로 전달되어야 함
-      const passedExtra = handlerCall[2] as typeof mockExtra;
+      const passedExtra = handlerCall[2] as { requestId: string; signal: AbortSignal; sessionId: string };
       expect(passedExtra).toBeDefined();
       expect(passedExtra.requestId).toBeDefined();
       expect(passedExtra.signal).toBeDefined();
