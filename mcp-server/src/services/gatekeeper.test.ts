@@ -11,6 +11,7 @@ describe("GatekeeperService", () => {
     defaultOptions = {
       gatekeeperUrl: "https://gatekeeper.example.com",
       apiKey: "gk_api_test123",
+      userId: "user-test123",
       pollIntervalMs: 100,
       timeoutMs: 5000,
       fetch: mockFetch as typeof globalThis.fetch,

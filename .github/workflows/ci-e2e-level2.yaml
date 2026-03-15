@@ -118,6 +118,9 @@ jobs:
             create secret generic mcp-server-secrets \
               --from-literal=LINEAR_API_KEY="mock-key" \
               --from-literal=LINEAR_TEAM_ID="mock-team" \
+              --from-literal=GATEKEEPER_URL="http://mock-gatekeeper:8080" \
+              --from-literal=GATEKEEPER_API_KEY="mock-gatekeeper-key" \
+              --from-literal=GATEKEEPER_USER_ID="mock-user" \
               --dry-run=client -o yaml | kubectl apply -f -
 
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \

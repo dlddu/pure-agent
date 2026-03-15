@@ -123,6 +123,21 @@ spec:
               secretKeyRef:
                 name: mcp-server-secrets
                 key: LINEAR_TEAM_ID
+          - name: GATEKEEPER_URL
+            valueFrom:
+              secretKeyRef:
+                name: mcp-server-secrets
+                key: GATEKEEPER_URL
+          - name: GATEKEEPER_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: mcp-server-secrets
+                key: GATEKEEPER_API_KEY
+          - name: GATEKEEPER_USER_ID
+            valueFrom:
+              secretKeyRef:
+                name: mcp-server-secrets
+                key: GATEKEEPER_USER_ID
         volumeMounts:
           - name: workdir
             mountPath: /work

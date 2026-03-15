@@ -13,6 +13,7 @@ const ConfigSchema = z
     LINEAR_API_URL: z.string().optional(),
     GATEKEEPER_URL: z.string().optional(),
     GATEKEEPER_API_KEY: z.string().optional(),
+    GATEKEEPER_USER_ID: z.string().optional(),
     GATEKEEPER_POLL_INTERVAL_MS: z.coerce.number().default(3000),
     GATEKEEPER_TIMEOUT_MS: z.coerce.number().default(600000),
   })
