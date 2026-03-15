@@ -33,6 +33,7 @@ services:
   # DLD-781: Gatekeeper HTTP API 서비스 (컨테이너 내부 포트 3000, 외부 포트 8080)
   gatekeeper:
     image: ghcr.io/dlddu/gatekeeper:latest
+    platform: linux/amd64
     environment:
       API_SECRET_KEY: "e2e-test-api-key"
       DATABASE_URL: "file:/data/gatekeeper.db"
@@ -127,8 +128,6 @@ services:
       - e2e
     depends_on:
       mock-api:
-        condition: service_healthy
-      gatekeeper:
         condition: service_healthy
     profiles:
       - runner   # docker compose run으로만 실행

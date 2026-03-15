@@ -71,6 +71,7 @@ teardown() {
 
   # docker compose up (mock-api + gatekeeper 포함)
   compose_up
+  compose_up_gatekeeper
   wait_mock_api
   wait_gatekeeper
   reset_mock_api
@@ -134,6 +135,7 @@ teardown() {
 
   # docker compose up (mock-api + gatekeeper 포함)
   compose_up
+  compose_up_gatekeeper
   wait_mock_api
   wait_gatekeeper
   reset_mock_api
@@ -197,6 +199,7 @@ teardown() {
 
   # docker compose up (mock-api + gatekeeper 포함)
   compose_up
+  compose_up_gatekeeper
   wait_mock_api
   wait_gatekeeper
   reset_mock_api

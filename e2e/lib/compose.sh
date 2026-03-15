@@ -77,8 +77,13 @@ wait_mock_api() {
 
 # ── Docker Compose 래퍼 ───────────────────────────────────────────────────────
 compose_up() {
-  log "Starting daemon services (mock-api, gatekeeper) ..."
-  docker compose -f "$COMPOSE_FILE" up -d mock-api gatekeeper
+  log "Starting daemon services (mock-api) ..."
+  docker compose -f "$COMPOSE_FILE" up -d mock-api
+}
+
+compose_up_gatekeeper() {
+  log "Starting gatekeeper service ..."
+  docker compose -f "$COMPOSE_FILE" up -d gatekeeper
 }
 
 compose_down() {
