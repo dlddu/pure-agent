@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import { withErrorHandling, mcpSuccess, defineTool } from "./tool-utils.js";
 import { parseResponseText, createMockContext } from "../test-utils.js";
+import type { McpToolContext, McpToolResponse } from "./types.js";
 
 const mockContext = createMockContext();
 
@@ -122,5 +123,88 @@ describe("defineTool", () => {
     expect(result.isError).toBe(true);
     const parsed = parseResponseText(result);
     expect(parsed.error).toBe("async failure");
+  });
+});
+
+// TODO: Activate when DLD-774 is implemented
+describe("withErrorHandling — extra forwarding", () => {
+  it.skip("forwards extra to the original handler", async () => {
+    const mockExtra = { requestId: "req-1", signal: new AbortController().signal, sessionId: "sess-1" };
+    const receivedExtra: unknown[] = [];
+
+    const innerHandler = async (_args: unknown, _context: McpToolContext, extra?: unknown): Promise<McpToolResponse> => {
+      receivedExtra.push(extra);
+      return mcpSuccess({ ok: true });
+    };
+
+    // After DLD-774 implementation, withErrorHandling will accept and forward extra
+    const wrappedHandler = withErrorHandling(innerHandler as Parameters<typeof withErrorHandling>[0]);
+    const handler = wrappedHandler as unknown as (args: unknown, context: McpToolContext, extra?: unknown) => Promise<McpToolResponse>;
+
+    await handler({}, mockContext, mockExtra);
+
+    expect(receivedExtra).toHaveLength(1);
+    expect(receivedExtra[0]).toBe(mockExtra);
+  });
+
+  it.skip("works without extra for backward compatibility", async () => {
+    const handler = withErrorHandling(() => mcpSuccess({ ok: true }));
+
+    // extra 없이 호출해도 정상 동작해야 함
+    const result = await handler({}, mockContext);
+
+    expect(result.isError).toBeUndefined();
+    const parsed = parseResponseText(result);
+    expect(parsed.ok).toBe(true);
+  });
+});
+
+// TODO: Activate when DLD-774 is implemented
+describe("defineTool — extra forwarding", () => {
+  it.skip("forwards extra to the validated handler", async () => {
+    const mockExtra = { requestId: "req-2", signal: new AbortController().signal, sessionId: "sess-2" };
+    const receivedExtra: unknown[] = [];
+
+    const tool = defineTool({
+      name: "extra_forward_tool",
+      description: "Tests extra forwarding",
+      schema: z.object({ name: z.string() }),
+      handler: (args: { name: string }, _context: McpToolContext, extra?: unknown) => {
+        receivedExtra.push(extra);
+        return mcpSuccess({ received: args.name });
+      },
+    });
+
+    const typedHandler = tool.handler as unknown as (args: unknown, context: McpToolContext, extra?: unknown) => Promise<McpToolResponse>;
+
+    await typedHandler({ name: "test" }, mockContext, mockExtra);
+
+    expect(receivedExtra).toHaveLength(1);
+    expect(receivedExtra[0]).toBe(mockExtra);
+  });
+
+  it.skip("extra contains requestId and signal", async () => {
+    const abortController = new AbortController();
+    const mockExtra = { requestId: "req-3", signal: abortController.signal, sessionId: "sess-3" };
+    let capturedExtra: typeof mockExtra | undefined;
+
+    const tool = defineTool({
+      name: "extra_inspect_tool",
+      description: "Inspects extra fields",
+      schema: z.object({}),
+      handler: (_args: Record<string, never>, _context: McpToolContext, extra?: unknown) => {
+        capturedExtra = extra as typeof mockExtra;
+        return mcpSuccess({ ok: true });
+      },
+    });
+
+    const typedHandler = tool.handler as unknown as (args: unknown, context: McpToolContext, extra?: unknown) => Promise<McpToolResponse>;
+
+    await typedHandler({}, mockContext, mockExtra);
+
+    expect(capturedExtra).toBeDefined();
+    expect(capturedExtra?.requestId).toBe("req-3");
+    expect(capturedExtra?.signal).toBe(abortController.signal);
+    expect(capturedExtra?.sessionId).toBe("sess-3");
   });
 });
