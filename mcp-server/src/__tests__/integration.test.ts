@@ -201,4 +201,42 @@ describe("Integration: MCP Protocol End-to-End", () => {
       expect(text).toContain("not found");
     });
   });
+
+  // TODO: Activate when DLD-774 is implemented
+  describe("extra forwarding", () => {
+    it.skip("existing tools work with new signature (extra is ignored)", async () => {
+      // 새 시그니처(extra 파라미터 추가) 도입 후에도 기존 도구들이
+      // extra를 무시하고 정상적으로 동작하는지 end-to-end로 검증
+
+      // request_feature 도구 호출 — extra는 MCP SDK가 자동으로 전달
+      const featureResult = await client.callTool({
+        name: "request_feature",
+        arguments: {
+          title: "Extra compat test feature",
+          reason: "Verifying backward compatibility with new extra signature",
+        },
+      });
+      expect(featureResult.isError).toBeFalsy();
+      const featureParsed = parseResponseText(featureResult);
+      expect(featureParsed.success).toBe(true);
+
+      // get_issue 도구 호출 — extra는 MCP SDK가 자동으로 전달
+      const issueResult = await client.callTool({
+        name: "get_issue",
+        arguments: { issue_id: "INT-1" },
+      });
+      expect(issueResult.isError).toBeFalsy();
+      const issueParsed = parseResponseText(issueResult);
+      expect(issueParsed.success).toBe(true);
+
+      // get_issue_comments 도구 호출
+      const commentsResult = await client.callTool({
+        name: "get_issue_comments",
+        arguments: { issue_id: "INT-1" },
+      });
+      expect(commentsResult.isError).toBeFalsy();
+      const commentsParsed = parseResponseText(commentsResult);
+      expect(commentsParsed.success).toBe(true);
+    });
+  });
 });

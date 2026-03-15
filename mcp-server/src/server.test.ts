@@ -127,4 +127,46 @@ describe("createMcpServer", () => {
     });
   });
 
+  // TODO: Activate when DLD-774 is implemented
+  describe("registerTool extra forwarding", () => {
+    it.skip("passes MCP SDK extra to tool.handler", async () => {
+      const capturedExtras: unknown[] = [];
+
+      const spyTool = {
+        name: "spy_tool",
+        description: "Captures extra from registerTool callback",
+        schema: {},
+        handler: vi.fn(async (_args: unknown, _context: typeof mockContext, extra?: unknown) => {
+          capturedExtras.push(extra);
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify({ ok: true }) }],
+          };
+        }),
+      };
+
+      const { createMcpServer } = await import("./server.js");
+      const testServer = createMcpServer({
+        tools: [spyTool as Parameters<typeof createMcpServer>[0]["tools"][number]],
+        context: mockContext,
+      });
+
+      // MCP SDK의 registerTool 콜백이 extra를 포함하여 호출되고,
+      // 그 extra가 tool.handler까지 전달되는지 검증
+      await client.callTool({
+        name: "spy_tool",
+        arguments: {},
+      });
+
+      expect(spyTool.handler).toHaveBeenCalled();
+      const handlerCall = spyTool.handler.mock.calls[0];
+      // extra는 handler의 세 번째 인자로 전달되어야 함
+      const passedExtra = handlerCall[2] as { requestId: string; signal: AbortSignal; sessionId: string };
+      expect(passedExtra).toBeDefined();
+      expect(passedExtra.requestId).toBeDefined();
+      expect(passedExtra.signal).toBeDefined();
+
+      await testServer.close();
+    });
+  });
+
 });
