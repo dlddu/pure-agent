@@ -202,6 +202,77 @@ describe("Integration: MCP Protocol End-to-End", () => {
     });
   });
 
+  // ---------------------------------------------------------------------------
+  // web_fetch integration tests — DLD-778 (pending implementation)
+  // Remove describe.skip after web_fetch tool is registered in registry.ts.
+  // ---------------------------------------------------------------------------
+
+  describe.skip("tools/list — with web_fetch (DLD-778)", () => {
+    it("returns 7 tool definitions including web_fetch", async () => {
+      // Once web_fetch is added to createDefaultTools(), re-run this against a
+      // fresh client that is built with the updated registry.
+      const result = await client.listTools();
+
+      expect(result.tools).toHaveLength(7);
+
+      const toolNames = result.tools.map((t) => t.name);
+      expect(toolNames).toContain("request_feature");
+      expect(toolNames).toContain("get_export_actions");
+      expect(toolNames).toContain("set_export_config");
+      expect(toolNames).toContain("get_issue");
+      expect(toolNames).toContain("get_issue_comments");
+      expect(toolNames).toContain("git_clone");
+      expect(toolNames).toContain("web_fetch");
+
+      for (const tool of result.tools) {
+        expect(tool.inputSchema).toBeDefined();
+        expect(tool.description).toBeDefined();
+      }
+    });
+  });
+
+  describe.skip("tools/call: web_fetch (DLD-778)", () => {
+    it("performs HTTP fetch and returns success response when approved", async () => {
+      // Mock the gatekeeper to approve the request
+      const mockApproval = context.services.gatekeeper.requestApproval as ReturnType<typeof vi.fn>;
+      mockApproval.mockResolvedValue({ status: "APPROVED", requestId: "req-int-1" });
+
+      // Mock session to return a session id
+      const mockSession = context.services.session.readSessionId as ReturnType<typeof vi.fn>;
+      mockSession.mockResolvedValue("int-session-id");
+
+      // Mock fetch on context (context.fetch will exist once DLD-778 is implemented)
+      const mockFetch = vi.fn().mockResolvedValue({
+        status: 200,
+        headers: { get: vi.fn().mockReturnValue("application/json") },
+        text: vi.fn().mockResolvedValue('{"message":"hello"}'),
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (context as any).fetch = mockFetch;
+
+      const result = await client.callTool({
+        name: "web_fetch",
+        arguments: {
+          url: "https://api.example.com/hello",
+          method: "GET",
+        },
+      });
+
+      expect(result.isError).toBeFalsy();
+
+      const parsed = parseResponseText(result);
+      expect(parsed.success).toBe(true);
+      expect(parsed.status).toBe(200);
+      expect(parsed.body).toContain("hello");
+
+      expect(mockApproval).toHaveBeenCalled();
+      expect(mockFetch).toHaveBeenCalledWith(
+        "https://api.example.com/hello",
+        expect.objectContaining({ method: "GET" }),
+      );
+    });
+  });
+
   describe("extra forwarding", () => {
     it("existing tools work with new signature (extra is ignored)", async () => {
       // 새 시그니처(extra 파라미터 추가) 도입 후에도 기존 도구들이
