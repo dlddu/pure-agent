@@ -46,10 +46,10 @@ services:
       - e2e
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
-      interval: 2s
-      timeout: 5s
-      retries: 15
-      start_period: 10s
+      interval: 3s
+      timeout: 10s
+      retries: 40
+      start_period: 30s
 
   # ── mock-api: Linear GraphQL mock ─────────────────────────────────────────
   mock-api:

@@ -97,3 +97,11 @@ jobs:
           MOCK_API_URL: http://localhost:4000
           GATEKEEPER_URL: http://localhost:8080
         run: bats e2e/tests/web-fetch.bats
+
+      - name: Debug gatekeeper logs (on failure)
+        if: failure()
+        run: |
+          echo "=== Gatekeeper container logs ==="
+          docker compose -f e2e/docker-compose.yml logs gatekeeper 2>&1 || echo "No gatekeeper logs available"
+          echo "=== Docker ps ==="
+          docker ps -a --filter "name=gatekeeper" 2>&1 || true

@@ -39,7 +39,7 @@ reset_mock_api() {
 #   GATEKEEPER_URL  — Gatekeeper 베이스 URL (예: http://localhost:8080)
 #
 wait_gatekeeper() {
-  local max_attempts=40
+  local max_attempts=120
   local attempt=0
   local url="${GATEKEEPER_URL:-http://localhost:8080}/api/health"
 
