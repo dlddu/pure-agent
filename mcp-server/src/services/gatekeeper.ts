@@ -11,6 +11,7 @@ function sleep(ms: number): Promise<void> {
 export class GatekeeperService implements IGatekeeperService {
   private gatekeeperUrl: string;
   private apiKey: string;
+  private userId: string;
   private pollIntervalMs: number;
   private timeoutMs: number;
   private requesterName: string;
@@ -19,6 +20,7 @@ export class GatekeeperService implements IGatekeeperService {
   constructor(options: GatekeeperServiceOptions) {
     this.gatekeeperUrl = options.gatekeeperUrl;
     this.apiKey = options.apiKey;
+    this.userId = options.userId;
     this.pollIntervalMs = options.pollIntervalMs ?? 3000;
     this.timeoutMs = options.timeoutMs ?? 600000;
     this.requesterName = options.requesterName ?? "pure-agent";
@@ -36,6 +38,7 @@ export class GatekeeperService implements IGatekeeperService {
         externalId,
         context,
         requesterName: this.requesterName,
+        userId: this.userId,
       }),
     });
 

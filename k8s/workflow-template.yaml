@@ -123,6 +123,13 @@ spec:
               secretKeyRef:
                 name: mcp-server-secrets
                 key: LINEAR_TEAM_ID
+          - name: GATEKEEPER_URL
+            value: "https://gatekeeper.example.com"
+          - name: GATEKEEPER_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: mcp-server-secrets
+                key: GATEKEEPER_API_KEY
         volumeMounts:
           - name: workdir
             mountPath: /work

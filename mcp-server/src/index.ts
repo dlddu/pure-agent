@@ -38,6 +38,7 @@ async function main() {
   const gatekeeperService = new GatekeeperService({
     gatekeeperUrl: config.GATEKEEPER_URL ?? "",
     apiKey: config.GATEKEEPER_API_KEY ?? "",
+    userId: config.GATEKEEPER_USER_ID ?? "",
     pollIntervalMs: config.GATEKEEPER_POLL_INTERVAL_MS,
     timeoutMs: config.GATEKEEPER_TIMEOUT_MS,
     fetch: globalThis.fetch,

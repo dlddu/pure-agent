@@ -72,6 +72,7 @@ export interface ISessionService {
 export interface GatekeeperServiceOptions {
   gatekeeperUrl: string;
   apiKey: string;
+  userId: string;
   pollIntervalMs?: number;
   timeoutMs?: number;
   requesterName?: string;
