@@ -1,39 +1,33 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, vi, beforeEach, afterEach } from "vitest";
 
 // GatekeeperService는 아직 구현되지 않았습니다.
 // 구현 완료 후 아래 import를 활성화하세요:
 // import { GatekeeperService } from "./gatekeeper.js";
 
 // 구현 예정 인터페이스 (구현 시 ./gatekeeper.js 또는 ./types.ts로 이동)
-type GatekeeperServiceOptions = {
-  gatekeeperUrl: string;
-  apiKey: string;
-  pollIntervalMs?: number;
-  timeoutMs?: number;
-  fetch: typeof globalThis.fetch;
-};
+// type GatekeeperServiceOptions = {
+//   gatekeeperUrl: string;
+//   apiKey: string;
+//   pollIntervalMs?: number;
+//   timeoutMs?: number;
+//   fetch: typeof globalThis.fetch;
+// };
 
-type ApprovalStatus = "APPROVED" | "REJECTED" | "EXPIRED" | "TIMEOUT";
-
-type ApprovalResult = {
-  status: ApprovalStatus;
-  requestId?: string;
-};
 
 // TODO: Activate when DLD-777 (GatekeeperService implementation) is complete
 describe.skip("GatekeeperService", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
-  let defaultOptions: GatekeeperServiceOptions;
+  // let defaultOptions: GatekeeperServiceOptions;
 
   beforeEach(() => {
     mockFetch = vi.fn();
-    defaultOptions = {
-      gatekeeperUrl: "https://gatekeeper.example.com",
-      apiKey: "gk_api_test123",
-      pollIntervalMs: 100,
-      timeoutMs: 5000,
-      fetch: mockFetch as typeof globalThis.fetch,
-    };
+    // defaultOptions = {
+    //   gatekeeperUrl: "https://gatekeeper.example.com",
+    //   apiKey: "gk_api_test123",
+    //   pollIntervalMs: 100,
+    //   timeoutMs: 5000,
+    //   fetch: mockFetch as typeof globalThis.fetch,
+    // };
   });
 
   afterEach(() => {
@@ -170,11 +164,11 @@ describe.skip("GatekeeperService", () => {
     it.skip("returns TIMEOUT when polling exceeds timeout", async () => {
       vi.useFakeTimers();
 
-      const shortTimeoutOptions: GatekeeperServiceOptions = {
-        ...defaultOptions,
-        timeoutMs: 300,
-        pollIntervalMs: 100,
-      };
+      // const shortTimeoutOptions: GatekeeperServiceOptions = {
+      //   ...defaultOptions,
+      //   timeoutMs: 300,
+      //   pollIntervalMs: 100,
+      // };
 
       mockFetch
         .mockResolvedValueOnce({
@@ -202,12 +196,12 @@ describe.skip("GatekeeperService", () => {
     it.skip("polls at the configured interval", async () => {
       vi.useFakeTimers();
 
-      const intervalMs = 500;
-      const timedOptions: GatekeeperServiceOptions = {
-        ...defaultOptions,
-        pollIntervalMs: intervalMs,
-        timeoutMs: 10000,
-      };
+      // const intervalMs = 500;
+      // const timedOptions: GatekeeperServiceOptions = {
+      //   ...defaultOptions,
+      //   pollIntervalMs: intervalMs,
+      //   timeoutMs: 10000,
+      // };
 
       mockFetch
         .mockResolvedValueOnce({
