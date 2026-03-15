@@ -76,8 +76,7 @@ describe("parseConfig", () => {
     expect(config.LINEAR_API_URL).toBe("https://linear-proxy.example.com");
   });
 
-  // TODO: Activate when DLD-777 (GatekeeperService implementation) is complete
-  it.skip("throws when GATEKEEPER_URL is missing", () => {
+  it("throws when GATEKEEPER_URL is missing", () => {
     expect(() =>
       parseConfig({
         ...validEnv,
@@ -87,7 +86,7 @@ describe("parseConfig", () => {
     ).toThrow();
   });
 
-  it.skip("throws when GATEKEEPER_API_KEY is missing", () => {
+  it("throws when GATEKEEPER_API_KEY is missing", () => {
     expect(() =>
       parseConfig({
         ...validEnv,
@@ -97,7 +96,7 @@ describe("parseConfig", () => {
     ).toThrow();
   });
 
-  it.skip("uses default values for GATEKEEPER_POLL_INTERVAL_MS and GATEKEEPER_TIMEOUT_MS", () => {
+  it("uses default values for GATEKEEPER_POLL_INTERVAL_MS and GATEKEEPER_TIMEOUT_MS", () => {
     const config = parseConfig({
       ...validEnv,
       GATEKEEPER_URL: "https://gatekeeper.example.com",
@@ -107,7 +106,7 @@ describe("parseConfig", () => {
     expect(config.GATEKEEPER_TIMEOUT_MS).toBe(300000);
   });
 
-  it.skip("parses custom polling configuration values", () => {
+  it("parses custom polling configuration values", () => {
     const config = parseConfig({
       ...validEnv,
       GATEKEEPER_URL: "https://gatekeeper.example.com",
