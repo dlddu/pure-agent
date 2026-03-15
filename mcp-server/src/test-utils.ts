@@ -2,7 +2,7 @@ import { vi } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer, type McpServerDeps } from "./server.js";
-import type { ILinearService, ISessionService } from "./services/types.js";
+import type { ILinearService, ISessionService, IGatekeeperService } from "./services/types.js";
 import type { McpToolContext, McpToolExtra } from "./tools/types.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -57,16 +57,6 @@ export function createMockSessionService(
   } as ISessionService;
 }
 
-// IGatekeeperService는 아직 구현되지 않았습니다.
-// 구현 완료 후 아래 import를 추가하고 인라인 타입 정의를 제거하세요:
-// import type { IGatekeeperService } from "./services/types.js";
-type IGatekeeperService = {
-  requestApproval(
-    externalId: string,
-    metadata?: Record<string, unknown>,
-  ): Promise<{ status: "APPROVED" | "REJECTED" | "EXPIRED" | "TIMEOUT"; requestId?: string }>;
-};
-
 export function createMockGatekeeperService(
   overrides?: Partial<Record<keyof IGatekeeperService, ReturnType<typeof vi.fn>>>,
 ): IGatekeeperService {
@@ -110,12 +100,14 @@ export function createMockExtra(overrides?: Partial<McpToolExtra>): McpToolExtra
 export function createMockContext(overrides?: {
   linear?: Partial<Record<keyof ILinearService, ReturnType<typeof vi.fn>>>;
   session?: Partial<Record<keyof ISessionService, ReturnType<typeof vi.fn>>>;
+  gatekeeper?: Partial<Record<keyof IGatekeeperService, ReturnType<typeof vi.fn>>>;
   workDir?: string;
 }): McpToolContext {
   return {
     services: {
       linear: createMockLinearService(overrides?.linear),
       session: createMockSessionService(overrides?.session),
+      gatekeeper: createMockGatekeeperService(overrides?.gatekeeper),
     },
     fs: createMockFs(),
     exec: createMockExec(),

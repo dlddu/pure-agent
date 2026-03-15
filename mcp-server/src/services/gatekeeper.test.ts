@@ -1,33 +1,20 @@
-import { describe, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { GatekeeperService } from "./gatekeeper.js";
+import type { ApprovalResult, GatekeeperServiceOptions } from "./types.js";
 
-// GatekeeperService는 아직 구현되지 않았습니다.
-// 구현 완료 후 아래 import를 활성화하세요:
-// import { GatekeeperService } from "./gatekeeper.js";
-
-// 구현 예정 인터페이스 (구현 시 ./gatekeeper.js 또는 ./types.ts로 이동)
-// type GatekeeperServiceOptions = {
-//   gatekeeperUrl: string;
-//   apiKey: string;
-//   pollIntervalMs?: number;
-//   timeoutMs?: number;
-//   fetch: typeof globalThis.fetch;
-// };
-
-
-// TODO: Activate when DLD-777 (GatekeeperService implementation) is complete
-describe.skip("GatekeeperService", () => {
+describe("GatekeeperService", () => {
   let mockFetch: ReturnType<typeof vi.fn>;
-  // let defaultOptions: GatekeeperServiceOptions;
+  let defaultOptions: GatekeeperServiceOptions;
 
   beforeEach(() => {
     mockFetch = vi.fn();
-    // defaultOptions = {
-    //   gatekeeperUrl: "https://gatekeeper.example.com",
-    //   apiKey: "gk_api_test123",
-    //   pollIntervalMs: 100,
-    //   timeoutMs: 5000,
-    //   fetch: mockFetch as typeof globalThis.fetch,
-    // };
+    defaultOptions = {
+      gatekeeperUrl: "https://gatekeeper.example.com",
+      apiKey: "gk_api_test123",
+      pollIntervalMs: 100,
+      timeoutMs: 5000,
+      fetch: mockFetch as typeof globalThis.fetch,
+    };
   });
 
   afterEach(() => {
@@ -35,7 +22,7 @@ describe.skip("GatekeeperService", () => {
   });
 
   describe("requestApproval", () => {
-    it.skip("returns APPROVED when approval request is approved", async () => {
+    it("returns APPROVED when approval request is approved", async () => {
       // POST /api/requests → 201 { requestId: "req-abc" }
       mockFetch
         .mockResolvedValueOnce({
@@ -50,13 +37,13 @@ describe.skip("GatekeeperService", () => {
           json: async () => ({ requestId: "req-abc", status: "APPROVED" }),
         } as Response);
 
-      // const service = new GatekeeperService(defaultOptions);
-      // const result: ApprovalResult = await service.requestApproval("ext-id-001");
+      const service = new GatekeeperService(defaultOptions);
+      const result: ApprovalResult = await service.requestApproval("ext-id-001", "Test approval context");
 
-      // expect(result).toEqual({ status: "APPROVED", requestId: "req-abc" });
+      expect(result).toEqual({ status: "APPROVED", requestId: "req-abc" });
     });
 
-    it.skip("returns REJECTED when approval request is rejected", async () => {
+    it("returns REJECTED when approval request is rejected", async () => {
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
@@ -69,13 +56,13 @@ describe.skip("GatekeeperService", () => {
           json: async () => ({ requestId: "req-abc", status: "REJECTED" }),
         } as Response);
 
-      // const service = new GatekeeperService(defaultOptions);
-      // const result: ApprovalResult = await service.requestApproval("ext-id-001");
+      const service = new GatekeeperService(defaultOptions);
+      const result: ApprovalResult = await service.requestApproval("ext-id-001", "Test approval context");
 
-      // expect(result).toEqual({ status: "REJECTED", requestId: "req-abc" });
+      expect(result).toEqual({ status: "REJECTED", requestId: "req-abc" });
     });
 
-    it.skip("returns EXPIRED when approval request expires", async () => {
+    it("returns EXPIRED when approval request expires", async () => {
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
@@ -88,13 +75,13 @@ describe.skip("GatekeeperService", () => {
           json: async () => ({ requestId: "req-abc", status: "EXPIRED" }),
         } as Response);
 
-      // const service = new GatekeeperService(defaultOptions);
-      // const result: ApprovalResult = await service.requestApproval("ext-id-001");
+      const service = new GatekeeperService(defaultOptions);
+      const result: ApprovalResult = await service.requestApproval("ext-id-001", "Test approval context");
 
-      // expect(result).toEqual({ status: "EXPIRED", requestId: "req-abc" });
+      expect(result).toEqual({ status: "EXPIRED", requestId: "req-abc" });
     });
 
-    it.skip("makes new HTTP requests for each call even with the same externalId", async () => {
+    it("makes new HTTP requests for each call even with the same externalId", async () => {
       const makeResponses = () => [
         {
           ok: true,
@@ -114,19 +101,19 @@ describe.skip("GatekeeperService", () => {
         .mockResolvedValueOnce(makeResponses()[0])
         .mockResolvedValueOnce(makeResponses()[1]);
 
-      // const service = new GatekeeperService(defaultOptions);
-      // await service.requestApproval("same-ext-id");
-      // await service.requestApproval("same-ext-id");
+      const service = new GatekeeperService(defaultOptions);
+      await service.requestApproval("same-ext-id", "Same context");
+      await service.requestApproval("same-ext-id", "Same context");
 
       // POST가 두 번 호출되었는지 확인 (캐시 없이 매번 새 요청)
-      // expect(mockFetch).toHaveBeenCalledTimes(4); // 2 POST + 2 GET
-      // const postCalls = mockFetch.mock.calls.filter(
-      //   ([url, init]) => (init as RequestInit)?.method === "POST",
-      // );
-      // expect(postCalls).toHaveLength(2);
+      expect(mockFetch).toHaveBeenCalledTimes(4); // 2 POST + 2 GET
+      const postCalls = mockFetch.mock.calls.filter(
+        ([_url, init]) => (init as RequestInit)?.method === "POST",
+      );
+      expect(postCalls).toHaveLength(2);
     });
 
-    it.skip("returns APPROVED after polling through PENDING states", async () => {
+    it("returns APPROVED after polling through PENDING states", async () => {
       mockFetch
         // POST → 201
         .mockResolvedValueOnce({
@@ -153,22 +140,22 @@ describe.skip("GatekeeperService", () => {
           json: async () => ({ requestId: "req-abc", status: "APPROVED" }),
         } as Response);
 
-      // const service = new GatekeeperService(defaultOptions);
-      // const result: ApprovalResult = await service.requestApproval("ext-id-001");
+      const service = new GatekeeperService(defaultOptions);
+      const result: ApprovalResult = await service.requestApproval("ext-id-001", "Test approval context");
 
-      // expect(result).toEqual({ status: "APPROVED", requestId: "req-abc" });
+      expect(result).toEqual({ status: "APPROVED", requestId: "req-abc" });
       // PENDING 동안 폴링 GET 호출 횟수 확인 (POST 1 + GET 3)
-      // expect(mockFetch).toHaveBeenCalledTimes(4);
+      expect(mockFetch).toHaveBeenCalledTimes(4);
     });
 
-    it.skip("returns TIMEOUT when polling exceeds timeout", async () => {
+    it("returns TIMEOUT when polling exceeds timeout", async () => {
       vi.useFakeTimers();
 
-      // const shortTimeoutOptions: GatekeeperServiceOptions = {
-      //   ...defaultOptions,
-      //   timeoutMs: 300,
-      //   pollIntervalMs: 100,
-      // };
+      const shortTimeoutOptions: GatekeeperServiceOptions = {
+        ...defaultOptions,
+        timeoutMs: 300,
+        pollIntervalMs: 100,
+      };
 
       mockFetch
         .mockResolvedValueOnce({
@@ -183,25 +170,25 @@ describe.skip("GatekeeperService", () => {
           json: async () => ({ requestId: "req-abc", status: "PENDING" }),
         } as Response);
 
-      // const service = new GatekeeperService(shortTimeoutOptions);
-      // const resultPromise = service.requestApproval("ext-id-001");
+      const service = new GatekeeperService(shortTimeoutOptions);
+      const resultPromise = service.requestApproval("ext-id-001", "Test approval context");
 
       // 타임아웃 시간만큼 타이머 진행
-      // await vi.advanceTimersByTimeAsync(400);
+      await vi.advanceTimersByTimeAsync(400);
 
-      // const result: ApprovalResult = await resultPromise;
-      // expect(result).toEqual({ status: "TIMEOUT" });
+      const result: ApprovalResult = await resultPromise;
+      expect(result).toEqual({ status: "TIMEOUT" });
     });
 
-    it.skip("polls at the configured interval", async () => {
+    it("polls at the configured interval", async () => {
       vi.useFakeTimers();
 
-      // const intervalMs = 500;
-      // const timedOptions: GatekeeperServiceOptions = {
-      //   ...defaultOptions,
-      //   pollIntervalMs: intervalMs,
-      //   timeoutMs: 10000,
-      // };
+      const intervalMs = 500;
+      const timedOptions: GatekeeperServiceOptions = {
+        ...defaultOptions,
+        pollIntervalMs: intervalMs,
+        timeoutMs: 10000,
+      };
 
       mockFetch
         .mockResolvedValueOnce({
@@ -220,38 +207,38 @@ describe.skip("GatekeeperService", () => {
           json: async () => ({ requestId: "req-abc", status: "APPROVED" }),
         } as Response);
 
-      // const service = new GatekeeperService(timedOptions);
-      // const resultPromise = service.requestApproval("ext-id-001");
+      const service = new GatekeeperService(timedOptions);
+      const resultPromise = service.requestApproval("ext-id-001", "Test approval context");
 
       // 첫 폴링 직전 — GET은 아직 1번만 호출
-      // await vi.advanceTimersByTimeAsync(intervalMs - 1);
-      // expect(mockFetch).toHaveBeenCalledTimes(2); // POST + 첫 GET
+      await vi.advanceTimersByTimeAsync(intervalMs - 1);
+      expect(mockFetch).toHaveBeenCalledTimes(2); // POST + 첫 GET
 
       // 두 번째 폴링 시점
-      // await vi.advanceTimersByTimeAsync(intervalMs);
-      // await resultPromise;
-      // expect(mockFetch).toHaveBeenCalledTimes(3); // POST + GET(PENDING) + GET(APPROVED)
+      await vi.advanceTimersByTimeAsync(intervalMs);
+      await resultPromise;
+      expect(mockFetch).toHaveBeenCalledTimes(3); // POST + GET(PENDING) + GET(APPROVED)
     });
 
-    it.skip("throws when Gatekeeper server connection fails", async () => {
+    it("throws when Gatekeeper server connection fails", async () => {
       mockFetch.mockRejectedValueOnce(new TypeError("fetch failed"));
 
-      // const service = new GatekeeperService(defaultOptions);
-      // await expect(service.requestApproval("ext-id-001")).rejects.toThrow();
+      const service = new GatekeeperService(defaultOptions);
+      await expect(service.requestApproval("ext-id-001", "Test approval context")).rejects.toThrow();
     });
 
-    it.skip("throws when POST /api/requests returns 4xx/5xx", async () => {
+    it("throws when POST /api/requests returns 4xx/5xx", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 422,
         json: async () => ({ error: "Invalid externalId" }),
       } as Response);
 
-      // const service = new GatekeeperService(defaultOptions);
-      // await expect(service.requestApproval("ext-id-001")).rejects.toThrow();
+      const service = new GatekeeperService(defaultOptions);
+      await expect(service.requestApproval("ext-id-001", "Test approval context")).rejects.toThrow();
     });
 
-    it.skip("throws when response parsing fails", async () => {
+    it("throws when response parsing fails", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         status: 201,
@@ -260,8 +247,8 @@ describe.skip("GatekeeperService", () => {
         },
       } as unknown as Response);
 
-      // const service = new GatekeeperService(defaultOptions);
-      // await expect(service.requestApproval("ext-id-001")).rejects.toThrow();
+      const service = new GatekeeperService(defaultOptions);
+      await expect(service.requestApproval("ext-id-001", "Test approval context")).rejects.toThrow();
     });
   });
 });

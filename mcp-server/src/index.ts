@@ -7,6 +7,7 @@ import { createMcpServer } from "./server.js";
 import { createHttpTransport } from "./transport.js";
 import { LinearService } from "./services/linear.js";
 import { SessionService } from "./services/session.js";
+import { GatekeeperService } from "./services/gatekeeper.js";
 import { createDefaultTools } from "./tools/registry.js";
 import { sessionCommentHook } from "./hooks/post-tool-hooks.js";
 import { createLogger } from "./logger.js";
@@ -34,8 +35,16 @@ async function main() {
 
   const sessionService = new SessionService({ workDir: config.WORK_DIR, readFile });
 
+  const gatekeeperService = new GatekeeperService({
+    gatekeeperUrl: config.GATEKEEPER_URL ?? "",
+    apiKey: config.GATEKEEPER_API_KEY ?? "",
+    pollIntervalMs: config.GATEKEEPER_POLL_INTERVAL_MS,
+    timeoutMs: config.GATEKEEPER_TIMEOUT_MS,
+    fetch: globalThis.fetch,
+  });
+
   const toolContext: McpToolContext = {
-    services: { linear: linearService, session: sessionService },
+    services: { linear: linearService, session: sessionService, gatekeeper: gatekeeperService },
     fs: { writeFile, readFile, access },
     exec: {
       execFile: async (file, args, options) => {

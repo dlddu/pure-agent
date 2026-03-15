@@ -68,3 +68,24 @@ export interface SessionServiceOptions {
 export interface ISessionService {
   readSessionId(): Promise<string | undefined>;
 }
+
+export interface GatekeeperServiceOptions {
+  gatekeeperUrl: string;
+  apiKey: string;
+  pollIntervalMs?: number;
+  timeoutMs?: number;
+  requesterName?: string;
+  fetch: typeof globalThis.fetch;
+}
+
+export interface ApprovalResult {
+  status: "APPROVED" | "REJECTED" | "EXPIRED" | "TIMEOUT";
+  requestId?: string;
+}
+
+export interface IGatekeeperService {
+  requestApproval(
+    externalId: string,
+    context: string,
+  ): Promise<ApprovalResult>;
+}
