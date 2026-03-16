@@ -77,6 +77,7 @@ export interface GatekeeperServiceOptions {
   timeoutMs?: number;
   requesterName?: string;
   fetch: typeof globalThis.fetch;
+  logger?: import("../logger.js").Logger;
 }
 
 export interface ApprovalResult {

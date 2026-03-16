@@ -30,28 +30,43 @@ export const webFetchTool = defineTool({
   schema: WebFetchInputSchema,
   handler: async (args, context, extra) => {
     const { url, method, headers, body } = args;
+    const log = context.logger;
+
+    log.info("web_fetch called", { url, method });
 
     const sessionId = await context.services.session.readSessionId();
     if (!sessionId) {
+      log.warn("Session ID not found, aborting web_fetch");
       return mcpError("Session ID not found");
     }
 
     const requestId = extra?.requestId ?? "unknown";
     const externalId = `${sessionId}:${requestId}`;
 
+    log.debug("Requesting gatekeeper approval", { externalId });
     const contextString = JSON.stringify({ url, method, headers, body });
     const approval = await context.services.gatekeeper.requestApproval(externalId, contextString);
 
     if (approval.status !== "APPROVED") {
+      log.warn("Gatekeeper denied web_fetch", { status: approval.status, externalId });
       return mcpError(`Web fetch request ${approval.status.toLowerCase()}`);
     }
 
+    log.info("Gatekeeper approved, executing fetch", { url, method });
     const response = await context.fetch(url, { method, headers, body });
 
     let responseBody = await response.text();
-    if (responseBody.length > MAX_BODY_SIZE) {
+    const truncated = responseBody.length > MAX_BODY_SIZE;
+    if (truncated) {
       responseBody = responseBody.slice(0, MAX_BODY_SIZE);
     }
+
+    log.info("web_fetch completed", {
+      url,
+      status: response.status,
+      bodyLength: responseBody.length,
+      truncated,
+    });
 
     return mcpSuccess({
       success: true,

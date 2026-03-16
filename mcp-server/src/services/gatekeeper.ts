@@ -3,6 +3,14 @@ import type {
   ApprovalResult,
   IGatekeeperService,
 } from "./types.js";
+import type { Logger } from "../logger.js";
+
+const noopLogger: Logger = {
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  debug: () => {},
+};
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -16,6 +24,7 @@ export class GatekeeperService implements IGatekeeperService {
   private timeoutMs: number;
   private requesterName: string;
   private fetch: typeof globalThis.fetch;
+  private logger: Logger;
 
   constructor(options: GatekeeperServiceOptions) {
     this.gatekeeperUrl = options.gatekeeperUrl;
@@ -25,9 +34,12 @@ export class GatekeeperService implements IGatekeeperService {
     this.timeoutMs = options.timeoutMs ?? 600000;
     this.requesterName = options.requesterName ?? "pure-agent";
     this.fetch = options.fetch;
+    this.logger = options.logger ?? noopLogger;
   }
 
   async requestApproval(externalId: string, context: string): Promise<ApprovalResult> {
+    this.logger.info("Requesting approval from gatekeeper", { externalId });
+
     const postResponse = await this.fetch(`${this.gatekeeperUrl}/api/requests`, {
       method: "POST",
       headers: {
@@ -44,6 +56,10 @@ export class GatekeeperService implements IGatekeeperService {
 
     if (!postResponse.ok) {
       const errorBody = await postResponse.json();
+      this.logger.error("Gatekeeper POST failed", {
+        status: postResponse.status,
+        body: errorBody,
+      });
       throw new Error(
         `Gatekeeper POST failed with status ${postResponse.status}: ${JSON.stringify(errorBody)}`,
       );
@@ -51,6 +67,10 @@ export class GatekeeperService implements IGatekeeperService {
 
     const postBody = await postResponse.json();
     const requestId: string = postBody.requestId;
+    this.logger.info("Approval request created, polling for result", {
+      requestId,
+      externalId,
+    });
 
     const startTime = Date.now();
 
@@ -66,6 +86,10 @@ export class GatekeeperService implements IGatekeeperService {
       );
 
       if (!getResponse.ok) {
+        this.logger.error("Gatekeeper GET poll failed", {
+          requestId,
+          status: getResponse.status,
+        });
         throw new Error(
           `Gatekeeper GET failed with status ${getResponse.status}`,
         );
@@ -75,13 +99,23 @@ export class GatekeeperService implements IGatekeeperService {
       const status: string = getBody.status;
 
       if (status === "APPROVED" || status === "REJECTED" || status === "EXPIRED") {
+        this.logger.info("Gatekeeper decision received", { requestId, status });
         return { status: status as ApprovalResult["status"], requestId };
       }
+
+      this.logger.debug("Approval still pending, polling again", {
+        requestId,
+        elapsedMs: Date.now() - startTime,
+      });
 
       await sleep(this.pollIntervalMs);
 
       const elapsed = Date.now() - startTime;
       if (elapsed >= this.timeoutMs) {
+        this.logger.warn("Gatekeeper approval timed out", {
+          requestId,
+          timeoutMs: this.timeoutMs,
+        });
         return { status: "TIMEOUT" };
       }
     }
