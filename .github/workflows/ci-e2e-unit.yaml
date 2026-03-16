@@ -32,14 +32,14 @@ permissions:
 jobs:
   # ── lib: e2e/lib/*.sh 유닛 테스트 ──────────────────────────────────────────
   test-lib:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
         run: |
           sudo apt-get update && sudo apt-get install -y bats jq
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_arm64
           sudo chmod +x /usr/local/bin/yq
 
       - name: Run shellcheck on e2e/lib
@@ -59,7 +59,7 @@ jobs:
 
   # ── mock-agent: e2e/mock-agent 유닛 테스트 ─────────────────────────────────
   test-mock-agent:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
@@ -76,7 +76,7 @@ jobs:
 
   # ── mock-gh: e2e/mock-gh 유닛 테스트 ───────────────────────────────────────
   test-mock-gh:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
 
