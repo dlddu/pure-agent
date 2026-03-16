@@ -28,6 +28,24 @@ networks:
 # ── 서비스 ────────────────────────────────────────────────────────────────────
 services:
 
+  # ── gatekeeper: Gatekeeper 인증 서비스 ────────────────────────────────────
+  gatekeeper:
+    image: ghcr.io/dlddu/gatekeeper:latest
+    environment:
+      API_SECRET_KEY: "e2e-test-api-key"
+      DATABASE_URL: "file:/data/gatekeeper.db"
+      JWT_SECRET: "e2e-test-jwt-secret"
+    ports:
+      - "8080:3000"
+    networks:
+      - e2e
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
   # ── mock-api: Linear GraphQL mock ─────────────────────────────────────────
   mock-api:
     build:
@@ -91,6 +109,8 @@ services:
       GH_CALLS_DIR: "/gh-calls"
       WORK_DIR: /work
       TMP_DIR: /tmp
+      GATEKEEPER_URL: "http://gatekeeper:3000"
+      GATEKEEPER_API_KEY: "e2e-test-api-key"
     volumes:
       - work:/work
       - gh-calls:/gh-calls
