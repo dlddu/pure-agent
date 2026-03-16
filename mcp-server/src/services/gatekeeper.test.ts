@@ -24,18 +24,18 @@ describe("GatekeeperService", () => {
 
   describe("requestApproval", () => {
     it("returns APPROVED when approval request is approved", async () => {
-      // POST /api/requests → 201 { requestId: "req-abc" }
+      // POST /api/requests → 201 { id: "req-abc" }
       mockFetch
         .mockResolvedValueOnce({
           ok: true,
           status: 201,
-          json: async () => ({ requestId: "req-abc" }),
+          json: async () => ({ id: "req-abc" }),
         } as Response)
         // GET /api/requests/req-abc → 200 { status: "APPROVED" }
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: async () => ({ requestId: "req-abc", status: "APPROVED" }),
+          json: async () => ({ id: "req-abc", status: "APPROVED" }),
         } as Response);
 
       const service = new GatekeeperService(defaultOptions);
@@ -49,12 +49,12 @@ describe("GatekeeperService", () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 201,
-          json: async () => ({ requestId: "req-abc" }),
+          json: async () => ({ id: "req-abc" }),
         } as Response)
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: async () => ({ requestId: "req-abc", status: "REJECTED" }),
+          json: async () => ({ id: "req-abc", status: "REJECTED" }),
         } as Response);
 
       const service = new GatekeeperService(defaultOptions);
@@ -68,12 +68,12 @@ describe("GatekeeperService", () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 201,
-          json: async () => ({ requestId: "req-abc" }),
+          json: async () => ({ id: "req-abc" }),
         } as Response)
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: async () => ({ requestId: "req-abc", status: "EXPIRED" }),
+          json: async () => ({ id: "req-abc", status: "EXPIRED" }),
         } as Response);
 
       const service = new GatekeeperService(defaultOptions);
@@ -87,12 +87,12 @@ describe("GatekeeperService", () => {
         {
           ok: true,
           status: 201,
-          json: async () => ({ requestId: "req-abc" }),
+          json: async () => ({ id: "req-abc" }),
         } as Response,
         {
           ok: true,
           status: 200,
-          json: async () => ({ requestId: "req-abc", status: "APPROVED" }),
+          json: async () => ({ id: "req-abc", status: "APPROVED" }),
         } as Response,
       ];
 
@@ -120,25 +120,25 @@ describe("GatekeeperService", () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 201,
-          json: async () => ({ requestId: "req-abc" }),
+          json: async () => ({ id: "req-abc" }),
         } as Response)
         // GET → PENDING (1차)
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: async () => ({ requestId: "req-abc", status: "PENDING" }),
+          json: async () => ({ id: "req-abc", status: "PENDING" }),
         } as Response)
         // GET → PENDING (2차)
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: async () => ({ requestId: "req-abc", status: "PENDING" }),
+          json: async () => ({ id: "req-abc", status: "PENDING" }),
         } as Response)
         // GET → APPROVED (3차)
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: async () => ({ requestId: "req-abc", status: "APPROVED" }),
+          json: async () => ({ id: "req-abc", status: "APPROVED" }),
         } as Response);
 
       const service = new GatekeeperService(defaultOptions);
@@ -162,13 +162,13 @@ describe("GatekeeperService", () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 201,
-          json: async () => ({ requestId: "req-abc" }),
+          json: async () => ({ id: "req-abc" }),
         } as Response)
         // 이후 모든 GET 폴링은 PENDING 반환
         .mockResolvedValue({
           ok: true,
           status: 200,
-          json: async () => ({ requestId: "req-abc", status: "PENDING" }),
+          json: async () => ({ id: "req-abc", status: "PENDING" }),
         } as Response);
 
       const service = new GatekeeperService(shortTimeoutOptions);
@@ -195,17 +195,17 @@ describe("GatekeeperService", () => {
         .mockResolvedValueOnce({
           ok: true,
           status: 201,
-          json: async () => ({ requestId: "req-abc" }),
+          json: async () => ({ id: "req-abc" }),
         } as Response)
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: async () => ({ requestId: "req-abc", status: "PENDING" }),
+          json: async () => ({ id: "req-abc", status: "PENDING" }),
         } as Response)
         .mockResolvedValueOnce({
           ok: true,
           status: 200,
-          json: async () => ({ requestId: "req-abc", status: "APPROVED" }),
+          json: async () => ({ id: "req-abc", status: "APPROVED" }),
         } as Response);
 
       const service = new GatekeeperService(timedOptions);

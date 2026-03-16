@@ -66,7 +66,7 @@ export class GatekeeperService implements IGatekeeperService {
     }
 
     const postBody = await postResponse.json();
-    const requestId: string = postBody.requestId;
+    const requestId: string = postBody.id;
     this.logger.info("Approval request created, polling for result", {
       requestId,
       externalId,
