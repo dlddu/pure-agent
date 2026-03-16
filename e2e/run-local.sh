@@ -26,6 +26,7 @@ set -euo pipefail
 SCENARIO="${SCENARIO:-all}"
 LEVEL="${LEVEL:-1}"
 MOCK_API_URL="${MOCK_API_URL:-http://localhost:4000}"
+GATEKEEPER_URL="${GATEKEEPER_URL:-http://localhost:8080}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-${SCRIPT_DIR}/docker-compose.yml}"
@@ -43,6 +44,8 @@ source "${SCRIPT_DIR}/lib/common.sh"
 source "${SCRIPT_DIR}/lib/compose.sh"
 # shellcheck source=lib/assertions-local.sh
 source "${SCRIPT_DIR}/lib/assertions-local.sh"
+# shellcheck source=lib/gatekeeper.sh
+source "${SCRIPT_DIR}/lib/gatekeeper.sh" --source-only
 
 # ── Arg parsing ───────────────────────────────────────────────────────────────
 __SOURCE_ONLY=false
@@ -103,10 +106,11 @@ run_scenario() {
   local github_pr
   github_pr=$(yaml_get "$yaml_file" '.assertions.github_pr')
 
-  # docker compose up (mock-api)
+  # docker compose up (mock-api, gatekeeper)
   compose_up
   wait_mock_api
   reset_mock_api
+  wait_gatekeeper
 
   # 정리 trap
   trap 'compose_down' EXIT

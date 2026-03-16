@@ -50,10 +50,29 @@ wait_mock_api() {
   die "mock-api did not become ready within ${max_attempts}s"
 }
 
+# ── gatekeeper health check ───────────────────────────────────────────────────
+wait_gatekeeper() {
+  local max_attempts=30
+  local attempt=0
+  local url="${GATEKEEPER_URL}/api/health"
+
+  log "Waiting for gatekeeper at $url ..."
+  while [[ $attempt -lt $max_attempts ]]; do
+    if curl -sf "$url" >/dev/null 2>&1; then
+      log "gatekeeper is ready"
+      return 0
+    fi
+    attempt=$(( attempt + 1 ))
+    sleep 1
+  done
+
+  die "gatekeeper did not become ready within ${max_attempts}s"
+}
+
 # ── Docker Compose 래퍼 ───────────────────────────────────────────────────────
 compose_up() {
-  log "Starting daemon services (mock-api) ..."
-  docker compose -f "$COMPOSE_FILE" up -d mock-api
+  log "Starting daemon services (mock-api, gatekeeper) ..."
+  docker compose -f "$COMPOSE_FILE" up -d mock-api gatekeeper
 }
 
 compose_down() {

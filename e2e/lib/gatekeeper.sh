@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# e2e/lib/gatekeeper.sh — Gatekeeper API 헬퍼 함수 시그니처 정의
+# e2e/lib/gatekeeper.sh — Gatekeeper API 헬퍼 함수 구현
 #
 # DLD-780: web_fetch e2e 테스트 (skip 상태) — 함수 시그니처 정의
-# DLD-781: 실제 curl 구현 예정
+# DLD-781: 실제 curl 구현
 #
 # Usage in BATS: load_gatekeeper 함수를 통해 --source-only 모드로 로드합니다.
 #
-# 필수 환경 변수 (skip 제거 후 설정 필요):
+# 필수 환경 변수:
 #   GATEKEEPER_URL  — Gatekeeper 베이스 URL (예: http://localhost:8080)
 #
 # Functions:
@@ -33,15 +33,23 @@ fi
 #   0  — 등록 성공
 #   1  — 등록 실패 (이미 존재하거나 서버 오류)
 #
-# TODO(DLD-781): POST ${GATEKEEPER_URL}/api/auth/signup 구현
 gatekeeper_signup() {
-  # shellcheck disable=SC2034
   local username="$1"
-  # shellcheck disable=SC2034
   local password="$2"
   : "${GATEKEEPER_URL:?GATEKEEPER_URL must be set}"
-  # Implementation pending: DLD-781
-  return 0
+
+  local http_code
+  http_code=$(curl -sf -o /dev/null -w "%{http_code}" \
+    -X POST "${GATEKEEPER_URL}/api/auth/signup" \
+    -H "Content-Type: application/json" \
+    -d "{\"username\":\"${username}\",\"password\":\"${password}\"}")
+
+  if [[ "$http_code" -ge 200 && "$http_code" -lt 300 ]]; then
+    return 0
+  else
+    echo "signup failed: HTTP ${http_code}" >&2
+    return 1
+  fi
 }
 
 # ── gatekeeper_login ──────────────────────────────────────────────────────────
@@ -58,15 +66,19 @@ gatekeeper_signup() {
 #   0  — 로그인 성공
 #   1  — 로그인 실패 (인증 오류 또는 서버 오류)
 #
-# TODO(DLD-781): POST ${GATEKEEPER_URL}/api/auth/login 구현
 gatekeeper_login() {
-  # shellcheck disable=SC2034
   local username="$1"
-  # shellcheck disable=SC2034
   local password="$2"
   : "${GATEKEEPER_URL:?GATEKEEPER_URL must be set}"
-  # Implementation pending: DLD-781
-  echo ""
+
+  local response
+  response=$(curl -sf \
+    -X POST "${GATEKEEPER_URL}/api/auth/login" \
+    -H "Content-Type: application/json" \
+    -d "{\"username\":\"${username}\",\"password\":\"${password}\"}")
+
+  # JWT 토큰을 stdout으로 출력
+  echo "$response" | jq -r '.token // .accessToken // .jwt // empty'
 }
 
 # ── gatekeeper_approve ────────────────────────────────────────────────────────
@@ -80,15 +92,15 @@ gatekeeper_login() {
 #   0  — 승인 성공
 #   1  — 승인 실패 (요청 없음, 권한 없음, 서버 오류)
 #
-# TODO(DLD-781): PATCH ${GATEKEEPER_URL}/api/requests/:id/approve 구현
 gatekeeper_approve() {
-  # shellcheck disable=SC2034
   local request_id="$1"
-  # shellcheck disable=SC2034
   local jwt_token="$2"
   : "${GATEKEEPER_URL:?GATEKEEPER_URL must be set}"
-  # Implementation pending: DLD-781
-  return 0
+
+  curl -sf -o /dev/null \
+    -X PATCH "${GATEKEEPER_URL}/api/requests/${request_id}/approve" \
+    -H "Authorization: Bearer ${jwt_token}" \
+    -H "Content-Type: application/json"
 }
 
 # ── gatekeeper_reject ─────────────────────────────────────────────────────────
@@ -102,15 +114,15 @@ gatekeeper_approve() {
 #   0  — 거절 성공
 #   1  — 거절 실패 (요청 없음, 권한 없음, 서버 오류)
 #
-# TODO(DLD-781): PATCH ${GATEKEEPER_URL}/api/requests/:id/reject 구현
 gatekeeper_reject() {
-  # shellcheck disable=SC2034
   local request_id="$1"
-  # shellcheck disable=SC2034
   local jwt_token="$2"
   : "${GATEKEEPER_URL:?GATEKEEPER_URL must be set}"
-  # Implementation pending: DLD-781
-  return 0
+
+  curl -sf -o /dev/null \
+    -X PATCH "${GATEKEEPER_URL}/api/requests/${request_id}/reject" \
+    -H "Authorization: Bearer ${jwt_token}" \
+    -H "Content-Type: application/json"
 }
 
 # ── gatekeeper_get_pending ────────────────────────────────────────────────────
@@ -126,11 +138,11 @@ gatekeeper_reject() {
 #   0  — 조회 성공
 #   1  — 조회 실패 (권한 없음, 서버 오류)
 #
-# TODO(DLD-781): GET ${GATEKEEPER_URL}/api/requests?status=pending 구현
 gatekeeper_get_pending() {
-  # shellcheck disable=SC2034
   local jwt_token="$1"
   : "${GATEKEEPER_URL:?GATEKEEPER_URL must be set}"
-  # Implementation pending: DLD-781
-  echo "[]"
+
+  curl -sf \
+    "${GATEKEEPER_URL}/api/requests?status=pending" \
+    -H "Authorization: Bearer ${jwt_token}"
 }
