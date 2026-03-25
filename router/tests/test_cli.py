@@ -11,17 +11,17 @@ from router.cli import _write_fallback_output, main, run
 from tests.conftest import (
     OUTPUT_PLACEHOLDER,
     decision_message,
-    run_main,
+    run_gate,
     single_log,
 )
 
-# ── main: integration ────────────────────────────────────
+# ── gate: integration ──────────────────────────────────────
 
 
-class TestMain:
+class TestGate:
     def test_stop_when_export_config_provided(self, work_env, monkeypatch, caplog):
         with caplog.at_level(logging.INFO, logger="router"):
-            out = run_main(
+            out = run_gate(
                 monkeypatch,
                 work_env,
                 depth=0,
@@ -33,13 +33,13 @@ class TestMain:
 
     def test_stop_at_depth_limit(self, work_env, monkeypatch, caplog):
         with caplog.at_level(logging.INFO, logger="router"):
-            out = run_main(monkeypatch, work_env, depth=4, max_depth=5)
+            out = run_gate(monkeypatch, work_env, depth=4, max_depth=5)
         assert out.strip() == "false"
         assert decision_message(caplog) == ("depth=4/5 decision=STOP reason=depth limit (4/5)")
 
     def test_continue_when_under_limit(self, work_env, monkeypatch, caplog):
         with caplog.at_level(logging.INFO, logger="router"):
-            out = run_main(monkeypatch, work_env, depth=0, max_depth=5)
+            out = run_gate(monkeypatch, work_env, depth=0, max_depth=5)
         assert out.strip() == "true"
         assert decision_message(caplog) == (
             "depth=0/5 decision=CONTINUE reason=no export_config, continuing"
@@ -48,7 +48,7 @@ class TestMain:
     def test_continue_at_nonzero_depth(self, work_env, monkeypatch, caplog):
         """Continue decision works at mid-range depth, not just depth=0."""
         with caplog.at_level(logging.INFO, logger="router"):
-            out = run_main(monkeypatch, work_env, depth=2, max_depth=5)
+            out = run_gate(monkeypatch, work_env, depth=2, max_depth=5)
         assert out.strip() == "true"
         assert decision_message(caplog) == (
             "depth=2/5 decision=CONTINUE reason=no export_config, continuing"
@@ -57,7 +57,7 @@ class TestMain:
     def test_both_stop_conditions_uses_export_config(self, work_env, monkeypatch, caplog):
         """When export_config provided AND at depth limit, export_config reason wins."""
         with caplog.at_level(logging.INFO, logger="router"):
-            out = run_main(
+            out = run_gate(
                 monkeypatch,
                 work_env,
                 depth=4,
@@ -68,10 +68,10 @@ class TestMain:
         assert decision_message(caplog) == ("depth=4/5 decision=STOP reason=export_config provided")
 
     def test_continue_action_returns_true(self, work_env, monkeypatch, caplog):
-        """When export_config has continue action, router returns true."""
+        """When export_config has continue action, gate returns true."""
         (work_env / "export_config.json").write_text('{"actions":["continue"]}')
         with caplog.at_level(logging.INFO, logger="router"):
-            out = run_main(
+            out = run_gate(
                 monkeypatch,
                 work_env,
                 depth=0,
@@ -85,13 +85,74 @@ class TestMain:
         assert not (work_env / "export_config.json").exists()
 
 
-class TestMainWithSingleQuotes:
+class TestGateEnvOutput:
+    """Tests for --env-output flag on gate subcommand."""
+
+    def test_writes_next_environment(self, work_env, monkeypatch, caplog):
+        """Gate extracts next_environment from export_config and writes to env-output."""
+        export_config = json.dumps(
+            {"actions": ["continue"], "next_environment": "python-analysis"}
+        )
+        (work_env / "export_config.json").write_text(export_config)
+        output_path = str(work_env / "output.txt")
+        env_output_path = str(work_env / "env_output.txt")
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "router",
+                "gate",
+                "--depth",
+                "0",
+                "--max-depth",
+                "5",
+                "--export-config",
+                export_config,
+                "--output",
+                output_path,
+                "--env-output",
+                env_output_path,
+            ],
+        )
+        with caplog.at_level(logging.INFO, logger="router"):
+            main()
+        assert Path(output_path).read_text().strip() == "true"
+        assert Path(env_output_path).read_text().strip() == "python-analysis"
+
+    def test_writes_empty_when_no_next_environment(self, work_env, monkeypatch, caplog):
+        """Gate writes empty string when no next_environment in export_config."""
+        output_path = str(work_env / "output.txt")
+        env_output_path = str(work_env / "env_output.txt")
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "router",
+                "gate",
+                "--depth",
+                "0",
+                "--max-depth",
+                "5",
+                "--export-config",
+                "{}",
+                "--output",
+                output_path,
+                "--env-output",
+                env_output_path,
+            ],
+        )
+        with caplog.at_level(logging.INFO, logger="router"):
+            main()
+        assert Path(env_output_path).read_text().strip() == ""
+
+
+class TestGateWithSingleQuotes:
     """Integration tests for JSON containing single quotes passed via CLI."""
 
     def test_stop_with_single_quote_in_summary(self, work_env, monkeypatch, caplog):
         export_config = json.dumps({"summary": "it's done", "actions": ["none"]})
         with caplog.at_level(logging.INFO, logger="router"):
-            out = run_main(
+            out = run_gate(
                 monkeypatch,
                 work_env,
                 depth=0,
@@ -110,7 +171,7 @@ class TestMainWithSingleQuotes:
         )
         (work_env / "export_config.json").write_text(export_config)
         with caplog.at_level(logging.INFO, logger="router"):
-            out = run_main(
+            out = run_gate(
                 monkeypatch,
                 work_env,
                 depth=0,
@@ -121,6 +182,91 @@ class TestMainWithSingleQuotes:
         assert not (work_env / "export_config.json").exists()
 
 
+# ── plan: integration ──────────────────────────────────────
+
+
+class TestPlan:
+    def test_override_environment_skips_llm(self, tmp_path, monkeypatch, caplog):
+        """When --override-environment is set, planner resolves directly without LLM."""
+        output_path = str(tmp_path / "image.txt")
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "router",
+                "plan",
+                "--prompt",
+                "some task",
+                "--override-environment",
+                "python-analysis",
+                "--output",
+                output_path,
+            ],
+        )
+        with caplog.at_level(logging.INFO, logger="router"):
+            main()
+        image = Path(output_path).read_text().strip()
+        assert "python-agent" in image
+        assert "override" in caplog.text.lower() or "Planner" in caplog.text
+
+    def test_override_unknown_falls_back_to_default(self, tmp_path, monkeypatch, caplog):
+        """Unknown override environment falls back to default image."""
+        output_path = str(tmp_path / "image.txt")
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "router",
+                "plan",
+                "--prompt",
+                "some task",
+                "--override-environment",
+                "nonexistent",
+                "--output",
+                output_path,
+            ],
+        )
+        with caplog.at_level(logging.INFO, logger="router"):
+            main()
+        image = Path(output_path).read_text().strip()
+        assert "claude-agent" in image
+
+    def test_empty_override_triggers_llm(self, tmp_path, monkeypatch, caplog):
+        """Empty override triggers LLM-based selection (falls back to default without LLM gateway)."""
+        output_path = str(tmp_path / "image.txt")
+        monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "router",
+                "plan",
+                "--prompt",
+                "some task",
+                "--override-environment",
+                "",
+                "--output",
+                output_path,
+            ],
+        )
+        with caplog.at_level(logging.INFO, logger="router"):
+            main()
+        image = Path(output_path).read_text().strip()
+        assert "claude-agent" in image  # fallback since no LLM gateway
+
+
+# ── no subcommand ─────────────────────────────────────────
+
+
+class TestNoSubcommand:
+    def test_no_subcommand_exits(self, monkeypatch):
+        """Running without a subcommand exits with code 2."""
+        monkeypatch.setattr(sys, "argv", ["router"])
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 2
+
+
 # ── _write_fallback_output ───────────────────────────────
 
 
@@ -128,7 +274,7 @@ class TestWriteFallbackOutput:
     def test_writes_false_when_output_arg_present(self, tmp_path, monkeypatch, caplog):
         """Fallback writes 'false' to the --output path and logs it."""
         out = str(tmp_path / "fallback.txt")
-        monkeypatch.setattr(sys, "argv", ["router", "--output", out])
+        monkeypatch.setattr(sys, "argv", ["router", "gate", "--output", out])
         with caplog.at_level(logging.INFO, logger="router"):
             _write_fallback_output()
         assert Path(out).read_text() == "false\n"
@@ -138,9 +284,9 @@ class TestWriteFallbackOutput:
     @pytest.mark.parametrize(
         "argv",
         [
-            pytest.param(["router", "--depth", "0"], id="no-output-arg"),
-            pytest.param(["router", "--output"], id="output-is-last-arg"),
-            pytest.param(["router", "--output", ""], id="empty-string-output"),
+            pytest.param(["router", "gate", "--depth", "0"], id="no-output-arg"),
+            pytest.param(["router", "gate", "--output"], id="output-is-last-arg"),
+            pytest.param(["router", "gate", "--output", ""], id="empty-string-output"),
         ],
     )
     def test_silently_returns_when_output_missing_or_dangling(
@@ -156,7 +302,7 @@ class TestWriteFallbackOutput:
     def test_silently_returns_when_path_unwritable(self, monkeypatch, caplog):
         """When --output points to a nonexistent directory, silently returns."""
         bad_path = "/nonexistent-dir/output.txt"
-        monkeypatch.setattr(sys, "argv", ["router", "--output", bad_path])
+        monkeypatch.setattr(sys, "argv", ["router", "gate", "--output", bad_path])
         with caplog.at_level(logging.INFO, logger="router"):
             _write_fallback_output()
         assert "fallback" not in caplog.text
@@ -166,23 +312,26 @@ class TestWriteFallbackOutput:
         """When --output appears twice, fallback uses the first occurrence."""
         first = str(tmp_path / "first.txt")
         second = str(tmp_path / "second.txt")
-        monkeypatch.setattr(sys, "argv", ["router", "--output", first, "--output", second])
+        monkeypatch.setattr(
+            sys, "argv", ["router", "gate", "--output", first, "--output", second]
+        )
         with caplog.at_level(logging.INFO, logger="router"):
             _write_fallback_output()
         assert Path(first).read_text() == "false\n"
         assert not Path(second).exists()
 
 
-# ── argument parsing ─────────────────────────────────────
+# ── gate argument parsing ─────────────────────────────────
 
 
-class TestArgs:
+class TestGateArgs:
     @pytest.mark.parametrize(
         "argv_template",
         [
             pytest.param(
                 [
                     "router",
+                    "gate",
                     "--max-depth",
                     "5",
                     "--export-config",
@@ -193,11 +342,29 @@ class TestArgs:
                 id="missing-depth",
             ),
             pytest.param(
-                ["router", "--depth", "0", "--export-config", "{}", "--output", OUTPUT_PLACEHOLDER],
+                [
+                    "router",
+                    "gate",
+                    "--depth",
+                    "0",
+                    "--export-config",
+                    "{}",
+                    "--output",
+                    OUTPUT_PLACEHOLDER,
+                ],
                 id="missing-max-depth",
             ),
             pytest.param(
-                ["router", "--depth", "0", "--max-depth", "5", "--export-config", "{}"],
+                [
+                    "router",
+                    "gate",
+                    "--depth",
+                    "0",
+                    "--max-depth",
+                    "5",
+                    "--export-config",
+                    "{}",
+                ],
                 id="missing-output",
             ),
         ],
@@ -217,6 +384,7 @@ class TestArgs:
             pytest.param(
                 [
                     "router",
+                    "gate",
                     "--depth",
                     "-1",
                     "--max-depth",
@@ -231,6 +399,7 @@ class TestArgs:
             pytest.param(
                 [
                     "router",
+                    "gate",
                     "--depth",
                     "0",
                     "--max-depth",
@@ -245,6 +414,7 @@ class TestArgs:
             pytest.param(
                 [
                     "router",
+                    "gate",
                     "--depth",
                     "abc",
                     "--max-depth",
@@ -259,6 +429,7 @@ class TestArgs:
             pytest.param(
                 [
                     "router",
+                    "gate",
                     "--depth",
                     "0",
                     "--max-depth",
@@ -273,6 +444,7 @@ class TestArgs:
             pytest.param(
                 [
                     "router",
+                    "gate",
                     "--depth",
                     "0",
                     "--max-depth",
@@ -321,7 +493,7 @@ class TestRun:
         """Argparse errors (SystemExit) propagate through run() without fallback or error log."""
         output_path = str(work_env / "fallback.txt")
         monkeypatch.setattr(
-            sys, "argv", ["router", "--output", output_path]
+            sys, "argv", ["router", "gate", "--output", output_path]
         )  # missing --depth and --max-depth
         with caplog.at_level(logging.ERROR, logger="router"):
             with pytest.raises(SystemExit) as exc_info:
@@ -359,7 +531,7 @@ class TestTranscriptUploadIntegration:
         """When AWS_S3_BUCKET_NAME is not set, upload is skipped gracefully."""
         monkeypatch.delenv("AWS_S3_BUCKET_NAME", raising=False)
         with caplog.at_level(logging.INFO, logger="router"):
-            out = run_main(monkeypatch, work_env, depth=0, max_depth=5)
+            out = run_gate(monkeypatch, work_env, depth=0, max_depth=5)
         assert out.strip() == "true"
         assert "Transcript upload skipped" in caplog.text
 
@@ -374,7 +546,7 @@ class TestTranscriptUploadIntegration:
         monkeypatch.setattr(tu, "upload_transcripts", mock_upload)
 
         with caplog.at_level(logging.INFO, logger="router"):
-            out = run_main(monkeypatch, work_env, depth=0, max_depth=5)
+            out = run_gate(monkeypatch, work_env, depth=0, max_depth=5)
         assert out.strip() == "true"
         mock_upload.assert_called_once()
         assert "Transcript upload complete: 1 file(s)" in caplog.text
@@ -389,6 +561,6 @@ class TestTranscriptUploadIntegration:
         monkeypatch.setattr(tu, "upload_transcripts", MagicMock(side_effect=Exception("S3 down")))
 
         with caplog.at_level(logging.INFO, logger="router"):
-            out = run_main(monkeypatch, work_env, depth=0, max_depth=5)
+            out = run_gate(monkeypatch, work_env, depth=0, max_depth=5)
         assert out.strip() == "true"
         assert "Transcript upload failed (non-fatal)" in caplog.text

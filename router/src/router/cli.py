@@ -21,54 +21,47 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Workflow router")
     subparsers = parser.add_subparsers(dest="command")
 
-    # Default (no subcommand) - backward compatible route mode
-    parser.add_argument("--depth", type=int)
-    parser.add_argument("--max-depth", type=int)
-    parser.add_argument("--export-config", type=str, default="{}", help="Export config JSON")
-    parser.add_argument("--output", type=str, help="Output file path for continue decision")
-    parser.add_argument(
-        "--current-image",
+    # ── gate: continue/stop decision (after agent) ──
+    gate_parser = subparsers.add_parser("gate", help="Decide whether to continue the agent loop")
+    gate_parser.add_argument("--depth", type=int, required=True)
+    gate_parser.add_argument("--max-depth", type=int, required=True)
+    gate_parser.add_argument("--export-config", type=str, default="{}", help="Export config JSON")
+    gate_parser.add_argument("--output", type=str, required=True, help="Output file for decision")
+    gate_parser.add_argument(
+        "--env-output",
         type=str,
         default="",
-        help="Current agent image (used as fallback for next cycle)",
-    )
-    parser.add_argument(
-        "--image-output",
-        type=str,
-        default="",
-        help="Output file path for next agent image",
+        help="Output file for next_environment hint (extracted from export_config)",
     )
 
-    # select-image subcommand
-    select_parser = subparsers.add_parser(
-        "select-image", help="Select agent image based on prompt content via LLM"
-    )
-    select_parser.add_argument("--prompt", type=str, required=True, help="Task prompt to analyze")
-    select_parser.add_argument(
-        "--output", type=str, required=True, help="Output file path for selected image"
+    # ── plan: image selection (before agent) ──
+    plan_parser = subparsers.add_parser("plan", help="Select agent image for this cycle")
+    plan_parser.add_argument("--prompt", type=str, required=True, help="Task prompt to analyze")
+    plan_parser.add_argument("--output", type=str, required=True, help="Output file for image")
+    plan_parser.add_argument(
+        "--override-environment",
+        type=str,
+        default="",
+        help="Environment ID override (skip LLM if set)",
     )
 
     args = parser.parse_args()
 
-    if args.command == "select-image":
-        _select_image(args)
+    if args.command == "gate":
+        _gate(args)
+    elif args.command == "plan":
+        _plan(args)
     else:
-        _route(args, parser)
+        parser.print_help()
+        parser.error("A subcommand is required: 'gate' or 'plan'")
 
 
-def _route(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
-    """Original routing logic: decide continue/stop and optionally select next image."""
-    if args.depth is None:
-        parser.error("--depth is required")
-    if args.max_depth is None:
-        parser.error("--max-depth is required")
-    if not args.output:
-        parser.error("--output is required")
-
+def _gate(args: argparse.Namespace) -> None:
+    """Gate: decide continue/stop and extract next_environment from export_config."""
     if args.depth < 0:
-        parser.error(f"--depth must be >= 0, got {args.depth}")
+        raise SystemExit(2)
     if args.max_depth < 1:
-        parser.error(f"--max-depth must be >= 1, got {args.max_depth}")
+        raise SystemExit(2)
 
     config = RouterConfig.from_env()
 
@@ -85,28 +78,28 @@ def _route(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
 
     logic.write_output("true" if continuing else "false", args.output)
 
-    # Write next agent image if --image-output is specified
-    if args.image_output:
-        if next_env_id:
-            next_image = resolve_image(next_env_id)
-            logger.info("next_environment=%s -> %s", next_env_id, next_image)
-        elif args.current_image:
-            next_image = args.current_image
-        else:
-            next_image = resolve_image(None)
-        logic.write_output(next_image, args.image_output)
+    # Write next_environment hint (ID only, not resolved image)
+    if args.env_output:
+        logic.write_output(next_env_id or "", args.env_output)
 
     # Upload transcripts to S3 (independent of routing decision)
     _upload_transcripts(config)
 
 
-def _select_image(args: argparse.Namespace) -> None:
-    """LLM-based image selection from task prompt."""
-    from router.image_selector import select_image_via_llm
+def _plan(args: argparse.Namespace) -> None:
+    """Plan: select agent image via override or LLM."""
+    override = args.override_environment.strip()
 
-    image = select_image_via_llm(args.prompt)
+    if override:
+        image = resolve_image(override)
+        logger.info("Planner: override environment=%s -> %s", override, image)
+    else:
+        from router.image_selector import select_image_via_llm
+
+        image = select_image_via_llm(args.prompt)
+        logger.info("Planner: LLM selected -> %s", image)
+
     logic.write_output(image, args.output)
-    logger.info("Selected image: %s", image)
 
 
 def _upload_transcripts(config: RouterConfig) -> None:

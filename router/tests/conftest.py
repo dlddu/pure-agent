@@ -32,13 +32,14 @@ def work_env(tmp_path, monkeypatch) -> Path:
 
 @pytest.fixture
 def run_env(work_env, monkeypatch):
-    """Set up a normal run scenario: valid argv for depth=0, max_depth=5."""
+    """Set up a normal run scenario: valid argv for gate depth=0, max_depth=5."""
     output_path = str(work_env / "output.txt")
     monkeypatch.setattr(
         sys,
         "argv",
         [
             "router",
+            "gate",
             "--depth",
             "0",
             "--max-depth",
@@ -62,6 +63,7 @@ def crash_env(work_env, monkeypatch):
         "argv",
         [
             "router",
+            "gate",
             "--depth",
             "0",
             "--max-depth",
@@ -80,8 +82,8 @@ def crash_env(work_env, monkeypatch):
 OUTPUT_PLACEHOLDER = "OUTPUT"
 
 
-def run_main(monkeypatch, work_env, depth, max_depth, export_config="{}"):
-    """Set sys.argv and call main(), return output file content."""
+def run_gate(monkeypatch, work_env, depth, max_depth, export_config="{}"):
+    """Set sys.argv for gate subcommand and call main(), return output file content."""
     from router.cli import main
 
     output_path = str(work_env / "output.txt")
@@ -90,6 +92,7 @@ def run_main(monkeypatch, work_env, depth, max_depth, export_config="{}"):
         "argv",
         [
             "router",
+            "gate",
             "--depth",
             str(depth),
             "--max-depth",
@@ -102,6 +105,10 @@ def run_main(monkeypatch, work_env, depth, max_depth, export_config="{}"):
     )
     main()
     return Path(output_path).read_text()
+
+
+# Backward compat alias
+run_main = run_gate
 
 
 def run_subprocess(work_env, *argv):

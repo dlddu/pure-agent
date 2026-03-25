@@ -4,7 +4,7 @@
 #
 # 에이전트 실행 파이프라인 오케스트레이션:
 #   1. 데몬 서비스 시작 (MCP Server, LLM Gateway)
-#   2. Agent → Router 재귀 루프 실행 (max_depth까지 반복)
+#   2. Planner → Agent → Gate 재귀 루프 실행 (max_depth까지 반복)
 #   3. Export Handler로 결과 내보내기
 #   4. 공유 볼륨 정리
 #
@@ -12,10 +12,10 @@
 #   - main               : DAG 엔트리포인트
 #   - mcp-daemon          : MCP Server 사이드카 (Linear 도구)
 #   - llm-gateway-daemon  : nginx 리버스 프록시 → Anthropic API
-#   - run-cycle           : Agent → Router → Recurse 재귀 루프
+#   - run-cycle           : Planner → Agent → Gate → Recurse 재귀 루프
+#   - planner             : LLM 기반 에이전트 실행 환경(이미지) 선택
 #   - agent-job           : Claude Code CLI 실행 (이미지 파라미터화)
-#   - router              : 계속/종료 판단 + 다음 사이클 이미지 선택
-#   - select-image        : LLM 기반 초기 에이전트 이미지 선택
+#   - gate                : 계속/종료 판단 + 다음 사이클 환경 힌트 추출
 #   - export-cycle-output : 후처리 (Linear, GitHub, S3)
 #   - cleanup-job         : 공유 볼륨 정리
 #
@@ -71,21 +71,9 @@ spec:
           - name: llm-gateway-daemon
             template: llm-gateway-daemon
 
-          - name: select-initial-image
-            template: select-image
-            dependencies: [llm-gateway-daemon]
-            arguments:
-              parameters:
-                - name: prompt
-                  value: "{{workflow.parameters.prompt}}"
-                - name: llm_gateway_host
-                  value: "{{tasks.llm-gateway-daemon.ip}}"
-                - name: override_image
-                  value: "{{workflow.parameters.agent_image}}"
-
           - name: run-cycle
             template: run-cycle
-            dependencies: [mcp-daemon, llm-gateway-daemon, select-initial-image]
+            dependencies: [mcp-daemon, llm-gateway-daemon]
             continueOn:
               failed: true
               error: true
@@ -103,8 +91,8 @@ spec:
                   value: "{{tasks.mcp-daemon.ip}}"
                 - name: llm_gateway_host
                   value: "{{tasks.llm-gateway-daemon.ip}}"
-                - name: agent_image
-                  value: "{{tasks.select-initial-image.outputs.parameters.agent_image}}"
+                - name: override_environment
+                  value: "{{workflow.parameters.agent_image}}"
 
           - name: export-cycle-output
             template: export-cycle-output
@@ -189,7 +177,7 @@ spec:
           failureThreshold: 3
 
     # =============================
-    # Agent → Router Loop
+    # Planner → Agent → Gate Loop
     # =============================
     - name: run-cycle
       inputs:
@@ -200,8 +188,18 @@ spec:
           - name: previous_output
           - name: mcp_host
           - name: llm_gateway_host
-          - name: agent_image
+          - name: override_environment
       steps:
+        - - name: planner
+            template: planner
+            arguments:
+              parameters:
+                - name: prompt
+                  value: "{{inputs.parameters.prompt}}"
+                - name: llm_gateway_host
+                  value: "{{inputs.parameters.llm_gateway_host}}"
+                - name: override_environment
+                  value: "{{inputs.parameters.override_environment}}"
         - - name: agent
             template: agent-job
             arguments:
@@ -215,9 +213,9 @@ spec:
                 - name: mcp_host
                   value: "{{inputs.parameters.mcp_host}}"
                 - name: agent_image
-                  value: "{{inputs.parameters.agent_image}}"
-        - - name: router
-            template: router
+                  value: "{{steps.planner.outputs.parameters.agent_image}}"
+        - - name: gate
+            template: gate
             arguments:
               parameters:
                 - name: depth
@@ -226,15 +224,9 @@ spec:
                   value: "{{inputs.parameters.max_depth}}"
                 - name: export_config
                   value: "{{steps.agent.outputs.parameters.export_config}}"
-                - name: prompt
-                  value: "{{inputs.parameters.prompt}}"
-                - name: llm_gateway_host
-                  value: "{{inputs.parameters.llm_gateway_host}}"
-                - name: current_agent_image
-                  value: "{{inputs.parameters.agent_image}}"
         - - name: recurse
             template: run-cycle
-            when: "{{steps.router.outputs.parameters.continue}} == true"
+            when: "{{steps.gate.outputs.parameters.continue}} == true"
             arguments:
               parameters:
                 - name: depth
@@ -249,8 +241,45 @@ spec:
                   value: "{{inputs.parameters.mcp_host}}"
                 - name: llm_gateway_host
                   value: "{{inputs.parameters.llm_gateway_host}}"
-                - name: agent_image
-                  value: "{{steps.router.outputs.parameters.next_agent_image}}"
+                - name: override_environment
+                  value: "{{steps.gate.outputs.parameters.next_environment}}"
+
+    # =============================
+    # Planner (image selection)
+    # =============================
+    - name: planner
+      inputs:
+        parameters:
+          - name: prompt
+          - name: llm_gateway_host
+          - name: override_environment
+      outputs:
+        parameters:
+          - name: agent_image
+            valueFrom:
+              path: /tmp/agent_image.txt
+      container:
+        image: ghcr.io/dlddu/pure-agent/router:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            router plan \
+              --prompt "$PROMPT" \
+              --override-environment "$OVERRIDE_ENV" \
+              --output /tmp/agent_image.txt \
+            || echo "ghcr.io/dlddu/pure-agent/claude-agent:latest" > /tmp/agent_image.txt
+        env:
+          - name: PROMPT
+            value: "{{inputs.parameters.prompt}}"
+          - name: OVERRIDE_ENV
+            value: "{{inputs.parameters.override_environment}}"
+          - name: ANTHROPIC_BASE_URL
+            value: "http://{{inputs.parameters.llm_gateway_host}}"
+          - name: ANTHROPIC_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: agent-secrets
+                key: CLAUDE_CODE_OAUTH_TOKEN
 
     # =============================
     # Agent Job
@@ -312,48 +341,38 @@ spec:
             mountPath: /work
 
     # =============================
-    # Router
+    # Gate (continue/stop decision)
     # =============================
-    - name: router
+    - name: gate
       inputs:
         parameters:
           - name: depth
           - name: max_depth
           - name: export_config
-          - name: prompt
-          - name: llm_gateway_host
-          - name: current_agent_image
       outputs:
         parameters:
           - name: continue
             valueFrom:
               path: /tmp/continue.txt
-          - name: next_agent_image
+          - name: next_environment
             valueFrom:
-              path: /tmp/next_agent_image.txt
+              path: /tmp/next_environment.txt
+              default: ""
       container:
         image: ghcr.io/dlddu/pure-agent/router:latest
         command: ["/bin/sh", "-c"]
         args:
           - |
-            router \
+            router gate \
               --export-config "$EXPORT_CONFIG_JSON" \
               --depth '{{inputs.parameters.depth}}' \
               --max-depth '{{inputs.parameters.max_depth}}' \
               --output /tmp/continue.txt \
-              --current-image '{{inputs.parameters.current_agent_image}}' \
-              --image-output /tmp/next_agent_image.txt \
-            || (echo "false" > /tmp/continue.txt && echo '{{inputs.parameters.current_agent_image}}' > /tmp/next_agent_image.txt)
+              --env-output /tmp/next_environment.txt \
+            || (echo "false" > /tmp/continue.txt && echo "" > /tmp/next_environment.txt)
         env:
           - name: EXPORT_CONFIG_JSON
             value: "{{inputs.parameters.export_config}}"
-          - name: ANTHROPIC_BASE_URL
-            value: "http://{{inputs.parameters.llm_gateway_host}}"
-          - name: ANTHROPIC_API_KEY
-            valueFrom:
-              secretKeyRef:
-                name: agent-secrets
-                key: CLAUDE_CODE_OAUTH_TOKEN
           - name: AWS_S3_BUCKET_NAME
             valueFrom:
               secretKeyRef:
@@ -364,46 +383,6 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /work
-
-    # =============================
-    # Image Selector (LLM-based)
-    # =============================
-    - name: select-image
-      inputs:
-        parameters:
-          - name: prompt
-          - name: llm_gateway_host
-          - name: override_image
-      outputs:
-        parameters:
-          - name: agent_image
-            valueFrom:
-              path: /tmp/selected_image.txt
-      container:
-        image: ghcr.io/dlddu/pure-agent/router:latest
-        command: ["/bin/sh", "-c"]
-        args:
-          - |
-            if [ -n "$OVERRIDE_IMAGE" ]; then
-              echo "$OVERRIDE_IMAGE" > /tmp/selected_image.txt
-            else
-              router select-image \
-                --prompt "$PROMPT" \
-                --output /tmp/selected_image.txt \
-              || echo "ghcr.io/dlddu/pure-agent/claude-agent:latest" > /tmp/selected_image.txt
-            fi
-        env:
-          - name: PROMPT
-            value: "{{inputs.parameters.prompt}}"
-          - name: OVERRIDE_IMAGE
-            value: "{{inputs.parameters.override_image}}"
-          - name: ANTHROPIC_BASE_URL
-            value: "http://{{inputs.parameters.llm_gateway_host}}"
-          - name: ANTHROPIC_API_KEY
-            valueFrom:
-              secretKeyRef:
-                name: agent-secrets
-                key: CLAUDE_CODE_OAUTH_TOKEN
 
     # =============================
     # Export Cycle Output

@@ -123,7 +123,7 @@ run_router() {
       if [ -f /work/export_config.json ]; then
         EC=$(cat /work/export_config.json);
       fi;
-      exec router \
+      exec router gate \
         --depth '"${depth}"' \
         --max-depth '"${max_depth}"' \
         --export-config "$EC" \
