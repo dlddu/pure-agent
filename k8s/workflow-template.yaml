@@ -13,8 +13,9 @@
 #   - mcp-daemon          : MCP Server 사이드카 (Linear 도구)
 #   - llm-gateway-daemon  : nginx 리버스 프록시 → Anthropic API
 #   - run-cycle           : Agent → Router → Recurse 재귀 루프
-#   - agent-job           : Claude Code CLI 실행
-#   - router              : 계속/종료 판단
+#   - agent-job           : Claude Code CLI 실행 (이미지 파라미터화)
+#   - router              : 계속/종료 판단 + 다음 사이클 이미지 선택
+#   - select-image        : LLM 기반 초기 에이전트 이미지 선택
 #   - export-cycle-output : 후처리 (Linear, GitHub, S3)
 #   - cleanup-job         : 공유 볼륨 정리
 #
@@ -34,6 +35,8 @@ spec:
         value: "10"
       - name: prompt
         value: ""
+      - name: agent_image
+        value: ""  # 비어 있으면 LLM이 prompt 기반으로 자동 선택
 
   volumeClaimTemplates:
     - metadata:
@@ -68,9 +71,21 @@ spec:
           - name: llm-gateway-daemon
             template: llm-gateway-daemon
 
+          - name: select-initial-image
+            template: select-image
+            dependencies: [llm-gateway-daemon]
+            arguments:
+              parameters:
+                - name: prompt
+                  value: "{{workflow.parameters.prompt}}"
+                - name: llm_gateway_host
+                  value: "{{tasks.llm-gateway-daemon.ip}}"
+                - name: override_image
+                  value: "{{workflow.parameters.agent_image}}"
+
           - name: run-cycle
             template: run-cycle
-            dependencies: [mcp-daemon, llm-gateway-daemon]
+            dependencies: [mcp-daemon, llm-gateway-daemon, select-initial-image]
             continueOn:
               failed: true
               error: true
@@ -88,6 +103,8 @@ spec:
                   value: "{{tasks.mcp-daemon.ip}}"
                 - name: llm_gateway_host
                   value: "{{tasks.llm-gateway-daemon.ip}}"
+                - name: agent_image
+                  value: "{{tasks.select-initial-image.outputs.parameters.agent_image}}"
 
           - name: export-cycle-output
             template: export-cycle-output
@@ -183,6 +200,7 @@ spec:
           - name: previous_output
           - name: mcp_host
           - name: llm_gateway_host
+          - name: agent_image
       steps:
         - - name: agent
             template: agent-job
@@ -196,6 +214,8 @@ spec:
                   value: "{{inputs.parameters.llm_gateway_host}}"
                 - name: mcp_host
                   value: "{{inputs.parameters.mcp_host}}"
+                - name: agent_image
+                  value: "{{inputs.parameters.agent_image}}"
         - - name: router
             template: router
             arguments:
@@ -206,6 +226,12 @@ spec:
                   value: "{{inputs.parameters.max_depth}}"
                 - name: export_config
                   value: "{{steps.agent.outputs.parameters.export_config}}"
+                - name: prompt
+                  value: "{{inputs.parameters.prompt}}"
+                - name: llm_gateway_host
+                  value: "{{inputs.parameters.llm_gateway_host}}"
+                - name: current_agent_image
+                  value: "{{inputs.parameters.agent_image}}"
         - - name: recurse
             template: run-cycle
             when: "{{steps.router.outputs.parameters.continue}} == true"
@@ -223,6 +249,8 @@ spec:
                   value: "{{inputs.parameters.mcp_host}}"
                 - name: llm_gateway_host
                   value: "{{inputs.parameters.llm_gateway_host}}"
+                - name: agent_image
+                  value: "{{steps.router.outputs.parameters.next_agent_image}}"
 
     # =============================
     # Agent Job
@@ -237,6 +265,7 @@ spec:
           - name: previous_output
           - name: llm_gateway_host
           - name: mcp_host
+          - name: agent_image
       outputs:
         parameters:
           - name: result
@@ -257,7 +286,7 @@ spec:
           value: "on-demand"
           effect: "NoSchedule"
       container:
-        image: ghcr.io/dlddu/pure-agent/claude-agent:latest
+        image: "{{inputs.parameters.agent_image}}"
         command: ["/home/claude/entrypoint.sh"]
         resources:
           requests:
@@ -291,13 +320,19 @@ spec:
           - name: depth
           - name: max_depth
           - name: export_config
+          - name: prompt
+          - name: llm_gateway_host
+          - name: current_agent_image
       outputs:
         parameters:
           - name: continue
             valueFrom:
               path: /tmp/continue.txt
+          - name: next_agent_image
+            valueFrom:
+              path: /tmp/next_agent_image.txt
       container:
-        image: ghcr.io/dlddu/pure-agent/router:latest  # CONFIGURE: 이미지 태그
+        image: ghcr.io/dlddu/pure-agent/router:latest
         command: ["/bin/sh", "-c"]
         args:
           - |
@@ -306,10 +341,19 @@ spec:
               --depth '{{inputs.parameters.depth}}' \
               --max-depth '{{inputs.parameters.max_depth}}' \
               --output /tmp/continue.txt \
-            || echo "false" > /tmp/continue.txt
+              --current-image '{{inputs.parameters.current_agent_image}}' \
+              --image-output /tmp/next_agent_image.txt \
+            || (echo "false" > /tmp/continue.txt && echo '{{inputs.parameters.current_agent_image}}' > /tmp/next_agent_image.txt)
         env:
           - name: EXPORT_CONFIG_JSON
             value: "{{inputs.parameters.export_config}}"
+          - name: ANTHROPIC_BASE_URL
+            value: "http://{{inputs.parameters.llm_gateway_host}}"
+          - name: ANTHROPIC_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: agent-secrets
+                key: CLAUDE_CODE_OAUTH_TOKEN
           - name: AWS_S3_BUCKET_NAME
             valueFrom:
               secretKeyRef:
@@ -320,6 +364,46 @@ spec:
         volumeMounts:
           - name: workdir
             mountPath: /work
+
+    # =============================
+    # Image Selector (LLM-based)
+    # =============================
+    - name: select-image
+      inputs:
+        parameters:
+          - name: prompt
+          - name: llm_gateway_host
+          - name: override_image
+      outputs:
+        parameters:
+          - name: agent_image
+            valueFrom:
+              path: /tmp/selected_image.txt
+      container:
+        image: ghcr.io/dlddu/pure-agent/router:latest
+        command: ["/bin/sh", "-c"]
+        args:
+          - |
+            if [ -n "$OVERRIDE_IMAGE" ]; then
+              echo "$OVERRIDE_IMAGE" > /tmp/selected_image.txt
+            else
+              router select-image \
+                --prompt "$PROMPT" \
+                --output /tmp/selected_image.txt \
+              || echo "ghcr.io/dlddu/pure-agent/claude-agent:latest" > /tmp/selected_image.txt
+            fi
+        env:
+          - name: PROMPT
+            value: "{{inputs.parameters.prompt}}"
+          - name: OVERRIDE_IMAGE
+            value: "{{inputs.parameters.override_image}}"
+          - name: ANTHROPIC_BASE_URL
+            value: "http://{{inputs.parameters.llm_gateway_host}}"
+          - name: ANTHROPIC_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: agent-secrets
+                key: CLAUDE_CODE_OAUTH_TOKEN
 
     # =============================
     # Export Cycle Output

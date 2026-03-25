@@ -6,6 +6,7 @@ import sys
 
 from router import logic
 from router.config import RouterConfig, TranscriptUploadConfig
+from router.environments import resolve_image
 
 logging.basicConfig(
     stream=sys.stderr,
@@ -18,11 +19,51 @@ logger = logging.getLogger("router")
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Workflow router")
-    parser.add_argument("--depth", type=int, required=True)
-    parser.add_argument("--max-depth", type=int, required=True)
+    subparsers = parser.add_subparsers(dest="command")
+
+    # Default (no subcommand) - backward compatible route mode
+    parser.add_argument("--depth", type=int)
+    parser.add_argument("--max-depth", type=int)
     parser.add_argument("--export-config", type=str, default="{}", help="Export config JSON")
-    parser.add_argument("--output", type=str, required=True, help="Output file path")
+    parser.add_argument("--output", type=str, help="Output file path for continue decision")
+    parser.add_argument(
+        "--current-image",
+        type=str,
+        default="",
+        help="Current agent image (used as fallback for next cycle)",
+    )
+    parser.add_argument(
+        "--image-output",
+        type=str,
+        default="",
+        help="Output file path for next agent image",
+    )
+
+    # select-image subcommand
+    select_parser = subparsers.add_parser(
+        "select-image", help="Select agent image based on prompt content via LLM"
+    )
+    select_parser.add_argument("--prompt", type=str, required=True, help="Task prompt to analyze")
+    select_parser.add_argument(
+        "--output", type=str, required=True, help="Output file path for selected image"
+    )
+
     args = parser.parse_args()
+
+    if args.command == "select-image":
+        _select_image(args)
+    else:
+        _route(args, parser)
+
+
+def _route(args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
+    """Original routing logic: decide continue/stop and optionally select next image."""
+    if args.depth is None:
+        parser.error("--depth is required")
+    if args.max_depth is None:
+        parser.error("--max-depth is required")
+    if not args.output:
+        parser.error("--output is required")
 
     if args.depth < 0:
         parser.error(f"--depth must be >= 0, got {args.depth}")
@@ -31,7 +72,7 @@ def main() -> None:
 
     config = RouterConfig.from_env()
 
-    continuing, reason = logic.should_continue(
+    continuing, reason, next_env_id = logic.should_continue(
         config, args.export_config, args.depth, args.max_depth
     )
     logger.info(
@@ -44,8 +85,28 @@ def main() -> None:
 
     logic.write_output("true" if continuing else "false", args.output)
 
+    # Write next agent image if --image-output is specified
+    if args.image_output:
+        if next_env_id:
+            next_image = resolve_image(next_env_id)
+            logger.info("next_environment=%s -> %s", next_env_id, next_image)
+        elif args.current_image:
+            next_image = args.current_image
+        else:
+            next_image = resolve_image(None)
+        logic.write_output(next_image, args.image_output)
+
     # Upload transcripts to S3 (independent of routing decision)
     _upload_transcripts(config)
+
+
+def _select_image(args: argparse.Namespace) -> None:
+    """LLM-based image selection from task prompt."""
+    from router.image_selector import select_image_via_llm
+
+    image = select_image_via_llm(args.prompt)
+    logic.write_output(image, args.output)
+    logger.info("Selected image: %s", image)
 
 
 def _upload_transcripts(config: RouterConfig) -> None:

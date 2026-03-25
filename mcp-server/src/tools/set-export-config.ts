@@ -11,6 +11,7 @@ import {
   MAX_SUMMARY_LENGTH,
   MAX_REPORT_CONTENT_LENGTH,
 } from "./export-constants.js";
+import { ENVIRONMENT_IDS } from "./environment-constants.js";
 
 const SetExportConfigInputSchema = z.object({
   linear_issue_id: z
@@ -33,6 +34,13 @@ const SetExportConfigInputSchema = z.object({
     .optional()
     .describe("분석 리포트 마크다운 내용 (actions에 'report' 포함 시 필수)"),
   pr: PrConfigSchema.optional().describe("PR 설정 (actions에 'create_pr' 포함 시 필수)"),
+  next_environment: z
+    .string()
+    .optional()
+    .describe(
+      "다음 사이클에서 사용할 환경 ID (get_available_environments로 조회). " +
+      "actions에 'continue' 포함 시에만 유효. 생략하면 현재 환경 유지.",
+    ),
 }).superRefine((data, ctx) => {
   // Exclusive actions (none, continue) must be alone
   for (const action of data.actions) {
@@ -66,6 +74,24 @@ const SetExportConfigInputSchema = z.object({
       message: `linear_issue_id is required when actions include ${required.map((a) => `'${a}'`).join(", ")}`,
       path: ["linear_issue_id"],
     });
+  }
+
+  // next_environment validation
+  if (data.next_environment) {
+    if (!data.actions.includes("continue")) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "next_environment is only valid when actions include 'continue'",
+        path: ["next_environment"],
+      });
+    }
+    if (!ENVIRONMENT_IDS.includes(data.next_environment)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Unknown environment '${data.next_environment}'. Use get_available_environments to see valid IDs.`,
+        path: ["next_environment"],
+      });
+    }
   }
 
   // Conditional field requirements (driven by ACTION_REQUIREMENTS)
