@@ -90,9 +90,7 @@ class TestGateEnvOutput:
 
     def test_writes_next_environment(self, work_env, monkeypatch, caplog):
         """Gate extracts next_environment from export_config and writes to env-output."""
-        export_config = json.dumps(
-            {"actions": ["continue"], "next_environment": "python-analysis"}
-        )
+        export_config = json.dumps({"actions": ["continue"], "next_environment": "python-analysis"})
         (work_env / "export_config.json").write_text(export_config)
         output_path = str(work_env / "output.txt")
         env_output_path = str(work_env / "env_output.txt")
@@ -225,9 +223,7 @@ class TestWriteFallbackOutput:
         """When --output appears twice, fallback uses the first occurrence."""
         first = str(tmp_path / "first.txt")
         second = str(tmp_path / "second.txt")
-        monkeypatch.setattr(
-            sys, "argv", ["gate", "--output", first, "--output", second]
-        )
+        monkeypatch.setattr(sys, "argv", ["gate", "--output", first, "--output", second])
         with caplog.at_level(logging.INFO, logger="gate"):
             _write_fallback_output()
         assert Path(first).read_text() == "false\n"
