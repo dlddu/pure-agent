@@ -8,7 +8,6 @@ import pytest
 
 from planner.cli import _write_fallback_output, main, run
 
-
 # ── plan: integration ──────────────────────────────────────
 
 

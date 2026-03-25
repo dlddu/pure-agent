@@ -27,9 +27,9 @@ Analyze the task description and select the most appropriate environment.
 Respond with ONLY a JSON object: {{"environment_id": "<id>"}}
 
 Selection guidelines:
-- "default": General coding, code review, documentation, git operations, web fetching
-- "python-analysis": Data analysis, statistical analysis, visualization, pandas/numpy work, Jupyter notebooks, ML/AI tasks
-- "infra": Kubernetes operations, infrastructure management, kubectl commands, Helm charts, AWS/cloud resource management, deployment tasks
+- "default": General coding, code review, documentation, git operations
+- "python-analysis": Data analysis, visualization, pandas/numpy, ML/AI
+- "infra": Kubernetes, infrastructure, kubectl, Helm, AWS/cloud, deploy
 
 If uncertain, choose "default"."""
 
