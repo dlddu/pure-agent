@@ -35,8 +35,6 @@ spec:
         value: "10"
       - name: prompt
         value: ""
-      - name: agent_image
-        value: ""  # 비어 있으면 LLM이 prompt 기반으로 자동 선택
 
   volumeClaimTemplates:
     - metadata:
@@ -92,7 +90,7 @@ spec:
                 - name: llm_gateway_host
                   value: "{{tasks.llm-gateway-daemon.ip}}"
                 - name: override_environment
-                  value: "{{workflow.parameters.agent_image}}"
+                  value: ""
 
           - name: export-cycle-output
             template: export-cycle-output
