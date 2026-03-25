@@ -240,22 +240,30 @@ jobs:
           yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.volumeMounts) += [{"name": "scenario-data", "mountPath": "/scenario", "readOnly": true}]' \
             /tmp/workflow-template-level2.yaml
 
-          # ── mock-router 패치 ──────────────────────────────────────────────
-          # 실제 router 바이너리는 export_config.actions에 "continue"가 있으면
+          # ── mock-planner 패치 ─────────────────────────────────────────────
+          # planner는 LLM으로 이미지를 선택하지만 kind에서는 불필요.
+          # alpine으로 교체하고 기본 이미지를 바로 출력하는 스크립트로 대체.
+          yq -i '(.spec.templates[] | select(.name == "planner") | .container.image) = "alpine:3.20"' \
+            /tmp/workflow-template-level2.yaml
+          yq -i '(.spec.templates[] | select(.name == "planner") | .container.args) = ["echo \"[mock-planner] using mock-agent image\" >&2; echo \"'"${MOCK_AGENT_IMAGE}"'\" > /tmp/agent_image.txt"]' \
+            /tmp/workflow-template-level2.yaml
+
+          # ── mock-gate 패치 ──────────────────────────────────────────────
+          # 실제 gate 바이너리는 export_config.actions에 "continue"가 있으면
           # depth/max_depth를 무시하고 항상 continue를 반환합니다.
-          # Level 2에서는 depth >= max_depth - 1 이면 항상 stop하는 mock router로 교체합니다.
+          # Level 2에서는 depth >= max_depth - 1 이면 항상 stop하는 mock gate로 교체합니다.
 
-          # router 이미지를 alpine으로 교체 (실제 router 바이너리 사용하지 않음)
-          yq -i '(.spec.templates[] | select(.name == "router") | .container.image) = "alpine:3.20"' \
+          # gate 이미지를 alpine으로 교체 (실제 gate 바이너리 사용하지 않음)
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.image) = "alpine:3.20"' \
             /tmp/workflow-template-level2.yaml
 
-          # router에 depth/max_depth를 환경변수로 주입 (Argo 템플릿 파라미터 → 환경변수)
-          yq -i '(.spec.templates[] | select(.name == "router") | .container.env) += [{"name": "ROUTER_DEPTH", "value": "{{inputs.parameters.depth}}"}, {"name": "ROUTER_MAX_DEPTH", "value": "{{inputs.parameters.max_depth}}"}]' \
+          # gate에 depth/max_depth를 환경변수로 주입 (Argo 템플릿 파라미터 → 환경변수)
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "GATE_DEPTH", "value": "{{inputs.parameters.depth}}"}, {"name": "GATE_MAX_DEPTH", "value": "{{inputs.parameters.max_depth}}"}]' \
             /tmp/workflow-template-level2.yaml
 
-          # router의 args를 mock-router 셸 스크립트로 교체
+          # gate의 args를 mock-gate 셸 스크립트로 교체
           # depth >= max_depth - 1 이면 stop, 그렇지 않으면 export_config 확인
-          yq -i '(.spec.templates[] | select(.name == "router") | .container.args) = ["D=\"$ROUTER_DEPTH\"; M=\"$ROUTER_MAX_DEPTH\"; O=/tmp/continue.txt; echo \"[mock-router] depth=$D max_depth=$M\" >&2; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > $O; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > $O; else echo false > $O; fi; fi"]' \
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.args) = ["D=\"$GATE_DEPTH\"; M=\"$GATE_MAX_DEPTH\"; O=/tmp/continue.txt; E=/tmp/next_environment.txt; echo \"[mock-gate] depth=$D max_depth=$M\" >&2; echo \"\" > $E; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > $O; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > $O; else echo false > $O; fi; fi"]' \
             /tmp/workflow-template-level2.yaml
 
           # ── mock-export-handler 패치 ────────────────────────────────────

@@ -271,7 +271,6 @@ _level2_submit_mock_workflow() {
     --context "$KUBE_CONTEXT" \
     -p max_depth="$max_depth" \
     -p prompt="[mock] scenario=${scenario_name} cycle=${cycle_index}" \
-    -p agent_image="$MOCK_AGENT_IMAGE" \
     -p mock_api_url="$MOCK_API_URL" \
     -p scenario_configmap="$cm_name_safe" \
     --output json 2>&1) || {
