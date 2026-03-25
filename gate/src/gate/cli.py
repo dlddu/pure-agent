@@ -22,12 +22,6 @@ def main() -> None:
     parser.add_argument("--max-depth", type=int, required=True)
     parser.add_argument("--export-config", type=str, default="{}", help="Export config JSON")
     parser.add_argument("--output", type=str, required=True, help="Output file for decision")
-    parser.add_argument(
-        "--env-output",
-        type=str,
-        default="",
-        help="Output file for next_environment hint (extracted from export_config)",
-    )
 
     args = parser.parse_args()
 
@@ -38,7 +32,7 @@ def main() -> None:
 
     config = GateConfig.from_env()
 
-    continuing, reason, next_env_id = logic.should_continue(
+    continuing, reason = logic.should_continue(
         config, args.export_config, args.depth, args.max_depth
     )
     logger.info(
@@ -50,10 +44,6 @@ def main() -> None:
     )
 
     logic.write_output("true" if continuing else "false", args.output)
-
-    # Write next_environment hint (ID only, not resolved image)
-    if args.env_output:
-        logic.write_output(next_env_id or "", args.env_output)
 
     # Upload transcripts to S3 (independent of routing decision)
     _upload_transcripts(config)

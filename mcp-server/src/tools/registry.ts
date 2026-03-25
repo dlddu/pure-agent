@@ -6,13 +6,11 @@ import { getIssueTool } from "./get-issue.js";
 import { getIssueCommentsTool } from "./get-issue-comments.js";
 import { gitCloneTool } from "./git-clone.js";
 import { webFetchTool } from "./web-fetch.js";
-import { getAvailableEnvironmentsTool } from "./get-available-environments.js";
 
 export function createDefaultTools(): McpTool[] {
   return [
     requestFeatureTool,
     getExportActionsTool,
-    getAvailableEnvironmentsTool,
     setExportConfigTool,
     getIssueTool,
     getIssueCommentsTool,
