@@ -17,7 +17,7 @@ class Environment:
     capabilities: tuple[str, ...]
 
 
-# 사전 정의된 환경 목록
+# 사전 정의된 환경 목록 (keep in sync with mcp-server environment-constants.ts)
 ENVIRONMENTS: tuple[Environment, ...] = (
     Environment(
         id="default",
