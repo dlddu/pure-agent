@@ -13,7 +13,7 @@
 #   - mcp-daemon          : MCP Server 사이드카 (Linear 도구)
 #   - llm-gateway-daemon  : nginx 리버스 프록시 → Anthropic API
 #   - run-cycle           : Planner → Agent → Gate → Recurse 재귀 루프
-#   - planner             : LLM 기반 에이전트 실행 환경(이미지) 선택
+#   - planner             : LLM 기반 에이전트 실행 환경(이미지) 선택 (별도 이미지)
 #   - agent-job           : Claude Code CLI 실행 (이미지 파라미터화)
 #   - gate                : 계속/종료 판단 + 다음 사이클 환경 힌트 추출
 #   - export-cycle-output : 후처리 (Linear, GitHub, S3)
@@ -259,11 +259,11 @@ spec:
             valueFrom:
               path: /tmp/agent_image.txt
       container:
-        image: ghcr.io/dlddu/pure-agent/router:latest
+        image: ghcr.io/dlddu/pure-agent/planner:latest
         command: ["/bin/sh", "-c"]
         args:
           - |
-            router plan \
+            planner \
               --prompt "$PROMPT" \
               --override-environment "$OVERRIDE_ENV" \
               --output /tmp/agent_image.txt \
@@ -359,11 +359,11 @@ spec:
               path: /tmp/next_environment.txt
               default: ""
       container:
-        image: ghcr.io/dlddu/pure-agent/router:latest
+        image: ghcr.io/dlddu/pure-agent/gate:latest
         command: ["/bin/sh", "-c"]
         args:
           - |
-            router gate \
+            gate \
               --export-config "$EXPORT_CONFIG_JSON" \
               --depth '{{inputs.parameters.depth}}' \
               --max-depth '{{inputs.parameters.max_depth}}' \

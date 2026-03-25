@@ -139,7 +139,7 @@ run_scenario() {
     local router_output_file
     router_output_file=$(mktemp "/tmp/e2e-router-output-XXXXXX")
 
-    run_router_in_compose "$cycle_index" "$cycle_max_depth" "$router_output_file"
+    run_gate_in_compose "$cycle_index" "$cycle_max_depth" "$router_output_file"
 
     # router_decisions (멀티 cycle) 또는 router_decision 검증
     local expected_decision

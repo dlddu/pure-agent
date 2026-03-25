@@ -44,7 +44,8 @@ runs:
     - name: Build and push
       uses: docker/build-push-action@v6
       with:
-        context: ./${{ inputs.service }}
+        context: .
+        file: ./${{ inputs.service }}/Dockerfile
         push: ${{ inputs.push }}
         load: ${{ inputs.push != 'true' }}
         tags: ${{ steps.meta.outputs.tags }}

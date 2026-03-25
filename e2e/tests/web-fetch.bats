@@ -89,7 +89,7 @@ teardown() {
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
   local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_router_in_compose 0 "$max_depth" "$router_output"
+  run_gate_in_compose 0 "$max_depth" "$router_output"
 
   # Gatekeeper PENDING 요청 조회
   local pending_json
@@ -151,7 +151,7 @@ teardown() {
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
   local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_router_in_compose 0 "$max_depth" "$router_output"
+  run_gate_in_compose 0 "$max_depth" "$router_output"
 
   # Gatekeeper PENDING 요청 조회
   local pending_json
@@ -213,7 +213,7 @@ teardown() {
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
   local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_router_in_compose 0 "$max_depth" "$router_output"
+  run_gate_in_compose 0 "$max_depth" "$router_output"
 
   # 승인 처리 없이 timeoutSeconds 이상 대기하여 요청이 만료되도록 함
   # (WEB_FETCH_TIMEOUT_SECONDS=1 이므로 2초 대기)

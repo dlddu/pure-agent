@@ -1,0 +1,10 @@
+.git
+node_modules
+__pycache__
+*.pyc
+*.log
+.env
+.env.*
+.DS_Store
+e2e/
+k8s/

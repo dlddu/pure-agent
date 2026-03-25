@@ -72,7 +72,7 @@ teardown() {
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
   local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_router_in_compose 0 "$max_depth" "$router_output"
+  run_gate_in_compose 0 "$max_depth" "$router_output"
 
   # Assert: router가 "false" (stop)를 출력할 것
   local decision
@@ -124,7 +124,7 @@ teardown() {
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
   local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_router_in_compose 0 "$max_depth" "$router_output"
+  run_gate_in_compose 0 "$max_depth" "$router_output"
 
   # Assert: router가 "false" (stop)를 출력할 것
   local decision
@@ -221,7 +221,7 @@ teardown() {
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
   local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_router_in_compose 0 "$max_depth" "$router_output"
+  run_gate_in_compose 0 "$max_depth" "$router_output"
 
   # Assert: router가 "false" (stop)를 출력할 것
   local decision
@@ -282,7 +282,7 @@ teardown() {
   local cycle0_max_depth
   cycle0_max_depth=$(yq eval '.cycles[0].max_depth // .max_depth // 5' "$yaml_file")
   local router_output_0="${BATS_TEST_TMPDIR}/router_decision_0.txt"
-  run_router_in_compose 0 "$cycle0_max_depth" "$router_output_0"
+  run_gate_in_compose 0 "$cycle0_max_depth" "$router_output_0"
 
   # Assert cycle-0: router가 "true" (continue)를 출력할 것
   local decision_0
@@ -298,7 +298,7 @@ teardown() {
   # (continue action에서는 export_config.json을 삭제하고 다음 cycle에 위임)
   local export_config_deleted
   export_config_deleted=$(docker compose -f "$COMPOSE_FILE" \
-    run --rm --entrypoint="" router \
+    run --rm --entrypoint="" gate \
     sh -c "[ -f /work/export_config.json ] && echo exists || echo deleted" 2>/dev/null)
   [ "$export_config_deleted" = "deleted" ]
 
@@ -310,7 +310,7 @@ teardown() {
   local cycle1_max_depth
   cycle1_max_depth=$(yq eval '.cycles[1].max_depth // .max_depth // 5' "$yaml_file")
   local router_output_1="${BATS_TEST_TMPDIR}/router_decision_1.txt"
-  run_router_in_compose 1 "$cycle1_max_depth" "$router_output_1"
+  run_gate_in_compose 1 "$cycle1_max_depth" "$router_output_1"
 
   # Assert cycle-1: router가 "false" (stop)를 출력할 것
   local decision_1
@@ -369,7 +369,7 @@ teardown() {
   # router를 depth=max_depth-1로 실행 (depth limit에 도달하는 상태)
   local depth=$(( max_depth - 1 ))
   local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_router_in_compose "$depth" "$max_depth" "$router_output"
+  run_gate_in_compose "$depth" "$max_depth" "$router_output"
 
   # Assert: router가 "false" (stop)를 출력할 것 (depth limit)
   local decision

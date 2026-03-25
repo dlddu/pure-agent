@@ -16,8 +16,8 @@
 #   wait_mock_api
 #   reset_mock_api
 #   place_fixtures_via_mock_agent <cycle_fixture_dir>
-#   run_router <depth> <max_depth>
-#   run_router_in_compose <depth> <max_depth> <router_output_on_host>
+#   run_gate <depth> <max_depth>
+#   run_gate_in_compose <depth> <max_depth> <gate_output_on_host>
 #   run_export_handler
 #   count_gh_pr_create_calls
 
@@ -98,39 +98,39 @@ place_fixtures_via_mock_agent() {
     /app/entrypoint.sh
 }
 
-# ── router 실행 ───────────────────────────────────────────────────────────────
+# ── gate 실행 ─────────────────────────────────────────────────────────────────
 #
 # Arguments:
 #   $1  depth      — 현재 depth
 #   $2  max_depth  — 최대 depth
 #
-# 출력: router_decision.txt 파일의 내용 ("true" or "false")
+# 출력: gate_decision.txt 파일의 내용 ("true" or "false")
 #
-run_router() {
+run_gate() {
   local depth="$1"
   local max_depth="$2"
-  local output_file="/work/router_decision.txt"
+  local output_file="/work/gate_decision.txt"
 
-  log "Running router (depth=${depth}, max_depth=${max_depth}) ..."
+  log "Running gate (depth=${depth}, max_depth=${max_depth}) ..."
 
   docker compose -f "$COMPOSE_FILE" \
     run --rm \
     --no-deps \
     --entrypoint="" \
-    router \
+    gate \
     sh -c '
       EC="{}";
       if [ -f /work/export_config.json ]; then
         EC=$(cat /work/export_config.json);
       fi;
-      exec router gate \
+      exec gate \
         --depth '"${depth}"' \
         --max-depth '"${max_depth}"' \
         --export-config "$EC" \
         --output '"${output_file}"'
     ' \
     || {
-      warn "router exited non-zero for depth=${depth}"
+      warn "gate exited non-zero for depth=${depth}"
       return 1
     }
 
@@ -139,65 +139,65 @@ run_router() {
     run --rm \
     --no-deps \
     --entrypoint="" \
-    router \
+    gate \
     cat "${output_file}" 2>/dev/null | tr -d '[:space:]') || {
-    warn "Failed to read router_decision.txt"
+    warn "Failed to read gate_decision.txt"
     return 1
   }
 
-  log "Router decision: $decision"
+  log "Gate decision: $decision"
   echo "$decision"
 }
 
-# ── router 실행 (간소화 버전: /work 볼륨 공유를 위해 export-handler 이미지 활용) ─
+# ── gate 실행 (간소화 버전: /work 볼륨 공유를 위해 export-handler 이미지 활용) ──
 #
 # Arguments:
 #   $1  depth      — 현재 depth
 #   $2  max_depth  — 최대 depth
-#   $3  router_output_on_host  — 호스트에서 결과를 받을 임시 파일 경로
+#   $3  gate_output_on_host  — 호스트에서 결과를 받을 임시 파일 경로
 #
-run_router_in_compose() {
+run_gate_in_compose() {
   local depth="$1"
   local max_depth="$2"
-  local router_output_on_host="$3"
+  local gate_output_on_host="$3"
 
-  log "Running router (depth=${depth}, max_depth=${max_depth}) ..."
+  log "Running gate (depth=${depth}, max_depth=${max_depth}) ..."
 
   local exit_code=0
   docker compose -f "$COMPOSE_FILE" \
     run --rm \
     --entrypoint="" \
-    router \
+    gate \
     sh -c '
       EC="{}";
       if [ -f /work/export_config.json ]; then
         EC=$(cat /work/export_config.json);
       fi;
-      exec router \
+      exec gate \
         --depth '"${depth}"' \
         --max-depth '"${max_depth}"' \
         --export-config "$EC" \
-        --output /work/router_decision.txt
+        --output /work/gate_decision.txt
     ' \
     || exit_code=$?
 
   if [[ "$exit_code" -ne 0 ]]; then
-    warn "router exited with code ${exit_code} (depth=${depth})"
+    warn "gate exited with code ${exit_code} (depth=${depth})"
     return "$exit_code"
   fi
 
   docker compose -f "$COMPOSE_FILE" \
     run --rm \
     --entrypoint="" \
-    router \
-    sh -c "cat /work/router_decision.txt" \
-    > "$router_output_on_host" 2>/dev/null \
+    gate \
+    sh -c "cat /work/gate_decision.txt" \
+    > "$gate_output_on_host" 2>/dev/null \
     || {
-      warn "Failed to read /work/router_decision.txt from volume"
+      warn "Failed to read /work/gate_decision.txt from volume"
       return 1
     }
 
-  log "Router decision: $(cat "$router_output_on_host")"
+  log "Gate decision: $(cat "$gate_output_on_host")"
 }
 
 # ── export-handler 실행 ────────────────────────────────────────────────────────

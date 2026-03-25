@@ -5,7 +5,7 @@
 # 서비스 구성:
 #   mock-api      — Linear GraphQL mock (포트 4000)
 #   mock-agent    — 시나리오 fixture를 /work에 복사하는 mock agent
-#   router        — Python CLI (router --depth --max-depth --export-config --output)
+#   gate          — Python CLI (gate --depth --max-depth --export-config --output)
 #   export-handler — TypeScript (Node 22), LINEAR_API_URL=mock-api로 덮어씀
 #   mock-gh       — gh CLI mock, GH_CALLS_DIR에 호출 기록
 #
@@ -17,7 +17,7 @@ version: "3.9"
 
 # ── 공유 볼륨 ─────────────────────────────────────────────────────────────────
 volumes:
-  work:        # /work 공유 볼륨 (export_config.json, router 출력 등)
+  work:        # /work 공유 볼륨 (export_config.json, gate 출력 등)
   gh-calls:    # /gh-calls 공유 볼륨 (mock-gh 호출 기록)
 
 # ── 네트워크 ──────────────────────────────────────────────────────────────────
@@ -81,18 +81,18 @@ services:
       mock-api:
         condition: service_healthy
 
-  # ── router: Python CLI ─────────────────────────────────────────────────────
+  # ── gate: Python CLI ──────────────────────────────────────────────────────
   # run-local.sh가 docker compose run으로 개별 실행합니다.
-  router:
+  gate:
     build:
-      context: ../router
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: gate/Dockerfile
     volumes:
       - work:/work
     networks:
       - e2e
     # 기본 커맨드는 run-local.sh가 override합니다.
-    command: ["router", "--help"]
+    command: ["gate", "--help"]
     profiles:
       - runner   # docker compose run으로만 실행
 
@@ -100,8 +100,8 @@ services:
   # run-local.sh가 docker compose run으로 개별 실행합니다.
   export-handler:
     build:
-      context: ../export-handler
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: export-handler/Dockerfile
     environment:
       LINEAR_API_KEY: "mock-api-key"
       LINEAR_API_URL: "http://mock-api:4000/graphql"

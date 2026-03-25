@@ -1,0 +1,51 @@
+name: "CI: python-agent"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "python-agent/**"
+      - "claude-agent/lib/**"
+      - "claude-agent/hooks/**"
+      - "claude-agent/shared/**"
+      - "claude-agent/entrypoint.sh"
+      - "claude-agent/settings.json"
+      - "claude-agent/extract-result.jq"
+      - ".github/workflows/ci-python-agent.yaml"
+      - ".github/actions/build-image/**"
+  pull_request:
+    paths:
+      - "python-agent/**"
+      - "claude-agent/lib/**"
+      - "claude-agent/hooks/**"
+      - "claude-agent/shared/**"
+      - "claude-agent/entrypoint.sh"
+      - "claude-agent/settings.json"
+      - "claude-agent/extract-result.jq"
+      - ".github/workflows/ci-python-agent.yaml"
+      - ".github/actions/build-image/**"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build and push image
+        uses: ./.github/actions/build-image
+        with:
+          service: python-agent
+          token: ${{ secrets.GITHUB_TOKEN }}
