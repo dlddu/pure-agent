@@ -1,10 +1,10 @@
 # Stage 1: builder
 FROM node:22-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
+COPY e2e/mock-api/package*.json ./
 RUN npm ci
-COPY tsconfig.json ./
-COPY index.ts ./
+COPY e2e/mock-api/tsconfig.json ./
+COPY e2e/mock-api/index.ts ./
 RUN npm run build
 
 # Stage 2: production

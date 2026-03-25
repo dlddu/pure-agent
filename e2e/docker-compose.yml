@@ -49,8 +49,8 @@ services:
   # ── mock-api: Linear GraphQL mock ─────────────────────────────────────────
   mock-api:
     build:
-      context: ./mock-api
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: e2e/mock-api/Dockerfile
     ports:
       - "4000:4000"
     networks:
