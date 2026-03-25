@@ -72,12 +72,14 @@ def select_image_via_llm(
         "x-api-key": key,
         "anthropic-version": "2023-06-01",
     }
-    body = json.dumps({
-        "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 100,
-        "system": _build_system_prompt(),
-        "messages": [{"role": "user", "content": prompt}],
-    }).encode()
+    body = json.dumps(
+        {
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": 100,
+            "system": _build_system_prompt(),
+            "messages": [{"role": "user", "content": prompt}],
+        }
+    ).encode()
 
     try:
         req = urllib.request.Request(url, data=body, headers=headers, method="POST")

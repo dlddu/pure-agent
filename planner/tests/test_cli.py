@@ -82,9 +82,7 @@ class TestPlan:
 
 class TestMissingArgs:
     def test_missing_prompt_exits(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(
-            sys, "argv", ["planner", "--output", str(tmp_path / "out.txt")]
-        )
+        monkeypatch.setattr(sys, "argv", ["planner", "--output", str(tmp_path / "out.txt")])
         with pytest.raises(SystemExit) as exc_info:
             main()
         assert exc_info.value.code == 2

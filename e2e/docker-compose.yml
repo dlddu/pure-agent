@@ -66,8 +66,8 @@ services:
   # SCENARIO_DIR 환경 변수는 run-local.sh가 외부에서 주입합니다.
   mock-agent:
     build:
-      context: ./mock-agent
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: e2e/mock-agent/Dockerfile
     environment:
       SCENARIO_DIR: "${SCENARIO_DIR:-/scenario}"
       WORK_DIR: /work

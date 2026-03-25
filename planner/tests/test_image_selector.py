@@ -29,9 +29,9 @@ class TestSelectImageViaLlm:
             from unittest.mock import MagicMock
 
             resp = MagicMock()
-            resp.read.return_value = json.dumps({
-                "content": [{"type": "text", "text": '{"environment_id": "python-analysis"}'}]
-            }).encode()
+            resp.read.return_value = json.dumps(
+                {"content": [{"type": "text", "text": '{"environment_id": "python-analysis"}'}]}
+            ).encode()
             resp.__enter__ = lambda s: s
             resp.__exit__ = lambda s, *a: None
             return resp
@@ -49,9 +49,9 @@ class TestSelectImageViaLlm:
             from unittest.mock import MagicMock
 
             resp = MagicMock()
-            resp.read.return_value = json.dumps({
-                "content": [{"type": "text", "text": '{"environment_id": "infra"}'}]
-            }).encode()
+            resp.read.return_value = json.dumps(
+                {"content": [{"type": "text", "text": '{"environment_id": "infra"}'}]}
+            ).encode()
             resp.__enter__ = lambda s: s
             resp.__exit__ = lambda s, *a: None
             return resp
@@ -69,9 +69,9 @@ class TestSelectImageViaLlm:
             from unittest.mock import MagicMock
 
             resp = MagicMock()
-            resp.read.return_value = json.dumps({
-                "content": [{"type": "text", "text": '{"environment_id": "unknown-env"}'}]
-            }).encode()
+            resp.read.return_value = json.dumps(
+                {"content": [{"type": "text", "text": '{"environment_id": "unknown-env"}'}]}
+            ).encode()
             resp.__enter__ = lambda s: s
             resp.__exit__ = lambda s, *a: None
             return resp
@@ -89,9 +89,9 @@ class TestSelectImageViaLlm:
             from unittest.mock import MagicMock
 
             resp = MagicMock()
-            resp.read.return_value = json.dumps({
-                "content": [{"type": "text", "text": "I think you should use python"}]
-            }).encode()
+            resp.read.return_value = json.dumps(
+                {"content": [{"type": "text", "text": "I think you should use python"}]}
+            ).encode()
             resp.__enter__ = lambda s: s
             resp.__exit__ = lambda s, *a: None
             return resp
