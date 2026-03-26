@@ -245,7 +245,7 @@ jobs:
           # alpine으로 교체하고 기본 이미지를 바로 출력하는 스크립트로 대체.
           yq -i '(.spec.templates[] | select(.name == "planner") | .container.image) = "alpine:3.20"' \
             /tmp/workflow-template-level2.yaml
-          yq -i '(.spec.templates[] | select(.name == "planner") | .container.args) = ["echo \"[mock-planner] using mock-agent image\" >&2; echo \"'"${MOCK_AGENT_IMAGE}"'\" > /tmp/agent_image.txt"]' \
+          yq -i '(.spec.templates[] | select(.name == "planner") | .container.args) = ["echo \"[mock-planner] using mock-agent image\" >&2; echo \"'"${MOCK_AGENT_IMAGE}"'\" > /tmp/agent_image.txt; echo \"mock\" > /tmp/raw_environment_id.txt"]' \
             /tmp/workflow-template-level2.yaml
 
           # ── mock-gate 패치 ──────────────────────────────────────────────
