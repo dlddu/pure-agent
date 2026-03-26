@@ -14,10 +14,9 @@ from tests.conftest import single_log
 
 class TestShouldContinue:
     def test_stop_when_export_config_provided(self, config):
-        cont, reason, next_env = should_continue(config, '{"actions":["none"]}', 0, 5)
+        cont, reason = should_continue(config, '{"actions":["none"]}', 0, 5)
         assert cont is False
         assert reason == "export_config provided"
-        assert next_env is None
 
     @pytest.mark.parametrize(
         "depth, max_depth, expected, expected_reason",
@@ -32,31 +31,27 @@ class TestShouldContinue:
     )
     def test_depth_boundary(self, config, depth, max_depth, expected, expected_reason):
         """Depth limit: stop when depth >= max_depth - 1."""
-        cont, reason, next_env = should_continue(config, "{}", depth, max_depth)
+        cont, reason = should_continue(config, "{}", depth, max_depth)
         assert cont is expected
         assert reason == expected_reason
-        assert next_env is None
 
     def test_stop_when_export_config_is_empty_string(self, config):
         """An empty string is treated as no config (continue under depth limit)."""
-        cont, reason, next_env = should_continue(config, "", 0, 5)
+        cont, reason = should_continue(config, "", 0, 5)
         assert cont is True
         assert reason == "no export_config, continuing"
-        assert next_env is None
 
     def test_export_config_takes_priority_over_depth(self, config):
-        cont, reason, next_env = should_continue(config, '{"actions":["none"]}', 4, 5)
+        cont, reason = should_continue(config, '{"actions":["none"]}', 4, 5)
         assert cont is False
         assert reason == "export_config provided"
-        assert next_env is None
 
 
 class TestShouldContinueWithContinueAction:
     def test_continue_action_returns_true(self, config):
-        cont, reason, next_env = should_continue(config, '{"actions":["continue"]}', 0, 5)
+        cont, reason = should_continue(config, '{"actions":["continue"]}', 0, 5)
         assert cont is True
         assert reason == "continue action requested"
-        assert next_env is None
 
     def test_continue_action_deletes_config_file(self, config):
         Path(config.export_config).write_text('{"actions":["continue"]}')
@@ -65,70 +60,30 @@ class TestShouldContinueWithContinueAction:
 
     def test_continue_action_when_no_file_on_disk(self, config):
         """Continue action works even if there's no file on disk (just warns)."""
-        cont, reason, next_env = should_continue(config, '{"actions":["continue"]}', 0, 5)
+        cont, reason = should_continue(config, '{"actions":["continue"]}', 0, 5)
         assert cont is True
         assert reason == "continue action requested"
-        assert next_env is None
 
     def test_non_continue_action_stops(self, config):
-        cont, reason, next_env = should_continue(config, '{"actions":["report"]}', 0, 5)
+        cont, reason = should_continue(config, '{"actions":["report"]}', 0, 5)
         assert cont is False
         assert reason == "export_config provided"
-        assert next_env is None
 
     def test_malformed_json_stops(self, config):
-        cont, reason, next_env = should_continue(config, "not json", 0, 5)
+        cont, reason = should_continue(config, "not json", 0, 5)
         assert cont is False
         assert "unparseable" in reason
-        assert next_env is None
 
     def test_missing_actions_key_stops(self, config):
         """Old format with 'action' (singular) falls back to stop."""
-        cont, reason, next_env = should_continue(config, '{"action":"none"}', 0, 5)
+        cont, reason = should_continue(config, '{"action":"none"}', 0, 5)
         assert cont is False
         assert reason == "export_config provided"
-        assert next_env is None
 
     def test_empty_actions_stops(self, config):
-        cont, reason, next_env = should_continue(config, '{"actions":[]}', 0, 5)
+        cont, reason = should_continue(config, '{"actions":[]}', 0, 5)
         assert cont is False
         assert reason == "export_config provided"
-        assert next_env is None
-
-
-class TestShouldContinueWithNextEnvironment:
-    """Tests for next_environment extraction from export_config."""
-
-    def test_continue_with_next_environment(self, config):
-        data = json.dumps({"actions": ["continue"], "next_environment": "python-analysis"})
-        Path(config.export_config).write_text(data)
-        cont, reason, next_env = should_continue(config, data, 0, 5)
-        assert cont is True
-        assert next_env == "python-analysis"
-
-    def test_continue_without_next_environment(self, config):
-        data = json.dumps({"actions": ["continue"]})
-        Path(config.export_config).write_text(data)
-        cont, reason, next_env = should_continue(config, data, 0, 5)
-        assert cont is True
-        assert next_env is None
-
-    def test_stop_with_next_environment_still_extracted(self, config):
-        """next_environment is extracted even on stop (for informational purposes)."""
-        data = json.dumps({"actions": ["none"], "next_environment": "infra"})
-        cont, reason, next_env = should_continue(config, data, 0, 5)
-        assert cont is False
-        assert next_env == "infra"
-
-    def test_empty_export_returns_none(self, config):
-        cont, reason, next_env = should_continue(config, "{}", 0, 5)
-        assert cont is True
-        assert next_env is None
-
-    def test_malformed_json_returns_none(self, config):
-        cont, reason, next_env = should_continue(config, "bad json", 0, 5)
-        assert cont is False
-        assert next_env is None
 
 
 class TestShouldContinueWithSingleQuotes:
@@ -136,19 +91,19 @@ class TestShouldContinueWithSingleQuotes:
 
     def test_stop_with_single_quote_in_summary(self, config):
         data = {"summary": "it's done", "actions": ["none"]}
-        cont, reason, _ = should_continue(config, json.dumps(data), 0, 5)
+        cont, reason = should_continue(config, json.dumps(data), 0, 5)
         assert cont is False
         assert reason == "export_config provided"
 
     def test_continue_with_single_quote_in_summary(self, config):
         data = {"summary": "it's continuing", "actions": ["continue"]}
-        cont, reason, _ = should_continue(config, json.dumps(data), 0, 5)
+        cont, reason = should_continue(config, json.dumps(data), 0, 5)
         assert cont is True
         assert reason == "continue action requested"
 
     def test_multiple_single_quotes(self, config):
         data = {"summary": "user's task isn't done, let's retry", "actions": ["report"]}
-        cont, reason, _ = should_continue(config, json.dumps(data), 0, 5)
+        cont, reason = should_continue(config, json.dumps(data), 0, 5)
         assert cont is False
         assert reason == "export_config provided"
 
@@ -157,7 +112,7 @@ class TestShouldContinueWithSingleQuotes:
             "actions": ["create_pr"],
             "pr": {"title": "fix: handle it's edge case", "body": "don't break"},
         }
-        cont, reason, _ = should_continue(config, json.dumps(data), 0, 5)
+        cont, reason = should_continue(config, json.dumps(data), 0, 5)
         assert cont is False
         assert reason == "export_config provided"
 

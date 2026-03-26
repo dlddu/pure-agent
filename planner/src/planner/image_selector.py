@@ -27,9 +27,9 @@ Analyze the task description and select the most appropriate environment.
 Respond with ONLY a JSON object: {{"environment_id": "<id>"}}
 
 Selection guidelines:
-- "default": General coding, code review, documentation, git operations, web fetching
-- "python-analysis": Data analysis, statistical analysis, visualization, pandas/numpy work, Jupyter notebooks, ML/AI tasks
-- "infra": Kubernetes operations, infrastructure management, kubectl commands, Helm charts, AWS/cloud resource management, deployment tasks
+- "default": General coding, code review, documentation, git operations
+- "python-analysis": Data analysis, visualization, pandas/numpy, ML/AI
+- "infra": Kubernetes, infrastructure, kubectl, Helm, AWS/cloud, deploy
 
 If uncertain, choose "default"."""
 
@@ -48,7 +48,7 @@ def select_image_via_llm(
     *,
     anthropic_base_url: str | None = None,
     api_key: str | None = None,
-) -> str:
+) -> tuple[str, str | None]:
     """Select the best agent image by asking the LLM.
 
     Args:
@@ -57,14 +57,15 @@ def select_image_via_llm(
         api_key: API key for authentication.
 
     Returns:
-        Container image string for the selected environment.
+        (image, raw_environment_id) tuple. raw_environment_id is the value
+        returned by the LLM before any fallback (None if LLM was not called).
     """
     base_url = anthropic_base_url or os.environ.get("ANTHROPIC_BASE_URL", "")
     key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
 
     if not base_url:
         logger.warning("ANTHROPIC_BASE_URL not set, falling back to default environment")
-        return resolve_image(DEFAULT_ENVIRONMENT_ID)
+        return resolve_image(DEFAULT_ENVIRONMENT_ID), None
 
     url = f"{base_url.rstrip('/')}/v1/messages"
     headers = {
@@ -72,12 +73,14 @@ def select_image_via_llm(
         "x-api-key": key,
         "anthropic-version": "2023-06-01",
     }
-    body = json.dumps({
-        "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 100,
-        "system": _build_system_prompt(),
-        "messages": [{"role": "user", "content": prompt}],
-    }).encode()
+    body = json.dumps(
+        {
+            "model": "claude-haiku-4-5-20251001",
+            "max_tokens": 100,
+            "system": _build_system_prompt(),
+            "messages": [{"role": "user", "content": prompt}],
+        }
+    ).encode()
 
     try:
         req = urllib.request.Request(url, data=body, headers=headers, method="POST")
@@ -86,7 +89,9 @@ def select_image_via_llm(
 
         text = result.get("content", [{}])[0].get("text", "")
         parsed = json.loads(text)
-        env_id = parsed.get("environment_id", DEFAULT_ENVIRONMENT_ID)
+        raw_id = parsed.get("environment_id")
+        logger.info("LLM raw response: environment_id=%s", raw_id)
+        env_id = raw_id or DEFAULT_ENVIRONMENT_ID
 
         if env_id not in ENVIRONMENT_MAP:
             logger.warning("LLM returned unknown environment '%s', using default", env_id)
@@ -94,8 +99,8 @@ def select_image_via_llm(
 
         image = resolve_image(env_id)
         logger.info("LLM selected environment: %s -> %s", env_id, image)
-        return image
+        return image, raw_id
 
     except (urllib.error.URLError, json.JSONDecodeError, KeyError, TypeError) as exc:
         logger.warning("LLM image selection failed (%s), falling back to default", exc)
-        return resolve_image(DEFAULT_ENVIRONMENT_ID)
+        return resolve_image(DEFAULT_ENVIRONMENT_ID), None

@@ -6,5 +6,7 @@ __pycache__
 .env
 .env.*
 .DS_Store
-e2e/
+e2e/*
+!e2e/mock-agent/
+!e2e/mock-api/
 k8s/

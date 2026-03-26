@@ -8,55 +8,12 @@ import pytest
 
 from planner.cli import _write_fallback_output, main, run
 
-
 # ── plan: integration ──────────────────────────────────────
 
 
 class TestPlan:
-    def test_override_environment_skips_llm(self, tmp_path, monkeypatch, caplog):
-        """When --override-environment is set, planner resolves directly without LLM."""
-        output_path = str(tmp_path / "image.txt")
-        monkeypatch.setattr(
-            sys,
-            "argv",
-            [
-                "planner",
-                "--prompt",
-                "some task",
-                "--override-environment",
-                "python-analysis",
-                "--output",
-                output_path,
-            ],
-        )
-        with caplog.at_level(logging.INFO, logger="planner"):
-            main()
-        image = Path(output_path).read_text().strip()
-        assert "python-agent" in image
-
-    def test_override_unknown_falls_back_to_default(self, tmp_path, monkeypatch, caplog):
-        """Unknown override environment falls back to default image."""
-        output_path = str(tmp_path / "image.txt")
-        monkeypatch.setattr(
-            sys,
-            "argv",
-            [
-                "planner",
-                "--prompt",
-                "some task",
-                "--override-environment",
-                "nonexistent",
-                "--output",
-                output_path,
-            ],
-        )
-        with caplog.at_level(logging.INFO, logger="planner"):
-            main()
-        image = Path(output_path).read_text().strip()
-        assert "claude-agent" in image
-
-    def test_empty_override_triggers_llm(self, tmp_path, monkeypatch, caplog):
-        """Empty override triggers LLM-based selection (falls back without LLM gateway)."""
+    def test_llm_selection_falls_back_without_gateway(self, tmp_path, monkeypatch, caplog):
+        """Without LLM gateway, planner falls back to default image."""
         output_path = str(tmp_path / "image.txt")
         monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
         monkeypatch.setattr(
@@ -66,8 +23,6 @@ class TestPlan:
                 "planner",
                 "--prompt",
                 "some task",
-                "--override-environment",
-                "",
                 "--output",
                 output_path,
             ],
@@ -83,9 +38,7 @@ class TestPlan:
 
 class TestMissingArgs:
     def test_missing_prompt_exits(self, tmp_path, monkeypatch):
-        monkeypatch.setattr(
-            sys, "argv", ["planner", "--output", str(tmp_path / "out.txt")]
-        )
+        monkeypatch.setattr(sys, "argv", ["planner", "--output", str(tmp_path / "out.txt")])
         with pytest.raises(SystemExit) as exc_info:
             main()
         assert exc_info.value.code == 2
@@ -155,8 +108,6 @@ class TestEntryPoint:
             work_env,
             "--prompt",
             "some task",
-            "--override-environment",
-            "default",
             "--output",
             str(work_env / "output.txt"),
         )
