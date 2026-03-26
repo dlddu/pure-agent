@@ -19,15 +19,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Select agent execution environment")
     parser.add_argument("--prompt", type=str, required=True, help="Task prompt to analyze")
     parser.add_argument("--output", type=str, required=True, help="Output file for image")
+    parser.add_argument(
+        "--raw-id-output", type=str, default="", help="Output file for raw LLM environment ID"
+    )
 
     args = parser.parse_args()
 
     from planner.image_selector import select_image_via_llm
 
-    image = select_image_via_llm(args.prompt)
-    logger.info("LLM selected -> %s", image)
+    image, raw_id = select_image_via_llm(args.prompt)
+    logger.info("LLM selected -> %s (raw_id=%s)", image, raw_id)
 
     _write_output(image, args.output)
+    if args.raw_id_output:
+        _write_output(raw_id or "", args.raw_id_output)
 
 
 def _write_output(value: str, output_path: str) -> None:

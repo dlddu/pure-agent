@@ -48,7 +48,7 @@ def select_image_via_llm(
     *,
     anthropic_base_url: str | None = None,
     api_key: str | None = None,
-) -> str:
+) -> tuple[str, str | None]:
     """Select the best agent image by asking the LLM.
 
     Args:
@@ -57,14 +57,15 @@ def select_image_via_llm(
         api_key: API key for authentication.
 
     Returns:
-        Container image string for the selected environment.
+        (image, raw_environment_id) tuple. raw_environment_id is the value
+        returned by the LLM before any fallback (None if LLM was not called).
     """
     base_url = anthropic_base_url or os.environ.get("ANTHROPIC_BASE_URL", "")
     key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
 
     if not base_url:
         logger.warning("ANTHROPIC_BASE_URL not set, falling back to default environment")
-        return resolve_image(DEFAULT_ENVIRONMENT_ID)
+        return resolve_image(DEFAULT_ENVIRONMENT_ID), None
 
     url = f"{base_url.rstrip('/')}/v1/messages"
     headers = {
@@ -98,8 +99,8 @@ def select_image_via_llm(
 
         image = resolve_image(env_id)
         logger.info("LLM selected environment: %s -> %s", env_id, image)
-        return image
+        return image, raw_id
 
     except (urllib.error.URLError, json.JSONDecodeError, KeyError, TypeError) as exc:
         logger.warning("LLM image selection failed (%s), falling back to default", exc)
-        return resolve_image(DEFAULT_ENVIRONMENT_ID)
+        return resolve_image(DEFAULT_ENVIRONMENT_ID), None

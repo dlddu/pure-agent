@@ -10,17 +10,19 @@ from planner.image_selector import select_image_via_llm
 class TestSelectImageViaLlm:
     def test_fallback_when_no_base_url(self):
         """Without ANTHROPIC_BASE_URL, falls back to default."""
-        image = select_image_via_llm("some task", anthropic_base_url="", api_key="test")
+        image, raw_id = select_image_via_llm("some task", anthropic_base_url="", api_key="test")
         assert image == ENVIRONMENT_MAP[DEFAULT_ENVIRONMENT_ID].image
+        assert raw_id is None
 
     def test_fallback_on_network_error(self):
         """On connection error, falls back to default."""
-        image = select_image_via_llm(
+        image, raw_id = select_image_via_llm(
             "some task",
             anthropic_base_url="http://localhost:1",
             api_key="test",
         )
         assert image == ENVIRONMENT_MAP[DEFAULT_ENVIRONMENT_ID].image
+        assert raw_id is None
 
     def test_selects_python_environment(self):
         """When LLM returns python-analysis, resolves to python image."""
@@ -37,10 +39,11 @@ class TestSelectImageViaLlm:
             return resp
 
         with patch("urllib.request.urlopen", side_effect=mock_response):
-            image = select_image_via_llm(
+            image, raw_id = select_image_via_llm(
                 "pandas 데이터 분석", anthropic_base_url="http://fake", api_key="test"
             )
         assert "python-agent" in image
+        assert raw_id == "python-analysis"
 
     def test_selects_infra_environment(self):
         """When LLM returns infra, resolves to infra image."""
@@ -57,10 +60,11 @@ class TestSelectImageViaLlm:
             return resp
 
         with patch("urllib.request.urlopen", side_effect=mock_response):
-            image = select_image_via_llm(
+            image, raw_id = select_image_via_llm(
                 "kubectl deploy", anthropic_base_url="http://fake", api_key="test"
             )
         assert "infra-agent" in image
+        assert raw_id == "infra"
 
     def test_unknown_environment_falls_back(self):
         """When LLM returns unknown ID, falls back to default."""
@@ -77,10 +81,11 @@ class TestSelectImageViaLlm:
             return resp
 
         with patch("urllib.request.urlopen", side_effect=mock_response):
-            image = select_image_via_llm(
+            image, raw_id = select_image_via_llm(
                 "something", anthropic_base_url="http://fake", api_key="test"
             )
         assert image == ENVIRONMENT_MAP[DEFAULT_ENVIRONMENT_ID].image
+        assert raw_id == "unknown-env"
 
     def test_malformed_llm_response_falls_back(self):
         """When LLM returns non-JSON text, falls back to default."""
@@ -97,7 +102,8 @@ class TestSelectImageViaLlm:
             return resp
 
         with patch("urllib.request.urlopen", side_effect=mock_response):
-            image = select_image_via_llm(
+            image, raw_id = select_image_via_llm(
                 "something", anthropic_base_url="http://fake", api_key="test"
             )
         assert image == ENVIRONMENT_MAP[DEFAULT_ENVIRONMENT_ID].image
+        assert raw_id is None
