@@ -4,7 +4,7 @@ import type { Request, Response } from "express";
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface RecordedCall {
-  type: "mutation" | "query";
+  type: "mutation" | "query" | "llm";
   operationName: string | null;
   body: unknown;
   timestamp: string;
@@ -92,11 +92,78 @@ function buildQueryResponse(operationName: string | null): unknown {
   };
 }
 
+// ── Anthropic API helpers ─────────────────────────────────────────────────────
+
+/**
+ * Keyword-based environment selection for mock LLM responses.
+ * Mirrors the planner's system prompt guidelines.
+ */
+export function selectEnvironmentFromPrompt(prompt: string): string {
+  const lower = prompt.toLowerCase();
+
+  const pythonKeywords = [
+    "data analysis", "pandas", "numpy", "matplotlib", "visualization",
+    "데이터 분석", "시각화", "ml", "machine learning",
+  ];
+  if (pythonKeywords.some((kw) => lower.includes(kw))) {
+    return "python-analysis";
+  }
+
+  const infraKeywords = [
+    "kubernetes", "kubectl", "helm", "aws", "infrastructure",
+    "인프라", "deploy", "배포", "cloud",
+  ];
+  if (infraKeywords.some((kw) => lower.includes(kw))) {
+    return "infra";
+  }
+
+  return "default";
+}
+
+function buildAnthropicResponse(environmentId: string): unknown {
+  return {
+    id: "msg_mock_001",
+    type: "message",
+    role: "assistant",
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify({ environment_id: environmentId }),
+      },
+    ],
+    model: "claude-haiku-4-5-20251001",
+    stop_reason: "end_turn",
+    usage: { input_tokens: 100, output_tokens: 20 },
+  };
+}
+
 // ── App factory ───────────────────────────────────────────────────────────────
 
 export function createApp(): express.Application {
   const app = express();
   app.use(express.json());
+
+  // POST /v1/messages — Anthropic API mock (for planner)
+  app.post("/v1/messages", (req: Request, res: Response) => {
+    const { messages } = req.body as {
+      messages?: Array<{ role: string; content: string }>;
+    };
+
+    // Extract user prompt from messages
+    const userMessage = messages?.find((m) => m.role === "user");
+    const prompt = userMessage?.content ?? "";
+
+    const environmentId = selectEnvironmentFromPrompt(prompt);
+
+    calls.push({
+      type: "llm",
+      operationName: "selectEnvironment",
+      body: req.body,
+      timestamp: new Date().toISOString(),
+    });
+
+    res.status(200).json(buildAnthropicResponse(environmentId));
+  });
 
   // POST /graphql — Linear GraphQL mock
   app.post("/graphql", (req: Request, res: Response) => {

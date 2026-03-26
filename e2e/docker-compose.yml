@@ -123,6 +123,27 @@ services:
     profiles:
       - runner   # docker compose run으로만 실행
 
+  # ── planner: 환경 선택 CLI ─────────────────────────────────────────────────
+  # run-local.sh가 docker compose run으로 개별 실행합니다.
+  planner:
+    build:
+      context: ..
+      dockerfile: planner/Dockerfile
+    environment:
+      ANTHROPIC_BASE_URL: "http://mock-api:4000"
+      ANTHROPIC_API_KEY: "mock-api-key"
+    volumes:
+      - work:/work
+    networks:
+      - e2e
+    depends_on:
+      mock-api:
+        condition: service_healthy
+    profiles:
+      - runner   # docker compose run으로만 실행
+    # 기본 커맨드는 run-local.sh가 override합니다.
+    command: ["planner", "--help"]
+
   # ── mock-gh: gh CLI mock ───────────────────────────────────────────────────
   # export-handler 컨테이너 내부에서 PATH override로 사용됩니다.
   # 독립 서비스로 실행하지 않으며, gh-calls 볼륨을 통해 호출 기록을 공유합니다.

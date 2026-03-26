@@ -17,6 +17,7 @@ on:
       - "e2e/mock-gh/**"
       - "router/**"
       - "export-handler/**"
+      - "planner/**"
       - ".github/workflows/ci-e2e-level1.yaml"
   pull_request:
     paths:
@@ -30,6 +31,7 @@ on:
       - "e2e/mock-gh/**"
       - "router/**"
       - "export-handler/**"
+      - "planner/**"
       - ".github/workflows/ci-e2e-level1.yaml"
   workflow_dispatch:
 
@@ -73,4 +75,6 @@ jobs:
 
       - name: Run Level 1 e2e BATS tests
         # DLD-469: skip이 제거된 테스트를 Docker Compose 환경에서 실제 실행합니다.
-        run: bats e2e/tests/run-local.bats
+        run: |
+          bats e2e/tests/run-local.bats
+          bats e2e/tests/run-local-planner.bats

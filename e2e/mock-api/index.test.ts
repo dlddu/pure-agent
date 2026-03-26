@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import request from "supertest";
-import { createApp, getCalls, resetCalls } from "./index.js";
+import { createApp, getCalls, resetCalls, selectEnvironmentFromPrompt } from "./index.js";
 import type { RecordedCall } from "./index.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -45,6 +45,118 @@ describe("mock-api", () => {
       // Assert
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ status: "ok" });
+    });
+  });
+
+  // ── POST /v1/messages — Anthropic API mock (planner) ──────────────────────
+
+  describe("POST /v1/messages", () => {
+    function anthropicBody(prompt: string) {
+      return {
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 100,
+        system: "You are a routing assistant.",
+        messages: [{ role: "user", content: prompt }],
+      };
+    }
+
+    it("returns environment_id=default for general coding prompt", async () => {
+      const res = await request(app)
+        .post("/v1/messages")
+        .send(anthropicBody("Review this Python code and fix bugs"))
+        .set("Content-Type", "application/json");
+
+      expect(res.status).toBe(200);
+      const text = res.body.content[0].text;
+      expect(JSON.parse(text).environment_id).toBe("default");
+    });
+
+    it("returns environment_id=python-analysis for data analysis prompt", async () => {
+      const res = await request(app)
+        .post("/v1/messages")
+        .send(anthropicBody("pandas 데이터 분석하고 matplotlib으로 시각화해줘"))
+        .set("Content-Type", "application/json");
+
+      expect(res.status).toBe(200);
+      const text = res.body.content[0].text;
+      expect(JSON.parse(text).environment_id).toBe("python-analysis");
+    });
+
+    it("returns environment_id=infra for infrastructure prompt", async () => {
+      const res = await request(app)
+        .post("/v1/messages")
+        .send(anthropicBody("kubectl로 Kubernetes 클러스터에 deploy 해줘"))
+        .set("Content-Type", "application/json");
+
+      expect(res.status).toBe(200);
+      const text = res.body.content[0].text;
+      expect(JSON.parse(text).environment_id).toBe("infra");
+    });
+
+    it("records call as type=llm with operationName=selectEnvironment", async () => {
+      await request(app)
+        .post("/v1/messages")
+        .send(anthropicBody("some task"))
+        .set("Content-Type", "application/json");
+
+      const recorded = getCalls();
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0].type).toBe("llm");
+      expect(recorded[0].operationName).toBe("selectEnvironment");
+    });
+
+    it("stores the full request body in the recorded call", async () => {
+      const body = anthropicBody("deploy to AWS");
+      await request(app)
+        .post("/v1/messages")
+        .send(body)
+        .set("Content-Type", "application/json");
+
+      const recorded = getCalls();
+      const storedBody = recorded[0].body as Record<string, unknown>;
+      expect(storedBody["model"]).toBe("claude-haiku-4-5-20251001");
+    });
+
+    it("returns proper Anthropic API response structure", async () => {
+      const res = await request(app)
+        .post("/v1/messages")
+        .send(anthropicBody("general task"))
+        .set("Content-Type", "application/json");
+
+      expect(res.body.id).toBe("msg_mock_001");
+      expect(res.body.type).toBe("message");
+      expect(res.body.role).toBe("assistant");
+      expect(res.body.stop_reason).toBe("end_turn");
+      expect(res.body.content).toHaveLength(1);
+      expect(res.body.content[0].type).toBe("text");
+    });
+  });
+
+  // ── selectEnvironmentFromPrompt (unit) ───────────────────────────────────
+
+  describe("selectEnvironmentFromPrompt", () => {
+    it("returns default for general coding prompts", () => {
+      expect(selectEnvironmentFromPrompt("fix bugs in my code")).toBe("default");
+    });
+
+    it("returns python-analysis for data analysis prompts", () => {
+      expect(selectEnvironmentFromPrompt("pandas data analysis")).toBe("python-analysis");
+    });
+
+    it("returns python-analysis for Korean data analysis prompts", () => {
+      expect(selectEnvironmentFromPrompt("데이터 분석 해줘")).toBe("python-analysis");
+    });
+
+    it("returns infra for kubernetes prompts", () => {
+      expect(selectEnvironmentFromPrompt("deploy with kubernetes")).toBe("infra");
+    });
+
+    it("returns infra for Korean infrastructure prompts", () => {
+      expect(selectEnvironmentFromPrompt("인프라 관리해줘")).toBe("infra");
+    });
+
+    it("returns default for empty prompt", () => {
+      expect(selectEnvironmentFromPrompt("")).toBe("default");
     });
   });
 

@@ -54,6 +54,12 @@ load_gatekeeper() {
   source "$LIB_DIR/gatekeeper.sh" --source-only
 }
 
+# Source planner.sh in --source-only mode.
+load_planner() {
+  # shellcheck disable=SC1090
+  source "$LIB_DIR/planner.sh" --source-only
+}
+
 # Source common.sh (shared helpers: yaml_get, discover_scenarios, prepare_cycle_fixtures).
 load_common() {
   # shellcheck disable=SC1090
