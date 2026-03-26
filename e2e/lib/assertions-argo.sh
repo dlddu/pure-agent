@@ -296,14 +296,29 @@ assert_planner_image() {
 
   _argo_assert_log "Checking planner image: $workflow_name (expected=$expected_image for env=$expected_env_id)"
 
-  local actual_image
-  actual_image=$(kubectl get workflow "$workflow_name" \
+  local wf_json
+  wf_json=$(kubectl get workflow "$workflow_name" \
     -n "$namespace" \
     --context "$kube_context" \
-    -o json 2>/dev/null \
-    | jq -r '[.status.nodes | to_entries[] | .value | select(.templateName == "planner" and .type == "Pod")] | .[0].outputs.parameters[] | select(.name == "agent_image") | .value' 2>/dev/null \
-    | tr -d '[:space:]') \
-    || { _argo_assert_fail "assert_planner_image: kubectl/jq failed for workflow $workflow_name"; return 1; }
+    -o json 2>/dev/null) \
+    || { _argo_assert_fail "assert_planner_image: kubectl get workflow failed for $workflow_name"; return 1; }
+
+  local actual_image
+  actual_image=$(echo "$wf_json" \
+    | jq -r '
+        [.status.nodes // {} | to_entries[] | .value
+         | select(.templateName == "planner" and .type == "Pod")]
+        | first
+        | .outputs.parameters // []
+        | map(select(.name == "agent_image")) | first
+        | .value // ""
+      ' 2>/dev/null \
+    | tr -d '[:space:]')
+
+  if [[ -z "$actual_image" ]]; then
+    _argo_assert_fail "assert_planner_image: could not extract agent_image from planner node (workflow=$workflow_name)"
+    return 1
+  fi
 
   if [[ "$expected_image" != "$actual_image" ]]; then
     _argo_assert_fail "assert_planner_image: expected '$expected_image' ($expected_env_id) but got '$actual_image'"
@@ -328,14 +343,32 @@ assert_planner_valid_image() {
 
   _argo_assert_log "Checking planner selected a valid image: $workflow_name"
 
-  local actual_image
-  actual_image=$(kubectl get workflow "$workflow_name" \
+  local wf_json
+  wf_json=$(kubectl get workflow "$workflow_name" \
     -n "$namespace" \
     --context "$kube_context" \
-    -o json 2>/dev/null \
-    | jq -r '[.status.nodes | to_entries[] | .value | select(.templateName == "planner" and .type == "Pod")] | .[0].outputs.parameters[] | select(.name == "agent_image") | .value' 2>/dev/null \
-    | tr -d '[:space:]') \
-    || { _argo_assert_fail "assert_planner_valid_image: kubectl/jq failed for workflow $workflow_name"; return 1; }
+    -o json 2>/dev/null) \
+    || { _argo_assert_fail "assert_planner_valid_image: kubectl get workflow failed for $workflow_name"; return 1; }
+
+  local actual_image
+  actual_image=$(echo "$wf_json" \
+    | jq -r '
+        [.status.nodes // {} | to_entries[] | .value
+         | select(.templateName == "planner" and .type == "Pod")]
+        | first
+        | .outputs.parameters // []
+        | map(select(.name == "agent_image")) | first
+        | .value // ""
+      ' 2>/dev/null \
+    | tr -d '[:space:]')
+
+  if [[ -z "$actual_image" ]]; then
+    # Planner output not found — dump node names for debugging
+    _argo_assert_log "DEBUG: workflow nodes:"
+    echo "$wf_json" | jq -r '[.status.nodes // {} | to_entries[] | .value | {name: .displayName, templateName, type, phase}]' >&2 || true
+    _argo_assert_fail "assert_planner_valid_image: could not extract agent_image from planner node (workflow=$workflow_name)"
+    return 1
+  fi
 
   # 유효한 이미지 목록
   local valid=false
