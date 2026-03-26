@@ -19,25 +19,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Select agent execution environment")
     parser.add_argument("--prompt", type=str, required=True, help="Task prompt to analyze")
     parser.add_argument("--output", type=str, required=True, help="Output file for image")
-    parser.add_argument(
-        "--next-environment",
-        type=str,
-        default="",
-        help="Environment ID from previous cycle (skip LLM if set)",
-    )
 
     args = parser.parse_args()
 
-    next_env = args.next_environment.strip()
+    from planner.image_selector import select_image_via_llm
 
-    if next_env:
-        image = resolve_image(next_env)
-        logger.info("next_environment=%s -> %s", next_env, image)
-    else:
-        from planner.image_selector import select_image_via_llm
-
-        image = select_image_via_llm(args.prompt)
-        logger.info("LLM selected -> %s", image)
+    image = select_image_via_llm(args.prompt)
+    logger.info("LLM selected -> %s", image)
 
     _write_output(image, args.output)
 

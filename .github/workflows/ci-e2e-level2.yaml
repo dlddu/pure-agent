@@ -263,7 +263,7 @@ jobs:
 
           # gate의 args를 mock-gate 셸 스크립트로 교체
           # depth >= max_depth - 1 이면 stop, 그렇지 않으면 export_config 확인
-          yq -i '(.spec.templates[] | select(.name == "gate") | .container.args) = ["D=\"$GATE_DEPTH\"; M=\"$GATE_MAX_DEPTH\"; O=/tmp/continue.txt; E=/tmp/next_environment.txt; echo \"[mock-gate] depth=$D max_depth=$M\" >&2; echo \"\" > $E; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > $O; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > $O; else echo false > $O; fi; fi"]' \
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.args) = ["D=\"$GATE_DEPTH\"; M=\"$GATE_MAX_DEPTH\"; O=/tmp/continue.txt; echo \"[mock-gate] depth=$D max_depth=$M\" >&2; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > $O; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > $O; else echo false > $O; fi; fi"]' \
             /tmp/workflow-template-level2.yaml
 
           # ── mock-export-handler 패치 ────────────────────────────────────

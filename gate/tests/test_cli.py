@@ -85,63 +85,6 @@ class TestGate:
         assert not (work_env / "export_config.json").exists()
 
 
-class TestGateEnvOutput:
-    """Tests for --env-output flag."""
-
-    def test_writes_next_environment(self, work_env, monkeypatch, caplog):
-        """Gate extracts next_environment from export_config and writes to env-output."""
-        export_config = json.dumps({"actions": ["continue"], "next_environment": "python-analysis"})
-        (work_env / "export_config.json").write_text(export_config)
-        output_path = str(work_env / "output.txt")
-        env_output_path = str(work_env / "env_output.txt")
-        monkeypatch.setattr(
-            sys,
-            "argv",
-            [
-                "gate",
-                "--depth",
-                "0",
-                "--max-depth",
-                "5",
-                "--export-config",
-                export_config,
-                "--output",
-                output_path,
-                "--env-output",
-                env_output_path,
-            ],
-        )
-        with caplog.at_level(logging.INFO, logger="gate"):
-            main()
-        assert Path(output_path).read_text().strip() == "true"
-        assert Path(env_output_path).read_text().strip() == "python-analysis"
-
-    def test_writes_empty_when_no_next_environment(self, work_env, monkeypatch, caplog):
-        """Gate writes empty string when no next_environment in export_config."""
-        output_path = str(work_env / "output.txt")
-        env_output_path = str(work_env / "env_output.txt")
-        monkeypatch.setattr(
-            sys,
-            "argv",
-            [
-                "gate",
-                "--depth",
-                "0",
-                "--max-depth",
-                "5",
-                "--export-config",
-                "{}",
-                "--output",
-                output_path,
-                "--env-output",
-                env_output_path,
-            ],
-        )
-        with caplog.at_level(logging.INFO, logger="gate"):
-            main()
-        assert Path(env_output_path).read_text().strip() == ""
-
-
 class TestGateWithSingleQuotes:
     """Integration tests for JSON containing single quotes passed via CLI."""
 

@@ -15,7 +15,7 @@
 #   - run-cycle           : Planner → Agent → Gate → Recurse 재귀 루프
 #   - planner             : LLM 기반 에이전트 실행 환경(이미지) 선택 (별도 이미지)
 #   - agent-job           : Claude Code CLI 실행 (이미지 파라미터화)
-#   - gate                : 계속/종료 판단 + 다음 사이클 환경 힌트 추출
+#   - gate                : 계속/종료 판단
 #   - export-cycle-output : 후처리 (Linear, GitHub, S3)
 #   - cleanup-job         : 공유 볼륨 정리
 #
@@ -89,8 +89,6 @@ spec:
                   value: "{{tasks.mcp-daemon.ip}}"
                 - name: llm_gateway_host
                   value: "{{tasks.llm-gateway-daemon.ip}}"
-                - name: next_environment
-                  value: ""
 
           - name: export-cycle-output
             template: export-cycle-output
@@ -186,7 +184,6 @@ spec:
           - name: previous_output
           - name: mcp_host
           - name: llm_gateway_host
-          - name: next_environment
       steps:
         - - name: planner
             template: planner
@@ -196,8 +193,6 @@ spec:
                   value: "{{inputs.parameters.prompt}}"
                 - name: llm_gateway_host
                   value: "{{inputs.parameters.llm_gateway_host}}"
-                - name: next_environment
-                  value: "{{inputs.parameters.next_environment}}"
         - - name: agent
             template: agent-job
             arguments:
@@ -239,8 +234,6 @@ spec:
                   value: "{{inputs.parameters.mcp_host}}"
                 - name: llm_gateway_host
                   value: "{{inputs.parameters.llm_gateway_host}}"
-                - name: next_environment
-                  value: "{{steps.gate.outputs.parameters.next_environment}}"
 
     # =============================
     # Planner (image selection)
@@ -250,7 +243,6 @@ spec:
         parameters:
           - name: prompt
           - name: llm_gateway_host
-          - name: next_environment
       outputs:
         parameters:
           - name: agent_image
@@ -263,14 +255,11 @@ spec:
           - |
             planner \
               --prompt "$PROMPT" \
-              --next-environment "$NEXT_ENV" \
               --output /tmp/agent_image.txt \
             || echo "ghcr.io/dlddu/pure-agent/claude-agent:latest" > /tmp/agent_image.txt
         env:
           - name: PROMPT
             value: "{{inputs.parameters.prompt}}"
-          - name: NEXT_ENV
-            value: "{{inputs.parameters.next_environment}}"
           - name: ANTHROPIC_BASE_URL
             value: "http://{{inputs.parameters.llm_gateway_host}}"
           - name: ANTHROPIC_API_KEY
@@ -352,10 +341,6 @@ spec:
           - name: continue
             valueFrom:
               path: /tmp/continue.txt
-          - name: next_environment
-            valueFrom:
-              path: /tmp/next_environment.txt
-              default: ""
       container:
         image: ghcr.io/dlddu/pure-agent/gate:latest
         command: ["/bin/sh", "-c"]
@@ -366,8 +351,7 @@ spec:
               --depth '{{inputs.parameters.depth}}' \
               --max-depth '{{inputs.parameters.max_depth}}' \
               --output /tmp/continue.txt \
-              --env-output /tmp/next_environment.txt \
-            || (echo "false" > /tmp/continue.txt && echo "" > /tmp/next_environment.txt)
+            || echo "false" > /tmp/continue.txt
         env:
           - name: EXPORT_CONFIG_JSON
             value: "{{inputs.parameters.export_config}}"
