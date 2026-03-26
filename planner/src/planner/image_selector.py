@@ -88,7 +88,9 @@ def select_image_via_llm(
 
         text = result.get("content", [{}])[0].get("text", "")
         parsed = json.loads(text)
-        env_id = parsed.get("environment_id", DEFAULT_ENVIRONMENT_ID)
+        raw_id = parsed.get("environment_id")
+        logger.info("LLM raw response: environment_id=%s", raw_id)
+        env_id = raw_id or DEFAULT_ENVIRONMENT_ID
 
         if env_id not in ENVIRONMENT_MAP:
             logger.warning("LLM returned unknown environment '%s', using default", env_id)
