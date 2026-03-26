@@ -12,8 +12,8 @@ from planner.cli import _write_fallback_output, main, run
 
 
 class TestPlan:
-    def test_override_environment_skips_llm(self, tmp_path, monkeypatch, caplog):
-        """When --override-environment is set, planner resolves directly without LLM."""
+    def test_next_environment_skips_llm(self, tmp_path, monkeypatch, caplog):
+        """When --next-environment is set, planner resolves directly without LLM."""
         output_path = str(tmp_path / "image.txt")
         monkeypatch.setattr(
             sys,
@@ -22,7 +22,7 @@ class TestPlan:
                 "planner",
                 "--prompt",
                 "some task",
-                "--override-environment",
+                "--next-environment",
                 "python-analysis",
                 "--output",
                 output_path,
@@ -33,8 +33,8 @@ class TestPlan:
         image = Path(output_path).read_text().strip()
         assert "python-agent" in image
 
-    def test_override_unknown_falls_back_to_default(self, tmp_path, monkeypatch, caplog):
-        """Unknown override environment falls back to default image."""
+    def test_next_environment_unknown_falls_back_to_default(self, tmp_path, monkeypatch, caplog):
+        """Unknown next_environment falls back to default image."""
         output_path = str(tmp_path / "image.txt")
         monkeypatch.setattr(
             sys,
@@ -43,7 +43,7 @@ class TestPlan:
                 "planner",
                 "--prompt",
                 "some task",
-                "--override-environment",
+                "--next-environment",
                 "nonexistent",
                 "--output",
                 output_path,
@@ -54,8 +54,8 @@ class TestPlan:
         image = Path(output_path).read_text().strip()
         assert "claude-agent" in image
 
-    def test_empty_override_triggers_llm(self, tmp_path, monkeypatch, caplog):
-        """Empty override triggers LLM-based selection (falls back without LLM gateway)."""
+    def test_empty_next_environment_triggers_llm(self, tmp_path, monkeypatch, caplog):
+        """Empty next_environment triggers LLM-based selection (falls back without LLM gateway)."""
         output_path = str(tmp_path / "image.txt")
         monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
         monkeypatch.setattr(
@@ -65,7 +65,7 @@ class TestPlan:
                 "planner",
                 "--prompt",
                 "some task",
-                "--override-environment",
+                "--next-environment",
                 "",
                 "--output",
                 output_path,
@@ -152,7 +152,7 @@ class TestEntryPoint:
             work_env,
             "--prompt",
             "some task",
-            "--override-environment",
+            "--next-environment",
             "default",
             "--output",
             str(work_env / "output.txt"),

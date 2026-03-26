@@ -20,19 +20,19 @@ def main() -> None:
     parser.add_argument("--prompt", type=str, required=True, help="Task prompt to analyze")
     parser.add_argument("--output", type=str, required=True, help="Output file for image")
     parser.add_argument(
-        "--override-environment",
+        "--next-environment",
         type=str,
         default="",
-        help="Environment ID override (skip LLM if set)",
+        help="Environment ID from previous cycle (skip LLM if set)",
     )
 
     args = parser.parse_args()
 
-    override = args.override_environment.strip()
+    next_env = args.next_environment.strip()
 
-    if override:
-        image = resolve_image(override)
-        logger.info("override environment=%s -> %s", override, image)
+    if next_env:
+        image = resolve_image(next_env)
+        logger.info("next_environment=%s -> %s", next_env, image)
     else:
         from planner.image_selector import select_image_via_llm
 
