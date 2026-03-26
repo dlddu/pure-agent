@@ -15,7 +15,8 @@ on:
       - "e2e/mock-api/**"
       - "e2e/mock-agent/**"
       - "e2e/mock-gh/**"
-      - "router/**"
+      - "gate/**"
+      - "planner/**"
       - "export-handler/**"
       - ".github/workflows/ci-e2e-level1.yaml"
   pull_request:
@@ -28,7 +29,8 @@ on:
       - "e2e/mock-api/**"
       - "e2e/mock-agent/**"
       - "e2e/mock-gh/**"
-      - "router/**"
+      - "gate/**"
+      - "planner/**"
       - "export-handler/**"
       - ".github/workflows/ci-e2e-level1.yaml"
   workflow_dispatch:

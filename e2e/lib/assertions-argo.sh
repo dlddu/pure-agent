@@ -269,3 +269,86 @@ assert_work_dir_clean() {
 
   _argo_assert_log "PASS assert_work_dir_clean: /work is clean for workflow=$workflow_name"
 }
+
+# ── assert_planner_image ────────────────────────────────────────────────────
+# Planner 노드가 올바른 agent 이미지를 선택했는지 검증합니다.
+# Level ②에서 사용: mock-api의 /v1/messages를 통해 결정된 이미지 검증.
+#
+# Arguments:
+#   $1  workflow_name    — argo workflow 이름
+#   $2  expected_env_id  — 기대하는 environment_id (default, python-analysis, infra)
+#   $3  namespace        — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
+#
+assert_planner_image() {
+  local workflow_name="$1"
+  local expected_env_id="$2"
+  local namespace="${3:-${NAMESPACE:-pure-agent}}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+
+  # environment_id → expected image 매핑
+  local expected_image
+  case "$expected_env_id" in
+    default)         expected_image="ghcr.io/dlddu/pure-agent/claude-agent:latest" ;;
+    python-analysis) expected_image="ghcr.io/dlddu/pure-agent/python-agent:latest" ;;
+    infra)           expected_image="ghcr.io/dlddu/pure-agent/infra-agent:latest" ;;
+    *)               expected_image="ghcr.io/dlddu/pure-agent/claude-agent:latest" ;;
+  esac
+
+  _argo_assert_log "Checking planner image: $workflow_name (expected=$expected_image for env=$expected_env_id)"
+
+  local actual_image
+  actual_image=$(kubectl get workflow "$workflow_name" \
+    -n "$namespace" \
+    --context "$kube_context" \
+    -o json 2>/dev/null \
+    | jq -r '[.status.nodes | to_entries[] | .value | select(.templateName == "planner" and .type == "Pod")] | .[0].outputs.parameters[] | select(.name == "agent_image") | .value' 2>/dev/null \
+    | tr -d '[:space:]') \
+    || { _argo_assert_fail "assert_planner_image: kubectl/jq failed for workflow $workflow_name"; return 1; }
+
+  if [[ "$expected_image" != "$actual_image" ]]; then
+    _argo_assert_fail "assert_planner_image: expected '$expected_image' ($expected_env_id) but got '$actual_image'"
+    return 1
+  fi
+
+  _argo_assert_log "PASS assert_planner_image: $actual_image"
+}
+
+# ── assert_planner_valid_image ──────────────────────────────────────────────
+# Planner가 유효한 agent 이미지를 선택했는지 검증합니다 (특정 이미지가 아닌 유효성만).
+# Level ③에서 사용: 실제 LLM 호출은 비결정적이므로 3개 known image 중 하나인지만 확인.
+#
+# Arguments:
+#   $1  workflow_name  — argo workflow 이름
+#   $2  namespace      — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
+#
+assert_planner_valid_image() {
+  local workflow_name="$1"
+  local namespace="${2:-${NAMESPACE:-pure-agent}}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-full}"
+
+  _argo_assert_log "Checking planner selected a valid image: $workflow_name"
+
+  local actual_image
+  actual_image=$(kubectl get workflow "$workflow_name" \
+    -n "$namespace" \
+    --context "$kube_context" \
+    -o json 2>/dev/null \
+    | jq -r '[.status.nodes | to_entries[] | .value | select(.templateName == "planner" and .type == "Pod")] | .[0].outputs.parameters[] | select(.name == "agent_image") | .value' 2>/dev/null \
+    | tr -d '[:space:]') \
+    || { _argo_assert_fail "assert_planner_valid_image: kubectl/jq failed for workflow $workflow_name"; return 1; }
+
+  # 유효한 이미지 목록
+  local valid=false
+  case "$actual_image" in
+    "ghcr.io/dlddu/pure-agent/claude-agent:latest")  valid=true ;;
+    "ghcr.io/dlddu/pure-agent/python-agent:latest")   valid=true ;;
+    "ghcr.io/dlddu/pure-agent/infra-agent:latest")    valid=true ;;
+  esac
+
+  if [[ "$valid" != "true" ]]; then
+    _argo_assert_fail "assert_planner_valid_image: '$actual_image' is not a valid agent image"
+    return 1
+  fi
+
+  _argo_assert_log "PASS assert_planner_valid_image: $actual_image"
+}

@@ -103,10 +103,16 @@ jobs:
           service: mcp-server
           push: "false"
 
-      - name: Build router image
+      - name: Build gate image
         uses: ./.github/actions/build-image
         with:
-          service: router
+          service: gate
+          push: "false"
+
+      - name: Build planner image
+        uses: ./.github/actions/build-image
+        with:
+          service: planner
           push: "false"
 
       - name: Build export-handler image
@@ -119,7 +125,7 @@ jobs:
         run: |
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME" \
-            --images "ghcr.io/dlddu/pure-agent/claude-agent:latest,ghcr.io/dlddu/pure-agent/mcp-server:latest,ghcr.io/dlddu/pure-agent/router:latest,ghcr.io/dlddu/pure-agent/export-handler:latest"
+            --images "ghcr.io/dlddu/pure-agent/claude-agent:latest,ghcr.io/dlddu/pure-agent/mcp-server:latest,ghcr.io/dlddu/pure-agent/gate:latest,ghcr.io/dlddu/pure-agent/planner:latest,ghcr.io/dlddu/pure-agent/export-handler:latest"
 
       # ── Kubernetes namespace and secrets ──────────────────────────────────────
       - name: Create namespace and secrets for pure-agent

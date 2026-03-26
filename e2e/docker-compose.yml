@@ -81,6 +81,23 @@ services:
       mock-api:
         condition: service_healthy
 
+  # ── planner: Python CLI (환경 선택) ──────────────────────────────────────
+  # run-local.sh가 docker compose run으로 개별 실행합니다.
+  planner:
+    build:
+      context: ..
+      dockerfile: planner/Dockerfile
+    environment:
+      ANTHROPIC_BASE_URL: "http://mock-api:4000"
+      ANTHROPIC_API_KEY: "mock-api-key"
+    volumes:
+      - work:/work
+    networks:
+      - e2e
+    command: ["planner", "--help"]
+    profiles:
+      - runner   # docker compose run으로만 실행
+
   # ── gate: Python CLI ──────────────────────────────────────────────────────
   # run-local.sh가 docker compose run으로 개별 실행합니다.
   gate:

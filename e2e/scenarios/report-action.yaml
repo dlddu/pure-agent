@@ -5,7 +5,8 @@ max_depth: 1
 
 # ── Level 2: mock cycle 정의 ──
 cycles:
-  - export_config:
+  - environment_id: "default"
+    export_config:
       linear_issue_id: "mock-issue-id"
       summary: "분석 리포트 작성 완료"
       report_content: "# 분석 리포트\n\n이슈를 분석한 결과입니다."
@@ -19,11 +20,12 @@ real:
   max_depth: 5
   prompt: "Linear 이슈 {{LINEAR_ISSUE_ID}}를 읽고 내용을 요약해서 report로 작성해주세요."
   setup: [linear_issue]
-  verify: [linear_comment]
+  verify: [planner_valid_image, linear_comment]
   teardown: [linear_issue]
 
 # ── 공유 assertions ──
 assertions:
+  planner_image: "default"
   router_decision: "stop"
   export_handler_exit: 0
   linear_comment:

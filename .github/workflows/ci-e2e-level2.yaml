@@ -100,11 +100,23 @@ jobs:
           service: e2e/mock-api
           push: "false"
 
-      - name: Load mock images into kind cluster
+      - name: Build planner image
+        uses: ./.github/actions/build-image
+        with:
+          service: planner
+          push: "false"
+
+      - name: Build gate image
+        uses: ./.github/actions/build-image
+        with:
+          service: gate
+          push: "false"
+
+      - name: Load images into kind cluster
         run: |
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME" \
-            --images "${MOCK_AGENT_IMAGE},${MOCK_API_IMAGE}"
+            --images "${MOCK_AGENT_IMAGE},${MOCK_API_IMAGE},ghcr.io/dlddu/pure-agent/planner:latest,ghcr.io/dlddu/pure-agent/gate:latest"
 
       # ── Kubernetes namespace setup ────────────────────────────────────────
       - name: Create namespace for pure-agent (Level 2)
@@ -240,12 +252,12 @@ jobs:
           yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.volumeMounts) += [{"name": "scenario-data", "mountPath": "/scenario", "readOnly": true}]' \
             /tmp/workflow-template-level2.yaml
 
-          # ── mock-planner 패치 ─────────────────────────────────────────────
-          # planner는 LLM으로 이미지를 선택하지만 kind에서는 불필요.
-          # alpine으로 교체하고 기본 이미지를 바로 출력하는 스크립트로 대체.
-          yq -i '(.spec.templates[] | select(.name == "planner") | .container.image) = "alpine:3.20"' \
+          # ── planner 패치: 실제 planner 이미지 사용 + mock-api LLM 엔드포인트 ──
+          # planner를 mock-api의 /v1/messages 엔드포인트로 향하게 하여
+          # 시나리오별 environment_id를 반환받도록 합니다.
+          yq -i '(.spec.templates[] | select(.name == "planner") | .container.env) += [{"name": "ANTHROPIC_BASE_URL", "value": "http://mock-api.'"${PURE_AGENT_NAMESPACE}"'.svc.cluster.local:4000"}]' \
             /tmp/workflow-template-level2.yaml
-          yq -i '(.spec.templates[] | select(.name == "planner") | .container.args) = ["echo \"[mock-planner] using mock-agent image\" >&2; echo \"'"${MOCK_AGENT_IMAGE}"'\" > /tmp/agent_image.txt; echo \"mock\" > /tmp/raw_environment_id.txt"]' \
+          yq -i '(.spec.templates[] | select(.name == "planner") | .container.env) += [{"name": "ANTHROPIC_API_KEY", "value": "mock-api-key"}]' \
             /tmp/workflow-template-level2.yaml
 
           # ── mock-gate 패치 ──────────────────────────────────────────────

@@ -4,7 +4,8 @@ level: [1, 2]
 
 # ── Level 2: mock cycle 정의 ──
 cycles:
-  - max_depth: 1
+  - environment_id: "default"
+    max_depth: 1
     export_config:
       linear_issue_id: "mock-issue-id"
       summary: "Cycle 0 진행 중, 계속합니다."
@@ -12,7 +13,8 @@ cycles:
         - "continue"
       session_id: "mock-session-cycle0"
     agent_result: "Cycle 0 done, continuing..."
-  - max_depth: 1
+  - environment_id: "default"
+    max_depth: 1
     export_config:
       linear_issue_id: "mock-issue-id"
       summary: "작업 완료"
@@ -23,6 +25,7 @@ cycles:
 
 # ── 공유 assertions ──
 assertions:
+  planner_image: "default"
   router_decisions:
     - "continue"
     - "stop"
