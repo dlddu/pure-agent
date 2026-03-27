@@ -13,6 +13,7 @@ export interface RecordedCall {
 // ── In-memory store ───────────────────────────────────────────────────────────
 
 const calls: RecordedCall[] = [];
+let mockEnvironmentId = "default";
 
 export function getCalls(): RecordedCall[] {
   return calls;
@@ -20,6 +21,15 @@ export function getCalls(): RecordedCall[] {
 
 export function resetCalls(): void {
   calls.length = 0;
+  mockEnvironmentId = "default";
+}
+
+export function getMockEnvironmentId(): string {
+  return mockEnvironmentId;
+}
+
+export function setMockEnvironmentId(id: string): void {
+  mockEnvironmentId = id;
 }
 
 // ── GraphQL helpers ───────────────────────────────────────────────────────────
@@ -126,6 +136,36 @@ export function createApp(): express.Application {
         : buildQueryResponse(resolvedOperationName);
 
     res.status(200).json(response);
+  });
+
+  // ── Mock Anthropic Messages API (planner용) ───────────────────────────
+
+  // POST /v1/messages/configure — mock LLM 환경 설정
+  app.post("/v1/messages/configure", (req: Request, res: Response) => {
+    const { environment_id } = req.body as { environment_id?: string };
+    mockEnvironmentId = environment_id || "default";
+    res.status(200).json({ ok: true, environment_id: mockEnvironmentId });
+  });
+
+  // POST /v1/messages — Anthropic Messages API mock
+  app.post("/v1/messages", (req: Request, res: Response) => {
+    calls.push({
+      type: "query",
+      operationName: "llm_messages",
+      body: req.body,
+      timestamp: new Date().toISOString(),
+    });
+    res.status(200).json({
+      id: "msg_mock",
+      type: "message",
+      role: "assistant",
+      content: [
+        { type: "text", text: JSON.stringify({ environment_id: mockEnvironmentId }) },
+      ],
+      model: "claude-haiku-4-5-20251001",
+      stop_reason: "end_turn",
+      usage: { input_tokens: 10, output_tokens: 10 },
+    });
   });
 
   // GET /assertions — return recorded calls

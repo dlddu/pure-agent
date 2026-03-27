@@ -23,6 +23,50 @@
 
 set -euo pipefail
 
+# ── mock LLM 환경 설정 ───────────────────────────────────────────────────────
+configure_mock_llm_environment() {
+  local environment_id="$1"
+  curl -sf -X POST "${MOCK_API_URL}/v1/messages/configure" \
+    -H "Content-Type: application/json" \
+    -d "{\"environment_id\": \"${environment_id}\"}" >/dev/null
+  log "Configured mock LLM environment: ${environment_id}"
+}
+
+# ── planner 실행 ─────────────────────────────────────────────────────────────
+#
+# Arguments:
+#   $1  prompt                — planner에 전달할 프롬프트
+#   $2  planner_output_on_host — 호스트에서 결과를 받을 임시 파일 경로
+#
+run_planner_in_compose() {
+  local prompt="$1"
+  local planner_output_on_host="$2"
+
+  log "Running planner ..."
+
+  local exit_code=0
+  docker compose -f "$COMPOSE_FILE" \
+    run --rm \
+    --entrypoint="" \
+    planner \
+    sh -c 'planner --prompt "'"${prompt}"'" --output /work/agent_image.txt --raw-id-output /work/raw_environment_id.txt' \
+    || exit_code=$?
+
+  if [[ "$exit_code" -ne 0 ]]; then
+    warn "planner exited with code ${exit_code}"
+    return "$exit_code"
+  fi
+
+  docker compose -f "$COMPOSE_FILE" \
+    run --rm \
+    --entrypoint="" \
+    planner \
+    sh -c "cat /work/agent_image.txt" \
+    > "$planner_output_on_host" 2>/dev/null
+
+  log "Planner output: $(cat "$planner_output_on_host")"
+}
+
 # ── mock-api 리셋 ─────────────────────────────────────────────────────────────
 reset_mock_api() {
   local url="${MOCK_API_URL}/assertions/reset"

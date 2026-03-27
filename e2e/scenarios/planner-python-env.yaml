@@ -1,0 +1,21 @@
+name: planner-python-env
+description: "Planner가 python-analysis 환경을 선택하는 시나리오"
+level: [1, 2]
+max_depth: 1
+
+# ── mock cycle 정의 ──
+cycles:
+  - environment_id: "python-analysis"
+    export_config:
+      linear_issue_id: "mock-issue-id"
+      summary: "Data analysis task completed."
+      actions:
+        - "none"
+      session_id: "mock-session-python"
+    agent_result: "pandas analysis done."
+
+# ── 공유 assertions ──
+assertions:
+  planner_image: "python-analysis"
+  router_decision: "stop"
+  export_handler_exit: 0

@@ -82,6 +82,19 @@ else
   GITHUB_TEST_REPO="${GITHUB_TEST_REPO:?GITHUB_TEST_REPO is not set}"
 fi
 
+# ── mock-api LLM 환경 설정 (Level ②) ────────────────────────────────────────
+# mock-api의 /v1/messages/configure 엔드포인트를 호출하여 planner가 반환할 환경을 설정합니다.
+configure_mock_api_llm_environment() {
+  local env_id="$1"
+  kubectl exec deploy/mock-api \
+    -n "$NAMESPACE" \
+    --context "$KUBE_CONTEXT" \
+    -- wget -qO- --post-data="{\"environment_id\":\"${env_id}\"}" \
+    --header="Content-Type: application/json" \
+    "http://localhost:4000/v1/messages/configure" >/dev/null
+  log "Configured mock-api LLM environment: ${env_id}"
+}
+
 # ── Prerequisites check ──────────────────────────────────────────────────────
 check_prerequisites() {
   if [[ "${LEVEL}" == "2" ]]; then
@@ -163,7 +176,7 @@ run_argo_workflow() {
   timeout "${WORKFLOW_TIMEOUT}s" \
     argo wait "$workflow_name" \
       -n "$NAMESPACE" \
-      --context "$KUBE_CONTEXT" || wait_exit=$?
+      --context "$KUBE_CONTEXT" >&2 || wait_exit=$?
 
   # Always fetch workflow status for diagnostics
   local workflow_output
@@ -323,7 +336,14 @@ _level2_verify_cycle() {
   # 1. Workflow Succeeded 검증
   assert_workflow_succeeded "$workflow_name" "$NAMESPACE" || return 1
 
-  # 2-4. mock-api 기반 assertion은 Level ②에서 skip
+  # 2. Planner image assertion (Level ②)
+  local planner_image
+  planner_image=$(yaml_get "$yaml_file" '.assertions.planner_image')
+  if [[ -n "$planner_image" ]]; then
+    assert_planner_image "$workflow_name" "$planner_image" "$NAMESPACE" || return 1
+  fi
+
+  # 3. mock-api 기반 assertion은 Level ②에서 skip
   # mock-agent는 HTTP 호출을 하지 않으므로 mock-api에 recorded call이 없음.
   # router_decision은 assert_run_cycle_count / assert_workflow_succeeded로 간접 검증.
   log "Skipping mock-api assertions (not applicable in Level 2 mock architecture)"
@@ -377,6 +397,13 @@ run_scenario_level2() {
     # 임시 fixture 디렉토리 생성
     local cycle_dir
     cycle_dir=$(mktemp -d "/tmp/e2e-level2-${scenario_name}-cycle${cycle_index}-XXXXXX")
+
+    # mock LLM 환경 설정 (planner가 올바른 이미지를 선택하도록)
+    local env_id
+    env_id=$(yaml_get "$yaml_file" ".cycles[${cycle_index}].environment_id")
+    if [[ -n "$env_id" ]]; then
+      configure_mock_api_llm_environment "$env_id"
+    fi
 
     # cycle fixtures 배치
     prepare_cycle_fixtures "$yaml_file" "$cycle_index" "$cycle_dir"
@@ -494,7 +521,8 @@ run_scenario() {
   # ── Run ──
   local prompt
   prompt=$(build_prompt "$yaml_file" "$linear_issue_id" "$github_branch")
-  run_argo_workflow "$scenario_name" "$prompt" "$max_depth"
+  local workflow_name
+  workflow_name=$(run_argo_workflow "$scenario_name" "$prompt" "$max_depth")
 
   # ── Verify (assertions) ──
   local verify_item
@@ -508,6 +536,9 @@ run_scenario() {
         ;;
       github_pr)
         verify_github_pr "$github_branch"
+        ;;
+      planner_valid_image)
+        assert_planner_valid_image "$workflow_name" "$NAMESPACE"
         ;;
       *) warn "Unknown verify type: $verify_item" ;;
     esac

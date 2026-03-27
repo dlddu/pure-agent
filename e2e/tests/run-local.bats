@@ -63,6 +63,14 @@ teardown() {
   wait_mock_api
   reset_mock_api
 
+  # Planner: mock LLM 환경 설정 + 실행
+  configure_mock_llm_environment "default"
+  local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
+  run_planner_in_compose "test prompt" "$planner_output"
+  local planner_image
+  planner_image=$(cat "$planner_output" | tr -d '[:space:]')
+  [ "$planner_image" = "ghcr.io/dlddu/pure-agent/claude-agent:latest" ]
+
   # Cycle 0: fixture 배치
   local cycle_dir="${BATS_TEST_TMPDIR}/none-action-cycle0"
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
@@ -114,6 +122,14 @@ teardown() {
   compose_up
   wait_mock_api
   reset_mock_api
+
+  # Planner: mock LLM 환경 설정 + 실행
+  configure_mock_llm_environment "default"
+  local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
+  run_planner_in_compose "test prompt" "$planner_output"
+  local planner_image
+  planner_image=$(cat "$planner_output" | tr -d '[:space:]')
+  [ "$planner_image" = "ghcr.io/dlddu/pure-agent/claude-agent:latest" ]
 
   # Cycle 0: fixture 배치
   local cycle_dir="${BATS_TEST_TMPDIR}/report-action-cycle0"
@@ -181,6 +197,14 @@ teardown() {
   compose_up
   wait_mock_api
   reset_mock_api
+
+  # Planner: mock LLM 환경 설정 + 실행
+  configure_mock_llm_environment "default"
+  local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
+  run_planner_in_compose "test prompt" "$planner_output"
+  local planner_image
+  planner_image=$(cat "$planner_output" | tr -d '[:space:]')
+  [ "$planner_image" = "ghcr.io/dlddu/pure-agent/claude-agent:latest" ]
 
   # Cycle 0: fixture 배치
   local cycle_dir="${BATS_TEST_TMPDIR}/create-pr-action-cycle0"
@@ -273,6 +297,14 @@ teardown() {
   compose_up
   wait_mock_api
   reset_mock_api
+
+  # Planner: mock LLM 환경 설정 + 실행
+  configure_mock_llm_environment "default"
+  local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
+  run_planner_in_compose "test prompt" "$planner_output"
+  local planner_image
+  planner_image=$(cat "$planner_output" | tr -d '[:space:]')
+  [ "$planner_image" = "ghcr.io/dlddu/pure-agent/claude-agent:latest" ]
 
   # ── cycle-0 ────────────────────────────────────────────────────────────────
   local cycle0_dir="${BATS_TEST_TMPDIR}/continue-then-stop-cycle0"
@@ -381,5 +413,158 @@ teardown() {
   run_export_handler || eh_exit=$?
 
   # Assert: export-handler 종료 코드가 0일 것
+  [ "$eh_exit" -eq 0 ]
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 시나리오 6: planner-python-env
+#
+# 검증 항목:
+#   - Planner가 python-analysis 환경을 선택 → python-agent 이미지
+#   - Router 출력: false (stop)
+#   - Export Handler 종료 코드: 0
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@test "scenario: planner-python-env — planner selects python-analysis image" {
+  # Arrange
+  local yaml_file="${SCENARIOS_DIR}/planner-python-env.yaml"
+  [ -f "$yaml_file" ]
+
+  # docker compose up
+  compose_up
+  wait_mock_api
+  reset_mock_api
+
+  # Planner: mock LLM 환경을 python-analysis로 설정
+  configure_mock_llm_environment "python-analysis"
+  local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
+  run_planner_in_compose "데이터 분석 작업" "$planner_output"
+
+  # Assert: planner가 python-agent 이미지를 선택할 것
+  local planner_image
+  planner_image=$(cat "$planner_output" | tr -d '[:space:]')
+  [ "$planner_image" = "ghcr.io/dlddu/pure-agent/python-agent:latest" ]
+
+  # Cycle 0: fixture 배치
+  local cycle_dir="${BATS_TEST_TMPDIR}/planner-python-env-cycle0"
+  prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
+  place_fixtures_via_mock_agent "$cycle_dir"
+
+  # router 실행
+  local max_depth
+  max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
+  local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
+  run_gate_in_compose 0 "$max_depth" "$router_output"
+
+  # Assert: router가 "false" (stop)를 출력할 것
+  local decision
+  decision=$(cat "$router_output" | tr -d '[:space:]')
+  [ "$decision" = "false" ]
+
+  # export-handler 실행
+  local eh_exit=0
+  run_export_handler || eh_exit=$?
+  [ "$eh_exit" -eq 0 ]
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 시나리오 7: planner-infra-env
+#
+# 검증 항목:
+#   - Planner가 infra 환경을 선택 → infra-agent 이미지
+#   - Router 출력: false (stop)
+#   - Export Handler 종료 코드: 0
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@test "scenario: planner-infra-env — planner selects infra image" {
+  # Arrange
+  local yaml_file="${SCENARIOS_DIR}/planner-infra-env.yaml"
+  [ -f "$yaml_file" ]
+
+  # docker compose up
+  compose_up
+  wait_mock_api
+  reset_mock_api
+
+  # Planner: mock LLM 환경을 infra로 설정
+  configure_mock_llm_environment "infra"
+  local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
+  run_planner_in_compose "Kubernetes 배포 작업" "$planner_output"
+
+  # Assert: planner가 infra-agent 이미지를 선택할 것
+  local planner_image
+  planner_image=$(cat "$planner_output" | tr -d '[:space:]')
+  [ "$planner_image" = "ghcr.io/dlddu/pure-agent/infra-agent:latest" ]
+
+  # Cycle 0: fixture 배치
+  local cycle_dir="${BATS_TEST_TMPDIR}/planner-infra-env-cycle0"
+  prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
+  place_fixtures_via_mock_agent "$cycle_dir"
+
+  # router 실행
+  local max_depth
+  max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
+  local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
+  run_gate_in_compose 0 "$max_depth" "$router_output"
+
+  # Assert: router가 "false" (stop)를 출력할 것
+  local decision
+  decision=$(cat "$router_output" | tr -d '[:space:]')
+  [ "$decision" = "false" ]
+
+  # export-handler 실행
+  local eh_exit=0
+  run_export_handler || eh_exit=$?
+  [ "$eh_exit" -eq 0 ]
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 시나리오 8: planner-fallback
+#
+# 검증 항목:
+#   - 알 수 없는 environment_id → Planner가 default (claude-agent) 이미지로 fallback
+#   - Router 출력: false (stop)
+#   - Export Handler 종료 코드: 0
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@test "scenario: planner-fallback — unknown env falls back to default image" {
+  # Arrange
+  local yaml_file="${SCENARIOS_DIR}/planner-fallback.yaml"
+  [ -f "$yaml_file" ]
+
+  # docker compose up
+  compose_up
+  wait_mock_api
+  reset_mock_api
+
+  # Planner: mock LLM 환경을 unknown-env로 설정 (fallback 검증)
+  configure_mock_llm_environment "unknown-env"
+  local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
+  run_planner_in_compose "알 수 없는 작업" "$planner_output"
+
+  # Assert: planner가 default (claude-agent) 이미지로 fallback할 것
+  local planner_image
+  planner_image=$(cat "$planner_output" | tr -d '[:space:]')
+  [ "$planner_image" = "ghcr.io/dlddu/pure-agent/claude-agent:latest" ]
+
+  # Cycle 0: fixture 배치
+  local cycle_dir="${BATS_TEST_TMPDIR}/planner-fallback-cycle0"
+  prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
+  place_fixtures_via_mock_agent "$cycle_dir"
+
+  # router 실행
+  local max_depth
+  max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
+  local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
+  run_gate_in_compose 0 "$max_depth" "$router_output"
+
+  # Assert: router가 "false" (stop)를 출력할 것
+  local decision
+  decision=$(cat "$router_output" | tr -d '[:space:]')
+  [ "$decision" = "false" ]
+
+  # export-handler 실행
+  local eh_exit=0
+  run_export_handler || eh_exit=$?
   [ "$eh_exit" -eq 0 ]
 }

@@ -106,6 +106,9 @@ run_scenario() {
   local github_pr
   github_pr=$(yaml_get "$yaml_file" '.assertions.github_pr')
 
+  local planner_image
+  planner_image=$(yaml_get "$yaml_file" '.assertions.planner_image')
+
   # docker compose up (mock-api, gatekeeper)
   compose_up
   wait_mock_api
@@ -125,6 +128,22 @@ run_scenario() {
     if [[ -z "$cycle_max_depth" ]]; then
       cycle_max_depth="$max_depth"
     fi
+
+    # planner: mock LLM 환경 설정 + 실행
+    local env_id
+    env_id=$(yaml_get "$yaml_file" ".cycles[${cycle_index}].environment_id")
+    if [[ -n "$env_id" ]]; then
+      configure_mock_llm_environment "$env_id"
+    fi
+
+    local planner_output_file
+    planner_output_file=$(mktemp "/tmp/e2e-planner-output-XXXXXX")
+    run_planner_in_compose "test prompt" "$planner_output_file"
+
+    if [[ -n "$planner_image" ]]; then
+      assert_local_planner_image "$planner_image" "$planner_output_file"
+    fi
+    rm -f "$planner_output_file"
 
     # fixture 준비
     local cycle_dir

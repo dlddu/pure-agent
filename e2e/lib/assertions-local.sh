@@ -17,6 +17,37 @@
 
 set -euo pipefail
 
+# ── assert_local_planner_image ───────────────────────────────────────────────
+# planner가 선택한 이미지 검증
+#
+# Arguments:
+#   $1  expected_env_id       — 기대하는 environment_id (default, python-analysis, infra 등)
+#   $2  planner_output_file   — planner 출력 파일 경로
+#
+assert_local_planner_image() {
+  local expected_env_id="$1"
+  local planner_output_file="$2"
+
+  # environment_id → expected image 매핑
+  local expected_image
+  case "$expected_env_id" in
+    default)         expected_image="ghcr.io/dlddu/pure-agent/claude-agent:latest" ;;
+    python-analysis) expected_image="ghcr.io/dlddu/pure-agent/python-agent:latest" ;;
+    infra)           expected_image="ghcr.io/dlddu/pure-agent/infra-agent:latest" ;;
+    *)               expected_image="ghcr.io/dlddu/pure-agent/claude-agent:latest" ;;
+  esac
+
+  local actual
+  actual=$(cat "$planner_output_file" | tr -d '[:space:]')
+
+  if [[ "$expected_image" != "$actual" ]]; then
+    echo "FAIL assert_local_planner_image: expected '${expected_image}' (${expected_env_id}) but got '${actual}'" >&2
+    return 1
+  fi
+
+  log "assert_local_planner_image OK: ${actual}"
+}
+
 # ── assert_local_router_decision ─────────────────────────────────────────────
 # router 결정값 검증
 #
