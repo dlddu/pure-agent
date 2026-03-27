@@ -176,7 +176,7 @@ run_argo_workflow() {
   timeout "${WORKFLOW_TIMEOUT}s" \
     argo wait "$workflow_name" \
       -n "$NAMESPACE" \
-      --context "$KUBE_CONTEXT" || wait_exit=$?
+      --context "$KUBE_CONTEXT" >&2 || wait_exit=$?
 
   # Always fetch workflow status for diagnostics
   local workflow_output
