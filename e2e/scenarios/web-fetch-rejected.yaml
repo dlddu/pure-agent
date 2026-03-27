@@ -14,5 +14,5 @@ cycles:
 
 # ── 공유 assertions ──
 assertions:
-  router_decision: "stop"
+  gate_decision: "stop"
   export_handler_exit: 0

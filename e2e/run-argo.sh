@@ -345,7 +345,7 @@ _level2_verify_cycle() {
 
   # 3. mock-api 기반 assertion은 Level ②에서 skip
   # mock-agent는 HTTP 호출을 하지 않으므로 mock-api에 recorded call이 없음.
-  # router_decision은 assert_run_cycle_count / assert_workflow_succeeded로 간접 검증.
+  # gate_decision은 assert_run_cycle_count / assert_workflow_succeeded로 간접 검증.
   log "Skipping mock-api assertions (not applicable in Level 2 mock architecture)"
 
   log "Cycle ${cycle_index} verification passed"

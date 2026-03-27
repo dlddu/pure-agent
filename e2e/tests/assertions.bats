@@ -81,40 +81,40 @@ setup() {
   [[ "$output" == *"expected-string"* ]]
 }
 
-# ── assert_router_decision ────────────────────────────────────────────────────
+# ── assert_gate_decision ────────────────────────────────────────────────────
 
-@test "assert_router_decision: passes when router output file contains the expected decision" {
-  # Arrange — write a fake router output file
-  local router_output="$WORK_DIR/router_decision.txt"
-  echo "assign" > "$router_output"
-  export ROUTER_OUTPUT="$router_output"
+@test "assert_gate_decision: passes when gate output file contains the expected decision" {
+  # Arrange — write a fake gate output file
+  local gate_output="$WORK_DIR/gate_decision.txt"
+  echo "assign" > "$gate_output"
+  export GATE_OUTPUT="$gate_output"
 
-  run assert_router_decision "assign"
+  run assert_gate_decision "assign"
   [ "$status" -eq 0 ]
 }
 
-@test "assert_router_decision: fails when router output contains a different decision" {
-  local router_output="$WORK_DIR/router_decision.txt"
-  echo "skip" > "$router_output"
-  export ROUTER_OUTPUT="$router_output"
+@test "assert_gate_decision: fails when gate output contains a different decision" {
+  local gate_output="$WORK_DIR/gate_decision.txt"
+  echo "skip" > "$gate_output"
+  export GATE_OUTPUT="$gate_output"
 
-  run assert_router_decision "assign"
+  run assert_gate_decision "assign"
   [ "$status" -ne 0 ]
 }
 
-@test "assert_router_decision: fails when router output file is missing" {
-  export ROUTER_OUTPUT="$WORK_DIR/nonexistent_decision.txt"
+@test "assert_gate_decision: fails when gate output file is missing" {
+  export GATE_OUTPUT="$WORK_DIR/nonexistent_decision.txt"
 
-  run assert_router_decision "assign"
+  run assert_gate_decision "assign"
   [ "$status" -ne 0 ]
 }
 
-@test "assert_router_decision: failure output mentions expected and actual decision" {
-  local router_output="$WORK_DIR/router_decision.txt"
-  echo "skip" > "$router_output"
-  export ROUTER_OUTPUT="$router_output"
+@test "assert_gate_decision: failure output mentions expected and actual decision" {
+  local gate_output="$WORK_DIR/gate_decision.txt"
+  echo "skip" > "$gate_output"
+  export GATE_OUTPUT="$gate_output"
 
-  run assert_router_decision "assign"
+  run assert_gate_decision "assign"
   [[ "$output" == *"assign"* ]]
   [[ "$output" == *"skip"* ]]
 }

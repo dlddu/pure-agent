@@ -53,7 +53,7 @@ cycles:
       session_id: "mock-session-0"
     agent_result: "Cycle 0 done."
 assertions:
-  router_decision: "stop"
+  gate_decision: "stop"
   export_handler_exit: 0
 YAML
   echo "$yaml_file"
@@ -79,7 +79,7 @@ cycles:
       session_id: "mock-session-1"
     agent_result: "Cycle 1 done, stopping."
 assertions:
-  router_decisions:
+  gate_decisions:
     - "continue"
     - "stop"
 YAML
@@ -98,7 +98,7 @@ cycles:
   - export_config: null
     agent_result: "Depth limit reached"
 assertions:
-  router_decision: "stop"
+  gate_decision: "stop"
 YAML
   echo "$yaml_file"
 }

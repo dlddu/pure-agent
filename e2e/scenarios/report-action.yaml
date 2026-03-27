@@ -1,5 +1,5 @@
 name: report-action
-description: "Router stop → Export Handler가 Linear 코멘트 작성"
+description: "Gate stop → Export Handler가 Linear 코멘트 작성"
 level: [1, 2, 3]
 max_depth: 1
 
@@ -26,7 +26,7 @@ real:
 # ── 공유 assertions ──
 assertions:
   planner_image: "default"
-  router_decision: "stop"
+  gate_decision: "stop"
   export_handler_exit: 0
   linear_comment:
     body_contains: "분석 리포트"

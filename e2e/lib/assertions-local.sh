@@ -10,7 +10,7 @@
 #   count_gh_pr_create_calls()  — lib/compose.sh에서 제공
 #
 # Functions:
-#   assert_local_router_decision <expected> <router_output_file>
+#   assert_local_gate_decision <expected> <gate_output_file>
 #   assert_local_linear_comment <body_contains>
 #   assert_local_export_handler_exit <expected> <actual>
 #   assert_local_github_pr [expected]
@@ -48,27 +48,27 @@ assert_local_planner_image() {
   log "assert_local_planner_image OK: ${actual}"
 }
 
-# ── assert_local_router_decision ─────────────────────────────────────────────
-# router 결정값 검증
+# ── assert_local_gate_decision ───────────────────────────────────────────────
+# gate 결정값 검증
 #
 # Arguments:
 #   $1  expected            — "stop", "continue", "true", "false"
-#   $2  router_output_file  — router 출력 파일 경로
+#   $2  gate_output_file    — gate 출력 파일 경로
 #
-assert_local_router_decision() {
+assert_local_gate_decision() {
   local expected="$1"
-  local router_output_file="$2"
+  local gate_output_file="$2"
 
-  if [[ ! -f "$router_output_file" ]]; then
-    echo "FAIL assert_local_router_decision: router output file not found: $router_output_file" >&2
+  if [[ ! -f "$gate_output_file" ]]; then
+    echo "FAIL assert_local_gate_decision: gate output file not found: $gate_output_file" >&2
     return 1
   fi
 
   local actual
-  actual=$(cat "$router_output_file" | tr -d '[:space:]')
+  actual=$(cat "$gate_output_file" | tr -d '[:space:]')
 
-  # router는 "true" (continue) 또는 "false" (stop) 을 출력합니다.
-  # 시나리오 YAML의 router_decision 은 "stop"/"continue" 표기를 사용합니다.
+  # gate는 "true" (continue) 또는 "false" (stop) 을 출력합니다.
+  # 시나리오 YAML의 gate_decision 은 "stop"/"continue" 표기를 사용합니다.
   local expected_raw
   case "$expected" in
     stop)     expected_raw="false" ;;
@@ -78,11 +78,11 @@ assert_local_router_decision() {
   esac
 
   if [[ "$expected_raw" != "$actual" ]]; then
-    echo "FAIL assert_local_router_decision: expected '${expected_raw}' (${expected}) but got '${actual}'" >&2
+    echo "FAIL assert_local_gate_decision: expected '${expected_raw}' (${expected}) but got '${actual}'" >&2
     return 1
   fi
 
-  log "assert_local_router_decision OK: ${actual}"
+  log "assert_local_gate_decision OK: ${actual}"
 }
 
 # ── assert_local_linear_comment ──────────────────────────────────────────────

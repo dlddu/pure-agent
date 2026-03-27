@@ -48,12 +48,12 @@ teardown() {
 # 시나리오 1: none-action
 #
 # 검증 항목:
-#   - Router 출력: false (stop)
+#   - Gate 출력: false (stop)
 #   - Export Handler 종료 코드: 0
 #   - Linear 코멘트: 없음 (assertions.linear_comment 미정의)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@test "scenario: none-action — router outputs false, export-handler exits 0" {
+@test "scenario: none-action — gate outputs false, export-handler exits 0" {
   # Arrange
   local yaml_file="${SCENARIOS_DIR}/none-action.yaml"
   [ -f "$yaml_file" ]
@@ -76,15 +76,15 @@ teardown() {
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
 
-  # router 실행 (max_depth는 YAML에서 읽어옴)
+  # gate 실행 (max_depth는 YAML에서 읽어옴)
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
-  local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_gate_in_compose 0 "$max_depth" "$router_output"
+  local gate_output="${BATS_TEST_TMPDIR}/gate_decision.txt"
+  run_gate_in_compose 0 "$max_depth" "$gate_output"
 
-  # Assert: router가 "false" (stop)를 출력할 것
+  # Assert: gate가 "false" (stop)를 출력할 것
   local decision
-  decision=$(cat "$router_output" | tr -d '[:space:]')
+  decision=$(cat "$gate_output" | tr -d '[:space:]')
   [ "$decision" = "false" ]
 
   # export-handler 실행
@@ -108,12 +108,12 @@ teardown() {
 # 시나리오 2: report-action
 #
 # 검증 항목:
-#   - Router 출력: false (stop)
+#   - Gate 출력: false (stop)
 #   - Export Handler 종료 코드: 0
 #   - Linear 코멘트: "분석 리포트" 포함
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@test "scenario: report-action — router outputs false, linear comment contains report" {
+@test "scenario: report-action — gate outputs false, linear comment contains report" {
   # Arrange
   local yaml_file="${SCENARIOS_DIR}/report-action.yaml"
   [ -f "$yaml_file" ]
@@ -136,15 +136,15 @@ teardown() {
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
 
-  # router 실행 (max_depth는 YAML에서 읽어옴)
+  # gate 실행 (max_depth는 YAML에서 읽어옴)
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
-  local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_gate_in_compose 0 "$max_depth" "$router_output"
+  local gate_output="${BATS_TEST_TMPDIR}/gate_decision.txt"
+  run_gate_in_compose 0 "$max_depth" "$gate_output"
 
-  # Assert: router가 "false" (stop)를 출력할 것
+  # Assert: gate가 "false" (stop)를 출력할 것
   local decision
-  decision=$(cat "$router_output" | tr -d '[:space:]')
+  decision=$(cat "$gate_output" | tr -d '[:space:]')
   [ "$decision" = "false" ]
 
   # export-handler 실행
@@ -182,7 +182,7 @@ teardown() {
 # 시나리오 3: create-pr-action
 #
 # 검증 항목:
-#   - Router 출력: false (stop)
+#   - Gate 출력: false (stop)
 #   - Export Handler 종료 코드: 0
 #   - mock-gh 호출 기록: "gh pr create" 존재
 #   - Linear 코멘트: PR URL 포함
@@ -241,15 +241,15 @@ teardown() {
       chown -R node:node /work/repo /work/repo-remote.git /gh-calls
     '
 
-  # router 실행 (max_depth는 YAML에서 읽어옴)
+  # gate 실행 (max_depth는 YAML에서 읽어옴)
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
-  local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_gate_in_compose 0 "$max_depth" "$router_output"
+  local gate_output="${BATS_TEST_TMPDIR}/gate_decision.txt"
+  run_gate_in_compose 0 "$max_depth" "$gate_output"
 
-  # Assert: router가 "false" (stop)를 출력할 것
+  # Assert: gate가 "false" (stop)를 출력할 것
   local decision
-  decision=$(cat "$router_output" | tr -d '[:space:]')
+  decision=$(cat "$gate_output" | tr -d '[:space:]')
   [ "$decision" = "false" ]
 
   # export-handler 실행 (mock-gh를 PATH에 우선 배치)
@@ -281,14 +281,14 @@ teardown() {
 # 시나리오 4: continue-then-stop
 #
 # 검증 항목:
-#   - cycle-0: Router 출력: true (continue)
+#   - cycle-0: Gate 출력: true (continue)
 #   - cycle-0 완료 후: /work/export_config.json 이 갱신/삭제됨
-#   - cycle-1: Router 출력: false (stop)
+#   - cycle-1: Gate 출력: false (stop)
 #   - Export Handler 종료 코드: 0
 #   - Linear 코멘트: "작업 완료" 포함
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@test "scenario: continue-then-stop — cycle-0 router outputs true, cycle-1 outputs false" {
+@test "scenario: continue-then-stop — cycle-0 gate outputs true, cycle-1 outputs false" {
   # Arrange
   local yaml_file="${SCENARIOS_DIR}/continue-then-stop.yaml"
   [ -f "$yaml_file" ]
@@ -313,12 +313,12 @@ teardown() {
 
   local cycle0_max_depth
   cycle0_max_depth=$(yq eval '.cycles[0].max_depth // .max_depth // 5' "$yaml_file")
-  local router_output_0="${BATS_TEST_TMPDIR}/router_decision_0.txt"
-  run_gate_in_compose 0 "$cycle0_max_depth" "$router_output_0"
+  local gate_output_0="${BATS_TEST_TMPDIR}/gate_decision_0.txt"
+  run_gate_in_compose 0 "$cycle0_max_depth" "$gate_output_0"
 
-  # Assert cycle-0: router가 "true" (continue)를 출력할 것
+  # Assert cycle-0: gate가 "true" (continue)를 출력할 것
   local decision_0
-  decision_0=$(cat "$router_output_0" | tr -d '[:space:]')
+  decision_0=$(cat "$gate_output_0" | tr -d '[:space:]')
   [ "$decision_0" = "true" ]
 
   # cycle-0 export-handler 실행
@@ -341,12 +341,12 @@ teardown() {
 
   local cycle1_max_depth
   cycle1_max_depth=$(yq eval '.cycles[1].max_depth // .max_depth // 5' "$yaml_file")
-  local router_output_1="${BATS_TEST_TMPDIR}/router_decision_1.txt"
-  run_gate_in_compose 1 "$cycle1_max_depth" "$router_output_1"
+  local gate_output_1="${BATS_TEST_TMPDIR}/gate_decision_1.txt"
+  run_gate_in_compose 1 "$cycle1_max_depth" "$gate_output_1"
 
-  # Assert cycle-1: router가 "false" (stop)를 출력할 것
+  # Assert cycle-1: gate가 "false" (stop)를 출력할 것
   local decision_1
-  decision_1=$(cat "$router_output_1" | tr -d '[:space:]')
+  decision_1=$(cat "$gate_output_1" | tr -d '[:space:]')
   [ "$decision_1" = "false" ]
 
   # cycle-1 export-handler 실행
@@ -370,17 +370,17 @@ teardown() {
 # 시나리오 5: depth-limit
 #
 # 검증 항목:
-#   - Router 출력: false (stop) — depth >= max_depth - 1이므로 강제 종료
+#   - Gate 출력: false (stop) — depth >= max_depth - 1이므로 강제 종료
 #   - Export Handler 종료 코드: 0
 #
 # 참고: depth-limit 시나리오는 level: [2]에서만 정의 (Level 1에는 미포함)
-# Level ① 테스트에서는 max_depth=2, depth=1로 router가 stop을 반환하는지 확인
+# Level ① 테스트에서는 max_depth=2, depth=1로 gate가 stop을 반환하는지 확인
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@test "scenario: depth-limit — router outputs false when depth reaches max_depth" {
+@test "scenario: depth-limit — gate outputs false when depth reaches max_depth" {
   # Arrange
   # depth-limit는 level:[2]에서만 정의되지만, Level ① 테스트로서
-  # max_depth=2, depth=1 조합에서 router가 stop하는지 검증
+  # max_depth=2, depth=1 조합에서 gate가 stop하는지 검증
   local yaml_file="${SCENARIOS_DIR}/depth-limit.yaml"
   [ -f "$yaml_file" ]
 
@@ -398,14 +398,14 @@ teardown() {
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
 
-  # router를 depth=max_depth-1로 실행 (depth limit에 도달하는 상태)
+  # gate를 depth=max_depth-1로 실행 (depth limit에 도달하는 상태)
   local depth=$(( max_depth - 1 ))
-  local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_gate_in_compose "$depth" "$max_depth" "$router_output"
+  local gate_output="${BATS_TEST_TMPDIR}/gate_decision.txt"
+  run_gate_in_compose "$depth" "$max_depth" "$gate_output"
 
-  # Assert: router가 "false" (stop)를 출력할 것 (depth limit)
+  # Assert: gate가 "false" (stop)를 출력할 것 (depth limit)
   local decision
-  decision=$(cat "$router_output" | tr -d '[:space:]')
+  decision=$(cat "$gate_output" | tr -d '[:space:]')
   [ "$decision" = "false" ]
 
   # export-handler 실행
@@ -421,7 +421,7 @@ teardown() {
 #
 # 검증 항목:
 #   - Planner가 python-analysis 환경을 선택 → python-agent 이미지
-#   - Router 출력: false (stop)
+#   - Gate 출력: false (stop)
 #   - Export Handler 종료 코드: 0
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -450,15 +450,15 @@ teardown() {
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
 
-  # router 실행
+  # gate 실행
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
-  local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_gate_in_compose 0 "$max_depth" "$router_output"
+  local gate_output="${BATS_TEST_TMPDIR}/gate_decision.txt"
+  run_gate_in_compose 0 "$max_depth" "$gate_output"
 
-  # Assert: router가 "false" (stop)를 출력할 것
+  # Assert: gate가 "false" (stop)를 출력할 것
   local decision
-  decision=$(cat "$router_output" | tr -d '[:space:]')
+  decision=$(cat "$gate_output" | tr -d '[:space:]')
   [ "$decision" = "false" ]
 
   # export-handler 실행
@@ -472,7 +472,7 @@ teardown() {
 #
 # 검증 항목:
 #   - Planner가 infra 환경을 선택 → infra-agent 이미지
-#   - Router 출력: false (stop)
+#   - Gate 출력: false (stop)
 #   - Export Handler 종료 코드: 0
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -501,15 +501,15 @@ teardown() {
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
 
-  # router 실행
+  # gate 실행
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
-  local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_gate_in_compose 0 "$max_depth" "$router_output"
+  local gate_output="${BATS_TEST_TMPDIR}/gate_decision.txt"
+  run_gate_in_compose 0 "$max_depth" "$gate_output"
 
-  # Assert: router가 "false" (stop)를 출력할 것
+  # Assert: gate가 "false" (stop)를 출력할 것
   local decision
-  decision=$(cat "$router_output" | tr -d '[:space:]')
+  decision=$(cat "$gate_output" | tr -d '[:space:]')
   [ "$decision" = "false" ]
 
   # export-handler 실행
@@ -523,7 +523,7 @@ teardown() {
 #
 # 검증 항목:
 #   - 알 수 없는 environment_id → Planner가 default (claude-agent) 이미지로 fallback
-#   - Router 출력: false (stop)
+#   - Gate 출력: false (stop)
 #   - Export Handler 종료 코드: 0
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -552,15 +552,15 @@ teardown() {
   prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
   place_fixtures_via_mock_agent "$cycle_dir"
 
-  # router 실행
+  # gate 실행
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
-  local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_gate_in_compose 0 "$max_depth" "$router_output"
+  local gate_output="${BATS_TEST_TMPDIR}/gate_decision.txt"
+  run_gate_in_compose 0 "$max_depth" "$gate_output"
 
-  # Assert: router가 "false" (stop)를 출력할 것
+  # Assert: gate가 "false" (stop)를 출력할 것
   local decision
-  decision=$(cat "$router_output" | tr -d '[:space:]')
+  decision=$(cat "$gate_output" | tr -d '[:space:]')
   [ "$decision" = "false" ]
 
   # export-handler 실행

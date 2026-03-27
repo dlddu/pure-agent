@@ -1,5 +1,5 @@
 name: none-action
-description: "actions: [\"none\"] → Router stop, Export Handler는 Linear 코멘트만 작성"
+description: "actions: [\"none\"] → Gate stop, Export Handler는 Linear 코멘트만 작성"
 level: [1, 2, 3]
 max_depth: 1
 
@@ -25,5 +25,5 @@ real:
 # ── 공유 assertions ──
 assertions:
   planner_image: "default"
-  router_decision: "stop"
+  gate_decision: "stop"
   export_handler_exit: 0
