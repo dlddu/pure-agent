@@ -320,6 +320,33 @@ assert_planner_image() {
     return 1
   fi
 
+  # raw_environment_id 디버깅 (LLM이 실제 반환한 값 vs fallback 확인)
+  local raw_env_id
+  raw_env_id=$(echo "$wf_json" \
+    | jq -r '
+        [.status.nodes // {} | to_entries[] | .value
+         | select(.templateName == "planner" and .type == "Pod")]
+        | first
+        | .outputs.parameters // []
+        | map(select(.name == "raw_environment_id")) | first
+        | .value // ""
+      ' 2>/dev/null \
+    | tr -d '[:space:]')
+  _argo_assert_log "DEBUG planner raw_environment_id='$raw_env_id' agent_image='$actual_image'"
+
+  # planner pod 로그 출력
+  local planner_pod
+  planner_pod=$(echo "$wf_json" \
+    | jq -r '
+        [.status.nodes // {} | to_entries[] | .value
+         | select(.templateName == "planner" and .type == "Pod")]
+        | first | .id // ""
+      ' 2>/dev/null)
+  if [[ -n "$planner_pod" ]]; then
+    _argo_assert_log "DEBUG planner pod logs:"
+    kubectl logs "$planner_pod" -n "$namespace" --context "$kube_context" -c main 2>&1 | tail -20 >&2 || true
+  fi
+
   if [[ "$expected_image" != "$actual_image" ]]; then
     _argo_assert_fail "assert_planner_image: expected '$expected_image' ($expected_env_id) but got '$actual_image'"
     return 1
