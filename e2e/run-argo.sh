@@ -82,19 +82,6 @@ else
   GITHUB_TEST_REPO="${GITHUB_TEST_REPO:?GITHUB_TEST_REPO is not set}"
 fi
 
-# ── mock-api LLM 환경 설정 (Level ②) ────────────────────────────────────────
-# mock-api의 /v1/messages/configure 엔드포인트를 호출하여 planner가 반환할 환경을 설정합니다.
-configure_mock_api_llm_environment() {
-  local env_id="$1"
-  kubectl exec deploy/mock-api \
-    -n "$NAMESPACE" \
-    --context "$KUBE_CONTEXT" \
-    -- wget -qO- --post-data="{\"environment_id\":\"${env_id}\"}" \
-    --header="Content-Type: application/json" \
-    "http://localhost:4000/v1/messages/configure" >/dev/null
-  log "Configured mock-api LLM environment: ${env_id}"
-}
-
 # ── Prerequisites check ──────────────────────────────────────────────────────
 check_prerequisites() {
   if [[ "${LEVEL}" == "2" ]]; then
@@ -233,6 +220,7 @@ run_argo_workflow() {
 #   $2  cycle_index    — cycle 인덱스
 #   $3  max_depth      — 최대 depth (기본값: 5)
 #   $4  scenario_dir   — fixture 파일 디렉토리
+#   $5  env_id         — environment_id (mock-planner가 prompt에서 파싱)
 #
 # 출력: workflow name
 #
@@ -241,6 +229,7 @@ _level2_submit_mock_workflow() {
   local cycle_index="$2"
   local max_depth="${3:-5}"
   local scenario_dir="$4"
+  local env_id="${5:-default}"
 
   local cm_name="mock-scenario-${scenario_name}-cycle${cycle_index}-$$"
   local cm_name_safe
@@ -283,7 +272,7 @@ _level2_submit_mock_workflow() {
     -n "$NAMESPACE" \
     --context "$KUBE_CONTEXT" \
     -p max_depth="$max_depth" \
-    -p prompt="[mock] scenario=${scenario_name} cycle=${cycle_index}" \
+    -p prompt="[mock] scenario=${scenario_name} cycle=${cycle_index} env=${env_id}" \
     -p mock_api_url="$MOCK_API_URL" \
     -p scenario_configmap="$cm_name_safe" \
     --output json 2>&1) || {
@@ -398,12 +387,9 @@ run_scenario_level2() {
     local cycle_dir
     cycle_dir=$(mktemp -d "/tmp/e2e-level2-${scenario_name}-cycle${cycle_index}-XXXXXX")
 
-    # mock LLM 환경 설정 (planner가 올바른 이미지를 선택하도록)
+    # environment_id 읽기 (mock-planner가 prompt에서 파싱)
     local env_id
     env_id=$(yaml_get "$yaml_file" ".cycles[${cycle_index}].environment_id")
-    if [[ -n "$env_id" ]]; then
-      configure_mock_api_llm_environment "$env_id"
-    fi
 
     # cycle fixtures 배치
     prepare_cycle_fixtures "$yaml_file" "$cycle_index" "$cycle_dir"
@@ -411,7 +397,7 @@ run_scenario_level2() {
     # mock Argo Workflow 제출 + 완료 대기
     local workflow_name
     workflow_name=$(_level2_submit_mock_workflow \
-      "$scenario_name" "$cycle_index" "$cycle_max_depth" "$cycle_dir")
+      "$scenario_name" "$cycle_index" "$cycle_max_depth" "$cycle_dir" "$env_id")
 
     all_workflow_names+=("$workflow_name")
 
