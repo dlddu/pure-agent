@@ -99,6 +99,7 @@ def select_image_via_llm(
             result = json.loads(resp.read().decode())
 
         text = result.get("content", [{}])[0].get("text", "")
+        logger.info("LLM response text: %s", text[:200])
         parsed = json.loads(text)
         raw_id = parsed.get("environment_id")
         logger.info("LLM raw response: environment_id=%s", raw_id)
@@ -112,6 +113,14 @@ def select_image_via_llm(
         logger.info("LLM selected environment: %s -> %s", env_id, image)
         return image, raw_id
 
+    except urllib.error.HTTPError as exc:
+        err_body = ""
+        try:
+            err_body = exc.read().decode()[:300]
+        except Exception:
+            pass
+        logger.warning("LLM HTTP %d: %s", exc.code, err_body)
+        return resolve_image(DEFAULT_ENVIRONMENT_ID), f"HTTP_{exc.code}"
     except (urllib.error.URLError, json.JSONDecodeError, KeyError, TypeError) as exc:
-        logger.warning("LLM image selection failed (%s), falling back to default", exc)
-        return resolve_image(DEFAULT_ENVIRONMENT_ID), None
+        logger.warning("LLM image selection failed (%s: %s), falling back to default", type(exc).__name__, exc)
+        return resolve_image(DEFAULT_ENVIRONMENT_ID), f"ERR_{type(exc).__name__}"

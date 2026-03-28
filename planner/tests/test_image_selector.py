@@ -10,7 +10,8 @@ from planner.image_selector import select_image_via_llm
 class TestSelectImageViaLlm:
     def test_fallback_when_no_base_url(self):
         """Without ANTHROPIC_BASE_URL, falls back to default."""
-        image, raw_id = select_image_via_llm("some task", anthropic_base_url="", api_key="test")
+        with patch.dict("os.environ", {"ANTHROPIC_BASE_URL": ""}, clear=False):
+            image, raw_id = select_image_via_llm("some task", anthropic_base_url="", api_key="test")
         assert image == ENVIRONMENT_MAP[DEFAULT_ENVIRONMENT_ID].image
         assert raw_id is None
 
@@ -22,7 +23,7 @@ class TestSelectImageViaLlm:
             api_key="test",
         )
         assert image == ENVIRONMENT_MAP[DEFAULT_ENVIRONMENT_ID].image
-        assert raw_id is None
+        assert raw_id is not None  # contains error info (e.g. "ERR_URLError")
 
     def test_selects_python_environment(self):
         """When LLM returns python-analysis, resolves to python image."""
@@ -106,4 +107,4 @@ class TestSelectImageViaLlm:
                 "something", anthropic_base_url="http://fake", api_key="test"
             )
         assert image == ENVIRONMENT_MAP[DEFAULT_ENVIRONMENT_ID].image
-        assert raw_id is None
+        assert raw_id is not None  # contains error info (e.g. "ERR_JSONDecodeError")
