@@ -21,12 +21,12 @@ class TestShouldContinue:
     @pytest.mark.parametrize(
         "depth, max_depth, expected, expected_reason",
         [
-            (0, 1, False, "depth limit (0/1)"),
-            (3, 5, True, "no export_config, continuing"),
-            (4, 5, False, "depth limit (4/5)"),
-            (5, 5, False, "depth limit (5/5)"),
-            (0, 10, True, "no export_config, continuing"),
-            (9, 10, False, "depth limit (9/10)"),
+            (0, 1, False, "depth limit (0/1)"),  # minimum valid max_depth -> stop immediately
+            (3, 5, True, "no export_config, continuing"),  # one below boundary -> continue
+            (4, 5, False, "depth limit (4/5)"),  # at boundary -> stop
+            (5, 5, False, "depth limit (5/5)"),  # past boundary -> stop
+            (0, 10, True, "no export_config, continuing"),  # well under limit -> continue
+            (9, 10, False, "depth limit (9/10)"),  # at boundary with different max -> stop
         ],
     )
     def test_depth_boundary(self, config, depth, max_depth, expected, expected_reason):
