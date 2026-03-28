@@ -32,3 +32,9 @@ class TestEntryPoint:
         assert result.returncode == 0
         assert (work_env / "output.txt").read_text() == "false\n"
         assert "decision=STOP" in result.stderr
+
+    def test_script_exits_2_on_invalid_args(self, work_env):
+        """Subprocess exits 2 when required args are missing."""
+        result = run_subprocess(work_env)
+        assert result.returncode == 2
+        assert not (work_env / "output.txt").exists()
