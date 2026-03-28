@@ -39,7 +39,9 @@ def _build_system_prompt() -> str:
     env_lines = []
     for env in ENVIRONMENTS:
         caps = ", ".join(env.capabilities)
-        env_lines.append(f'- id: "{env.id}" | {env.description} | capabilities: [{caps}]')
+        env_lines.append(
+            f'- id: "{env.id}" | {env.description} | capabilities: [{caps}]'
+        )
     return _SYSTEM_PROMPT.format(environments="\n".join(env_lines))
 
 
@@ -71,7 +73,9 @@ def select_image_via_llm(
     )
 
     if not base_url:
-        logger.warning("ANTHROPIC_BASE_URL not set, falling back to default environment")
+        logger.warning(
+            "ANTHROPIC_BASE_URL not set, falling back to default environment"
+        )
         return resolve_image(DEFAULT_ENVIRONMENT_ID), None
 
     url = f"{base_url.rstrip('/')}/v1/messages"
@@ -106,7 +110,9 @@ def select_image_via_llm(
         env_id = raw_id or DEFAULT_ENVIRONMENT_ID
 
         if env_id not in ENVIRONMENT_MAP:
-            logger.warning("LLM returned unknown environment '%s', using default", env_id)
+            logger.warning(
+                "LLM returned unknown environment '%s', using default", env_id
+            )
             env_id = DEFAULT_ENVIRONMENT_ID
 
         image = resolve_image(env_id)
@@ -124,6 +130,7 @@ def select_image_via_llm(
     except (urllib.error.URLError, json.JSONDecodeError, KeyError, TypeError) as exc:
         logger.warning(
             "LLM image selection failed (%s: %s), falling back to default",
-            type(exc).__name__, exc,
+            type(exc).__name__,
+            exc,
         )
         return resolve_image(DEFAULT_ENVIRONMENT_ID), f"ERR_{type(exc).__name__}"
