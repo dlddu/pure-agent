@@ -251,6 +251,9 @@ spec:
           - name: raw_environment_id
             valueFrom:
               path: /tmp/raw_environment_id.txt
+          - name: planner_stderr
+            valueFrom:
+              path: /tmp/planner_stderr.txt
       container:
         image: ghcr.io/dlddu/pure-agent/planner:latest
         command: ["/bin/sh", "-c"]
@@ -260,7 +263,9 @@ spec:
               --prompt "$PROMPT" \
               --output /tmp/agent_image.txt \
               --raw-id-output /tmp/raw_environment_id.txt \
+              2>/tmp/planner_stderr.txt \
             || { echo "ghcr.io/dlddu/pure-agent/claude-agent:latest" > /tmp/agent_image.txt; echo "" > /tmp/raw_environment_id.txt; }
+            cat /tmp/planner_stderr.txt >&2
         env:
           - name: PROMPT
             value: "{{inputs.parameters.prompt}}"
