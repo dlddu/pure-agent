@@ -100,23 +100,11 @@ jobs:
           service: e2e/mock-api
           push: "false"
 
-      - name: Build planner image
-        uses: ./.github/actions/build-image
-        with:
-          service: planner
-          push: "false"
-
-      - name: Build gate image
-        uses: ./.github/actions/build-image
-        with:
-          service: gate
-          push: "false"
-
-      - name: Load images into kind cluster
+      - name: Load mock images into kind cluster
         run: |
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME" \
-            --images "${MOCK_AGENT_IMAGE},${MOCK_API_IMAGE},ghcr.io/dlddu/pure-agent/planner:latest,ghcr.io/dlddu/pure-agent/gate:latest"
+            --images "${MOCK_AGENT_IMAGE},${MOCK_API_IMAGE}"
 
       # ── Kubernetes namespace setup ────────────────────────────────────────
       - name: Create namespace for pure-agent (Level 2)
@@ -257,12 +245,12 @@ jobs:
           yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.volumeMounts) += [{"name": "scenario-data", "mountPath": "/scenario", "readOnly": true}]' \
             /tmp/workflow-template-level2.yaml
 
-          # ── planner 패치: 실제 planner 이미지 사용 + mock-api LLM 엔드포인트 ──
-          # planner를 mock-api의 /v1/messages 엔드포인트로 향하게 하여
-          # 시나리오별 environment_id를 반환받도록 합니다.
-          yq -i '(.spec.templates[] | select(.name == "planner") | .container.env) += [{"name": "ANTHROPIC_BASE_URL", "value": "http://mock-api.'"${PURE_AGENT_NAMESPACE}"'.svc.cluster.local:4000"}]' \
+          # ── mock-planner 패치 ─────────────────────────────────────────────
+          # 실제 planner 바이너리 대신 alpine 셸 스크립트로 교체.
+          # prompt에서 "env=<id>"를 파싱하여 environment_id → agent image로 매핑합니다.
+          yq -i '(.spec.templates[] | select(.name == "planner") | .container.image) = "alpine:3.20"' \
             /tmp/workflow-template-level2.yaml
-          yq -i '(.spec.templates[] | select(.name == "planner") | .container.env) += [{"name": "ANTHROPIC_API_KEY", "value": "mock-api-key"}]' \
+          yq -i '(.spec.templates[] | select(.name == "planner") | .container.args) = ["ENV_ID=$(echo \"$PROMPT\" | grep -oE \"env=[^ ]+\" | cut -d= -f2); ENV_ID=${ENV_ID:-default}; echo \"[mock-planner] environment_id=$ENV_ID\" >&2; case \"$ENV_ID\" in python-analysis) IMG=ghcr.io/dlddu/pure-agent/python-agent:latest ;; infra) IMG=ghcr.io/dlddu/pure-agent/infra-agent:latest ;; *) IMG=ghcr.io/dlddu/pure-agent/claude-agent:latest ;; esac; echo \"$IMG\" > /tmp/agent_image.txt; echo \"$ENV_ID\" > /tmp/raw_environment_id.txt; echo \"[mock-planner] selected: $IMG\" >&2"]' \
             /tmp/workflow-template-level2.yaml
 
           # ── mock-gate 패치 ──────────────────────────────────────────────
