@@ -270,7 +270,7 @@ spec:
             valueFrom:
               secretKeyRef:
                 name: planner-secrets
-                key: ANTHROPIC_API_KEY
+                key: CLAUDE_CODE_OAUTH_TOKEN
 
     # =============================
     # Agent Job
