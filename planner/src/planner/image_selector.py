@@ -18,20 +18,19 @@ from planner.environments import (
 logger = logging.getLogger("planner")
 
 _SYSTEM_PROMPT = """\
-You are a routing assistant that selects the best execution environment for an AI agent task.
+You are a routing assistant. Select the best execution environment for the given task.
 
 Available environments:
 {environments}
 
-Analyze the task description and select the most appropriate environment.
-Respond with ONLY a JSON object: {{"environment_id": "<id>"}}
+Rules (apply in order):
+1. "infra" — if the task involves ANY of: Kubernetes, kubectl, Helm, Terraform, \
+Docker, AWS/GCP/Azure CLI, cloud infrastructure, deployment pipelines, or server management.
+2. "python-analysis" — if the task involves ANY of: pandas, numpy, matplotlib, seaborn, \
+data analysis, CSV/Excel processing, statistical computation, visualization, or ML/AI.
+3. "default" — for everything else (general coding, code review, documentation, git).
 
-Selection guidelines:
-- "default": General coding, code review, documentation, git operations
-- "python-analysis": Data analysis, visualization, pandas/numpy, ML/AI
-- "infra": Kubernetes, infrastructure, kubectl, Helm, AWS/cloud, deploy
-
-If uncertain, choose "default"."""
+Respond with ONLY: {{"environment_id": "<id>"}}"""
 
 
 def _build_system_prompt() -> str:
