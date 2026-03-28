@@ -17,9 +17,16 @@
 │  │         │                         │                     │  │
 │  └─────────┼─────────────────────────┼─────────────────────┘  │
 │            │ MCP 도구 호출            │ LLM API 호출          │
-│  ┌─────────┴─────────────────────────┴─────────────────────┐  │
-│  │                   Claude Agent                          │  │
-│  └─────────────────────────┬───────────────────────────────┘  │
+│            │                         │                     │  │
+│  ┌─────────┼─────────────────────────┴─────────────────────┐  │
+│  │         │            Planner                            │  │
+│  │         │    (LLM 기반 실행 환경 선택)                     │  │
+│  └─────────┼───────────────┬───────────────────────────────┘  │
+│            │               │ 선택된 이미지                     │
+│            │               ▼                                  │
+│  ┌─────────┴─────────────────────────────────────────────┐    │
+│  │                   Claude Agent                        │    │
+│  └─────────────────────────┬─────────────────────────────┘    │
 │                            │                                  │
 │                            ▼                                  │
 │  ┌─────────────────────────────────────────────────────────┐  │
@@ -27,7 +34,7 @@
 │  │              (계속 / 종료 판단)                            │  │
 │  └──────────────────────┬──────────────────────────────────┘  │
 │                         │                                     │
-│                         ▼ depth < max_depth 이면 Agent로 복귀  │
+│                         ▼ depth < max_depth 이면 Planner로 복귀│
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -66,7 +73,21 @@ Model Context Protocol HTTP 서버. Agent가 사용할 도구를 제공한다.
 - **도구 레지스트리**: 플러그인 방식의 도구 등록/조회 시스템 (`McpTool` 인터페이스 기반)
 - **Health/Readiness 프로브**: Kubernetes 헬스체크 지원
 
-### 5. Export 시스템
+### 5. Planner
+
+LLM 기반 에이전트 실행 환경 선택기. 각 사이클마다 태스크 프롬프트를 분석하여 최적의 컨테이너 이미지를 선택한다.
+
+- **LLM 기반 라우팅**: Claude Haiku 모델이 태스크를 분석하여 적합한 환경을 자동 선택
+- **사전 정의 환경**:
+  | 환경 ID | 이미지 | 용도 |
+  |---------|--------|------|
+  | `default` | `claude-agent` | 일반 코딩, 코드 리뷰, 문서 작업, git 작업 |
+  | `python-analysis` | `python-agent` | 데이터 분석, 시각화, pandas/numpy, ML/AI |
+  | `infra` | `infra-agent` | Kubernetes, 인프라 관리, kubectl, Helm, AWS |
+- **Fallback**: LLM Gateway 연결 실패, 응답 파싱 실패, 알 수 없는 환경 ID 반환 시 모두 `default` 환경으로 자동 전환
+- **CLI**: `planner --prompt "태스크 설명" --output /tmp/agent_image.txt`
+
+### 6. Export 시스템
 
 Agent 작업 결과를 외부로 내보내는 파이프라인. Agent가 `set_export_config`를 호출하면 Gate가 종료를 판단하고, Export Handler가 설정에 따라 후처리를 실행한다.
 
@@ -81,6 +102,7 @@ Agent 작업 결과를 외부로 내보내는 파이프라인. Agent가 `set_exp
 | LLM Gateway | nginx (리버스 프록시) |
 | MCP Server | Node.js 22 (>=20), TypeScript, Express, MCP SDK, Zod |
 | Export Handler | Node.js 22 (>=20), TypeScript, Linear SDK, Zod, GitHub CLI |
+| Planner | Python 3.12, Anthropic API (Claude Haiku) |
 | Gate | Python 3.12 |
 | AI | Claude Code CLI, Anthropic API |
 | 테스트 | Vitest, pytest, Supertest |
