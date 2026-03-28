@@ -122,5 +122,8 @@ def select_image_via_llm(
         logger.warning("LLM HTTP %d: %s", exc.code, err_body)
         return resolve_image(DEFAULT_ENVIRONMENT_ID), f"HTTP_{exc.code}"
     except (urllib.error.URLError, json.JSONDecodeError, KeyError, TypeError) as exc:
-        logger.warning("LLM image selection failed (%s: %s), falling back to default", type(exc).__name__, exc)
+        logger.warning(
+            "LLM image selection failed (%s: %s), falling back to default",
+            type(exc).__name__, exc,
+        )
         return resolve_image(DEFAULT_ENVIRONMENT_ID), f"ERR_{type(exc).__name__}"
