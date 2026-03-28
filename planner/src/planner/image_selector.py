@@ -63,6 +63,13 @@ def select_image_via_llm(
     base_url = anthropic_base_url or os.environ.get("ANTHROPIC_BASE_URL", "")
     key = api_key or os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
 
+    logger.info(
+        "select_image_via_llm: base_url=%s key_prefix=%s key_len=%d",
+        base_url[:40] if base_url else "(empty)",
+        key[:8] if key else "(empty)",
+        len(key),
+    )
+
     if not base_url:
         logger.warning("ANTHROPIC_BASE_URL not set, falling back to default environment")
         return resolve_image(DEFAULT_ENVIRONMENT_ID), None
