@@ -72,11 +72,11 @@ def select_image_via_llm(
         "Content-Type": "application/json",
         "anthropic-version": "2023-06-01",
     }
-    # OAuth tokens (oat-* prefix) use Bearer auth; API keys use x-api-key header.
-    if key.startswith("oat-"):
-        headers["Authorization"] = f"Bearer {key}"
-    else:
+    # API keys (sk-ant-* prefix) use x-api-key header; all others use Bearer auth.
+    if key.startswith("sk-ant-"):
         headers["x-api-key"] = key
+    else:
+        headers["Authorization"] = f"Bearer {key}"
     body = json.dumps(
         {
             "model": "claude-haiku-4-5-20251001",
