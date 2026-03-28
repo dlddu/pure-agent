@@ -254,6 +254,7 @@ spec:
           - name: planner_stderr
             valueFrom:
               path: /tmp/planner_stderr.txt
+              default: ""
       container:
         image: ghcr.io/dlddu/pure-agent/planner:latest
         command: ["/bin/sh", "-c"]
