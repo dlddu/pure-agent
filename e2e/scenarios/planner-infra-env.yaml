@@ -17,7 +17,7 @@ cycles:
 # ── Level 3: real API 실행 설정 ──
 real:
   max_depth: 5
-  prompt: "kubectl을 사용하여 Kubernetes 클러스터에 nginx deployment를 배포하고, helm chart로 모니터링 스택을 설치한 뒤, AWS CLI로 Route53 DNS 레코드를 업데이트해주세요."
+  prompt: "Kubernetes 클러스터에 nginx 디플로이먼트를 배포하고 서비스를 생성해주세요. kubectl을 사용하여 인프라 작업을 수행하세요."
   setup: []
   verify: [planner_exact_image]
   teardown: []

@@ -17,7 +17,7 @@ cycles:
 # ── Level 3: real API 실행 설정 ──
 real:
   max_depth: 5
-  prompt: "pandas로 CSV 데이터를 로드하여 numpy 통계 분석을 수행하고, matplotlib과 seaborn으로 시각화 차트를 생성해주세요."
+  prompt: "pandas와 matplotlib를 사용하여 CSV 데이터를 분석하고 시각화 리포트를 생성해주세요. Python 데이터 분석 환경이 필요합니다."
   setup: []
   verify: [planner_exact_image]
   teardown: []
