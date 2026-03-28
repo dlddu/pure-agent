@@ -85,11 +85,11 @@ teardown() {
   jwt_token=$(gatekeeper_login "e2e-test-user" "e2e-test-password")
   [ -n "$jwt_token" ]
 
-  # mock-agent가 web_fetch를 호출하도록 router 실행
+  # mock-agent가 web_fetch를 호출하도록 gate 실행
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
-  local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_gate_in_compose 0 "$max_depth" "$router_output"
+  local gate_output="${BATS_TEST_TMPDIR}/gate_decision.txt"
+  run_gate_in_compose 0 "$max_depth" "$gate_output"
 
   # Gatekeeper PENDING 요청 조회
   local pending_json
@@ -110,9 +110,9 @@ teardown() {
   # Assert: export-handler 정상 종료 (web_fetch 성공)
   [ "$eh_exit" -eq 0 ]
 
-  # Assert: router 결정이 stop
+  # Assert: gate 결정이 stop
   local decision
-  decision=$(cat "$router_output" | tr -d '[:space:]')
+  decision=$(cat "$gate_output" | tr -d '[:space:]')
   [ "$decision" = "false" ]
 }
 
@@ -147,11 +147,11 @@ teardown() {
   jwt_token=$(gatekeeper_login "e2e-test-user" "e2e-test-password")
   [ -n "$jwt_token" ]
 
-  # mock-agent가 web_fetch를 호출하도록 router 실행
+  # mock-agent가 web_fetch를 호출하도록 gate 실행
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
-  local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_gate_in_compose 0 "$max_depth" "$router_output"
+  local gate_output="${BATS_TEST_TMPDIR}/gate_decision.txt"
+  run_gate_in_compose 0 "$max_depth" "$gate_output"
 
   # Gatekeeper PENDING 요청 조회
   local pending_json
@@ -209,11 +209,11 @@ teardown() {
   jwt_token=$(gatekeeper_login "e2e-test-user" "e2e-test-password")
   [ -n "$jwt_token" ]
 
-  # mock-agent가 web_fetch를 호출하도록 router 실행
+  # mock-agent가 web_fetch를 호출하도록 gate 실행
   local max_depth
   max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
-  local router_output="${BATS_TEST_TMPDIR}/router_decision.txt"
-  run_gate_in_compose 0 "$max_depth" "$router_output"
+  local gate_output="${BATS_TEST_TMPDIR}/gate_decision.txt"
+  run_gate_in_compose 0 "$max_depth" "$gate_output"
 
   # 승인 처리 없이 timeoutSeconds 이상 대기하여 요청이 만료되도록 함
   # (WEB_FETCH_TIMEOUT_SECONDS=1 이므로 2초 대기)

@@ -165,9 +165,9 @@ jobs:
               --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$CLAUDE_CODE_OAUTH_TOKEN" \
               --dry-run=client -o yaml | kubectl apply -f -
 
-          # router-secrets
+          # gate-secrets
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
-            create secret generic router-secrets \
+            create secret generic gate-secrets \
               --from-literal=AWS_S3_BUCKET_NAME="e2e-test-bucket" \
               --dry-run=client -o yaml | kubectl apply -f -
 

@@ -31,6 +31,6 @@ real:
 # ── 공유 assertions ──
 assertions:
   planner_image: "default"
-  router_decision: "stop"
+  gate_decision: "stop"
   export_handler_exit: 0
   github_pr: true

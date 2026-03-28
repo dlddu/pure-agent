@@ -362,7 +362,7 @@ spec:
           - name: AWS_S3_BUCKET_NAME
             valueFrom:
               secretKeyRef:
-                name: router-secrets
+                name: gate-secrets
                 key: AWS_S3_BUCKET_NAME
           - name: AWS_REGION
             value: "ap-northeast-2"
