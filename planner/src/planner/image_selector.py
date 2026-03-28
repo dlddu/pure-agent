@@ -61,7 +61,7 @@ def select_image_via_llm(
         returned by the LLM before any fallback (None if LLM was not called).
     """
     base_url = anthropic_base_url or os.environ.get("ANTHROPIC_BASE_URL", "")
-    key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+    key = api_key or os.environ.get("CLAUDE_CODE_OAUTH_TOKEN", "")
 
     if not base_url:
         logger.warning("ANTHROPIC_BASE_URL not set, falling back to default environment")

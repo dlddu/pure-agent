@@ -89,7 +89,7 @@ services:
       dockerfile: planner/Dockerfile
     environment:
       ANTHROPIC_BASE_URL: "http://mock-api:4000"
-      ANTHROPIC_API_KEY: "mock-api-key"
+      CLAUDE_CODE_OAUTH_TOKEN: "mock-api-key"
     volumes:
       - work:/work
     networks:
