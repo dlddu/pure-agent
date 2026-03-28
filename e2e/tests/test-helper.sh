@@ -54,6 +54,18 @@ load_gatekeeper() {
   source "$LIB_DIR/gatekeeper.sh" --source-only
 }
 
+# Source mock-api.sh (mock-api helpers: wait_mock_api, reset_mock_api, configure_mock_llm_environment).
+load_mock_api() {
+  # shellcheck disable=SC1090
+  source "$LIB_DIR/mock-api.sh"
+}
+
+# Source mock-gh.sh (mock-gh helpers: count_gh_pr_create_calls, setup_mock_git_repo).
+load_mock_gh() {
+  # shellcheck disable=SC1090
+  source "$LIB_DIR/mock-gh.sh"
+}
+
 # Source common.sh (shared helpers: yaml_get, discover_scenarios, prepare_cycle_fixtures).
 load_common() {
   # shellcheck disable=SC1090

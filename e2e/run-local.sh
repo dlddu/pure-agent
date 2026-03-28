@@ -40,6 +40,10 @@ die()  { echo "[run-local] ERROR: $*" >&2; exit 1; }
 # ── Source shared libraries ───────────────────────────────────────────────────
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=lib/mock-api.sh
+source "${SCRIPT_DIR}/lib/mock-api.sh"
+# shellcheck source=lib/mock-gh.sh
+source "${SCRIPT_DIR}/lib/mock-gh.sh"
 # shellcheck source=lib/compose.sh
 source "${SCRIPT_DIR}/lib/compose.sh"
 # shellcheck source=lib/assertions-local.sh

@@ -35,6 +35,7 @@ setup() {
   mkdir -p "$WORK_DIR"
 
   # run-local.sh를 --source-only 모드로 로드하여 헬퍼 함수만 가져옴
+  # (common.sh, mock-api.sh, mock-gh.sh, compose.sh, assertions-local.sh, gatekeeper.sh)
   # shellcheck disable=SC1090
   source "$RUN_LOCAL" --source-only
 }
@@ -67,9 +68,7 @@ teardown() {
   configure_mock_llm_environment "default"
   local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
   run_planner_in_compose "test prompt" "$planner_output"
-  local planner_image
-  planner_image=$(cat "$planner_output" | tr -d '[:space:]')
-  [ "$planner_image" = "ghcr.io/dlddu/pure-agent/claude-agent:latest" ]
+  assert_local_planner_image "default" "$planner_output"
 
   # Cycle 0: fixture 배치
   local cycle_dir="${BATS_TEST_TMPDIR}/none-action-cycle0"
@@ -83,16 +82,14 @@ teardown() {
   run_gate_in_compose 0 "$max_depth" "$gate_output"
 
   # Assert: gate가 "false" (stop)를 출력할 것
-  local decision
-  decision=$(cat "$gate_output" | tr -d '[:space:]')
-  [ "$decision" = "false" ]
+  assert_local_gate_decision "stop" "$gate_output"
 
   # export-handler 실행
   local eh_exit=0
   run_export_handler || eh_exit=$?
 
   # Assert: export-handler 종료 코드가 0일 것
-  [ "$eh_exit" -eq 0 ]
+  assert_local_export_handler_exit 0 "$eh_exit"
 
   # mock-api에 Linear 코멘트 기록이 없을 것 (none-action에 assertions.linear_comment 미정의)
   local response
@@ -127,9 +124,7 @@ teardown() {
   configure_mock_llm_environment "default"
   local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
   run_planner_in_compose "test prompt" "$planner_output"
-  local planner_image
-  planner_image=$(cat "$planner_output" | tr -d '[:space:]')
-  [ "$planner_image" = "ghcr.io/dlddu/pure-agent/claude-agent:latest" ]
+  assert_local_planner_image "default" "$planner_output"
 
   # Cycle 0: fixture 배치
   local cycle_dir="${BATS_TEST_TMPDIR}/report-action-cycle0"
@@ -143,39 +138,17 @@ teardown() {
   run_gate_in_compose 0 "$max_depth" "$gate_output"
 
   # Assert: gate가 "false" (stop)를 출력할 것
-  local decision
-  decision=$(cat "$gate_output" | tr -d '[:space:]')
-  [ "$decision" = "false" ]
+  assert_local_gate_decision "stop" "$gate_output"
 
   # export-handler 실행
   local eh_exit=0
   run_export_handler || eh_exit=$?
 
   # Assert: export-handler 종료 코드가 0일 것
-  [ "$eh_exit" -eq 0 ]
+  assert_local_export_handler_exit 0 "$eh_exit"
 
   # Assert: Linear 코멘트에 "분석 리포트"가 포함될 것
-  # (mock-api에 createComment mutation이 기록되어 있는지 확인)
-  local response
-  response=$(curl -sf "${MOCK_API_URL}/assertions")
-
-  # summary 코멘트 (1건째)
-  local summary_count
-  summary_count=$(echo "$response" | jq \
-    '[.calls[] | select(
-        .type == "mutation" and
-        ((.operationName // "") + " " + ((.body.query // "") | tostring) | ascii_downcase | contains("comment"))
-     )] | length')
-  [ "$summary_count" -ge 1 ]
-
-  # report 코멘트: body에 "분석 리포트"를 포함할 것
-  local report_count
-  report_count=$(echo "$response" | jq --arg body "분석 리포트" \
-    '[.calls[] | select(
-        .type == "mutation" and
-        ((.body | tostring) | contains($body))
-     )] | length')
-  [ "$report_count" -ge 1 ]
+  assert_local_linear_comment "분석 리포트"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -202,9 +175,7 @@ teardown() {
   configure_mock_llm_environment "default"
   local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
   run_planner_in_compose "test prompt" "$planner_output"
-  local planner_image
-  planner_image=$(cat "$planner_output" | tr -d '[:space:]')
-  [ "$planner_image" = "ghcr.io/dlddu/pure-agent/claude-agent:latest" ]
+  assert_local_planner_image "default" "$planner_output"
 
   # Cycle 0: fixture 배치
   local cycle_dir="${BATS_TEST_TMPDIR}/create-pr-action-cycle0"
@@ -212,34 +183,7 @@ teardown() {
   place_fixtures_via_mock_agent "$cycle_dir"
 
   # Set up mock git repo on shared volume for create_pr action
-  # Run as root to create directories, then chown to node user
-  docker compose -f "$COMPOSE_FILE" \
-    run --rm --entrypoint="" \
-    --user root \
-    export-handler \
-    sh -c '
-      set -e
-      # Create a bare "remote" repo
-      git init --bare /work/repo-remote.git
-      # Create the working repo
-      git init /work/repo
-      cd /work/repo
-      git config user.email "test@e2e.local"
-      git config user.name "E2E Test"
-      git remote add origin /work/repo-remote.git
-      # Initial commit on main
-      echo "init" > README.md
-      git add README.md
-      git commit -m "Initial commit"
-      git push -u origin HEAD:main
-      # Create feature branch with a commit
-      git checkout -b feat/test-branch
-      echo "hello" > hello.txt
-      git add hello.txt
-      git commit -m "Add hello.txt"
-      # Ensure node user can access the repo and gh-calls
-      chown -R node:node /work/repo /work/repo-remote.git /gh-calls
-    '
+  setup_mock_git_repo
 
   # gate 실행 (max_depth는 YAML에서 읽어옴)
   local max_depth
@@ -248,33 +192,20 @@ teardown() {
   run_gate_in_compose 0 "$max_depth" "$gate_output"
 
   # Assert: gate가 "false" (stop)를 출력할 것
-  local decision
-  decision=$(cat "$gate_output" | tr -d '[:space:]')
-  [ "$decision" = "false" ]
+  assert_local_gate_decision "stop" "$gate_output"
 
   # export-handler 실행 (mock-gh를 PATH에 우선 배치)
   local eh_exit=0
   run_export_handler || eh_exit=$?
 
   # Assert: export-handler 종료 코드가 0일 것
-  [ "$eh_exit" -eq 0 ]
+  assert_local_export_handler_exit 0 "$eh_exit"
 
   # Assert: mock-gh의 "gh pr create" 호출 기록이 존재할 것
-  local pr_call_count
-  pr_call_count=$(count_gh_pr_create_calls)
-  [ "$pr_call_count" -ge 1 ]
+  assert_local_github_pr "true"
 
   # Assert: Linear 코멘트에 PR URL이 포함될 것
-  # mock-gh는 "https://github.com/mock-org/mock-repo/pull/1"을 반환
-  local response
-  response=$(curl -sf "${MOCK_API_URL}/assertions")
-  local pr_url_count
-  pr_url_count=$(echo "$response" | jq --arg url "https://github.com/mock-org/mock-repo/pull" \
-    '[.calls[] | select(
-        .type == "mutation" and
-        ((.body | tostring) | contains($url))
-     )] | length')
-  [ "$pr_url_count" -ge 1 ]
+  assert_local_linear_comment "https://github.com/mock-org/mock-repo/pull"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -302,9 +233,7 @@ teardown() {
   configure_mock_llm_environment "default"
   local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
   run_planner_in_compose "test prompt" "$planner_output"
-  local planner_image
-  planner_image=$(cat "$planner_output" | tr -d '[:space:]')
-  [ "$planner_image" = "ghcr.io/dlddu/pure-agent/claude-agent:latest" ]
+  assert_local_planner_image "default" "$planner_output"
 
   # ── cycle-0 ────────────────────────────────────────────────────────────────
   local cycle0_dir="${BATS_TEST_TMPDIR}/continue-then-stop-cycle0"
@@ -317,14 +246,12 @@ teardown() {
   run_gate_in_compose 0 "$cycle0_max_depth" "$gate_output_0"
 
   # Assert cycle-0: gate가 "true" (continue)를 출력할 것
-  local decision_0
-  decision_0=$(cat "$gate_output_0" | tr -d '[:space:]')
-  [ "$decision_0" = "true" ]
+  assert_local_gate_decision "continue" "$gate_output_0"
 
   # cycle-0 export-handler 실행
   local eh_exit_0=0
   run_export_handler || eh_exit_0=$?
-  [ "$eh_exit_0" -eq 0 ]
+  assert_local_export_handler_exit 0 "$eh_exit_0"
 
   # cycle-0 완료 후: export-handler가 다음 cycle을 위해 /work/export_config.json을 삭제할 것
   # (continue action에서는 export_config.json을 삭제하고 다음 cycle에 위임)
@@ -345,25 +272,15 @@ teardown() {
   run_gate_in_compose 1 "$cycle1_max_depth" "$gate_output_1"
 
   # Assert cycle-1: gate가 "false" (stop)를 출력할 것
-  local decision_1
-  decision_1=$(cat "$gate_output_1" | tr -d '[:space:]')
-  [ "$decision_1" = "false" ]
+  assert_local_gate_decision "stop" "$gate_output_1"
 
   # cycle-1 export-handler 실행
   local eh_exit_1=0
   run_export_handler || eh_exit_1=$?
-  [ "$eh_exit_1" -eq 0 ]
+  assert_local_export_handler_exit 0 "$eh_exit_1"
 
   # Assert: Linear 코멘트에 "작업 완료"가 포함될 것
-  local response
-  response=$(curl -sf "${MOCK_API_URL}/assertions")
-  local work_done_count
-  work_done_count=$(echo "$response" | jq --arg body "작업 완료" \
-    '[.calls[] | select(
-        .type == "mutation" and
-        ((.body | tostring) | contains($body))
-     )] | length')
-  [ "$work_done_count" -ge 1 ]
+  assert_local_linear_comment "작업 완료"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -404,16 +321,14 @@ teardown() {
   run_gate_in_compose "$depth" "$max_depth" "$gate_output"
 
   # Assert: gate가 "false" (stop)를 출력할 것 (depth limit)
-  local decision
-  decision=$(cat "$gate_output" | tr -d '[:space:]')
-  [ "$decision" = "false" ]
+  assert_local_gate_decision "stop" "$gate_output"
 
   # export-handler 실행
   local eh_exit=0
   run_export_handler || eh_exit=$?
 
   # Assert: export-handler 종료 코드가 0일 것
-  [ "$eh_exit" -eq 0 ]
+  assert_local_export_handler_exit 0 "$eh_exit"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -441,9 +356,7 @@ teardown() {
   run_planner_in_compose "데이터 분석 작업" "$planner_output"
 
   # Assert: planner가 python-agent 이미지를 선택할 것
-  local planner_image
-  planner_image=$(cat "$planner_output" | tr -d '[:space:]')
-  [ "$planner_image" = "ghcr.io/dlddu/pure-agent/python-agent:latest" ]
+  assert_local_planner_image "python-analysis" "$planner_output"
 
   # Cycle 0: fixture 배치
   local cycle_dir="${BATS_TEST_TMPDIR}/planner-python-env-cycle0"
@@ -457,14 +370,12 @@ teardown() {
   run_gate_in_compose 0 "$max_depth" "$gate_output"
 
   # Assert: gate가 "false" (stop)를 출력할 것
-  local decision
-  decision=$(cat "$gate_output" | tr -d '[:space:]')
-  [ "$decision" = "false" ]
+  assert_local_gate_decision "stop" "$gate_output"
 
   # export-handler 실행
   local eh_exit=0
   run_export_handler || eh_exit=$?
-  [ "$eh_exit" -eq 0 ]
+  assert_local_export_handler_exit 0 "$eh_exit"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -492,9 +403,7 @@ teardown() {
   run_planner_in_compose "Kubernetes 배포 작업" "$planner_output"
 
   # Assert: planner가 infra-agent 이미지를 선택할 것
-  local planner_image
-  planner_image=$(cat "$planner_output" | tr -d '[:space:]')
-  [ "$planner_image" = "ghcr.io/dlddu/pure-agent/infra-agent:latest" ]
+  assert_local_planner_image "infra" "$planner_output"
 
   # Cycle 0: fixture 배치
   local cycle_dir="${BATS_TEST_TMPDIR}/planner-infra-env-cycle0"
@@ -508,14 +417,12 @@ teardown() {
   run_gate_in_compose 0 "$max_depth" "$gate_output"
 
   # Assert: gate가 "false" (stop)를 출력할 것
-  local decision
-  decision=$(cat "$gate_output" | tr -d '[:space:]')
-  [ "$decision" = "false" ]
+  assert_local_gate_decision "stop" "$gate_output"
 
   # export-handler 실행
   local eh_exit=0
   run_export_handler || eh_exit=$?
-  [ "$eh_exit" -eq 0 ]
+  assert_local_export_handler_exit 0 "$eh_exit"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -543,9 +450,7 @@ teardown() {
   run_planner_in_compose "알 수 없는 작업" "$planner_output"
 
   # Assert: planner가 default (claude-agent) 이미지로 fallback할 것
-  local planner_image
-  planner_image=$(cat "$planner_output" | tr -d '[:space:]')
-  [ "$planner_image" = "ghcr.io/dlddu/pure-agent/claude-agent:latest" ]
+  assert_local_planner_image "default" "$planner_output"
 
   # Cycle 0: fixture 배치
   local cycle_dir="${BATS_TEST_TMPDIR}/planner-fallback-cycle0"
@@ -559,12 +464,10 @@ teardown() {
   run_gate_in_compose 0 "$max_depth" "$gate_output"
 
   # Assert: gate가 "false" (stop)를 출력할 것
-  local decision
-  decision=$(cat "$gate_output" | tr -d '[:space:]')
-  [ "$decision" = "false" ]
+  assert_local_gate_decision "stop" "$gate_output"
 
   # export-handler 실행
   local eh_exit=0
   run_export_handler || eh_exit=$?
-  [ "$eh_exit" -eq 0 ]
+  assert_local_export_handler_exit 0 "$eh_exit"
 }

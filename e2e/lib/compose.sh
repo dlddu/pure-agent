@@ -1,35 +1,35 @@
 #!/usr/bin/env bash
-# e2e/lib/compose.sh — Docker Compose 헬퍼 함수 (Level ① E2E)
+# e2e/lib/compose.sh — Docker Compose 인프라 및 컴포넌트 실행 헬퍼 함수 (Level ① E2E)
 #
-# run-local.sh에서 추출된 Docker Compose 관련 함수들입니다.
+# Docker Compose 서비스의 시작/종료 및 각 컴포넌트(planner, gate, export-handler,
+# mock-agent) 실행 함수를 제공합니다.
 # 이 파일은 직접 실행하지 않고, source하여 함수만 로드합니다.
 #
 # 호출 스크립트에서 다음 변수를 미리 설정해야 합니다:
 #   COMPOSE_FILE    — docker-compose.yml 경로
-#   MOCK_API_URL    — mock-api 베이스 URL
 #
 # 또한 log(), warn() 함수가 호출 스크립트에서 정의되어 있어야 합니다.
 #
 # Functions:
 #   compose_up
 #   compose_down
-#   wait_mock_api
-#   reset_mock_api
 #   place_fixtures_via_mock_agent <cycle_fixture_dir>
+#   run_planner_in_compose <prompt> <planner_output_on_host>
 #   run_gate <depth> <max_depth>
 #   run_gate_in_compose <depth> <max_depth> <gate_output_on_host>
 #   run_export_handler
-#   count_gh_pr_create_calls
 
 set -euo pipefail
 
-# ── mock LLM 환경 설정 ───────────────────────────────────────────────────────
-configure_mock_llm_environment() {
-  local environment_id="$1"
-  curl -sf -X POST "${MOCK_API_URL}/v1/messages/configure" \
-    -H "Content-Type: application/json" \
-    -d "{\"environment_id\": \"${environment_id}\"}" >/dev/null
-  log "Configured mock LLM environment: ${environment_id}"
+# ── Docker Compose 래퍼 ───────────────────────────────────────────────────────
+compose_up() {
+  log "Starting daemon services (mock-api, gatekeeper) ..."
+  docker compose -f "$COMPOSE_FILE" up -d mock-api gatekeeper
+}
+
+compose_down() {
+  log "Stopping and removing containers ..."
+  docker compose -f "$COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
 }
 
 # ── planner 실행 ─────────────────────────────────────────────────────────────
@@ -65,63 +65,6 @@ run_planner_in_compose() {
     > "$planner_output_on_host" 2>/dev/null
 
   log "Planner output: $(cat "$planner_output_on_host")"
-}
-
-# ── mock-api 리셋 ─────────────────────────────────────────────────────────────
-reset_mock_api() {
-  local url="${MOCK_API_URL}/assertions/reset"
-  curl -sf -X POST "$url" >/dev/null \
-    || { warn "Failed to reset mock-api at $url"; return 1; }
-  log "mock-api assertions reset"
-}
-
-# ── mock-api health check ─────────────────────────────────────────────────────
-wait_mock_api() {
-  local max_attempts=30
-  local attempt=0
-  local url="${MOCK_API_URL}/health"
-
-  log "Waiting for mock-api at $url ..."
-  while [[ $attempt -lt $max_attempts ]]; do
-    if curl -sf "$url" >/dev/null 2>&1; then
-      log "mock-api is ready"
-      return 0
-    fi
-    attempt=$(( attempt + 1 ))
-    sleep 1
-  done
-
-  die "mock-api did not become ready within ${max_attempts}s"
-}
-
-# ── gatekeeper health check ───────────────────────────────────────────────────
-wait_gatekeeper() {
-  local max_attempts=30
-  local attempt=0
-  local url="${GATEKEEPER_URL}/api/health"
-
-  log "Waiting for gatekeeper at $url ..."
-  while [[ $attempt -lt $max_attempts ]]; do
-    if curl -sf "$url" >/dev/null 2>&1; then
-      log "gatekeeper is ready"
-      return 0
-    fi
-    attempt=$(( attempt + 1 ))
-    sleep 1
-  done
-
-  die "gatekeeper did not become ready within ${max_attempts}s"
-}
-
-# ── Docker Compose 래퍼 ───────────────────────────────────────────────────────
-compose_up() {
-  log "Starting daemon services (mock-api, gatekeeper) ..."
-  docker compose -f "$COMPOSE_FILE" up -d mock-api gatekeeper
-}
-
-compose_down() {
-  log "Stopping and removing containers ..."
-  docker compose -f "$COMPOSE_FILE" down -v --remove-orphans 2>/dev/null || true
 }
 
 # ── fixture 배치: mock-agent를 run하여 /work 볼륨에 파일 복사 ─────────────────
@@ -256,15 +199,4 @@ run_export_handler() {
 
   log "export-handler exit code: ${exit_code}"
   return "$exit_code"
-}
-
-# ── mock-gh 호출 기록 조회 ────────────────────────────────────────────────────
-count_gh_pr_create_calls() {
-  local count
-  count=$(docker compose -f "$COMPOSE_FILE" \
-    run --rm \
-    --entrypoint="" \
-    export-handler \
-    sh -c "ls /gh-calls/pr-create-* 2>/dev/null | wc -l | tr -d ' '") || echo "0"
-  echo "${count:-0}"
 }
