@@ -266,7 +266,7 @@ spec:
             value: "{{inputs.parameters.prompt}}"
           - name: ANTHROPIC_BASE_URL
             value: "http://{{inputs.parameters.llm_gateway_host}}"
-          - name: ANTHROPIC_API_KEY
+          - name: CLAUDE_CODE_OAUTH_TOKEN
             valueFrom:
               secretKeyRef:
                 name: planner-secrets
