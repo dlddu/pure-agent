@@ -67,11 +67,15 @@ def select_image_via_llm(
         return resolve_image(DEFAULT_ENVIRONMENT_ID), None
 
     url = f"{base_url.rstrip('/')}/v1/messages"
-    headers = {
+    headers: dict[str, str] = {
         "Content-Type": "application/json",
-        "x-api-key": key,
         "anthropic-version": "2023-06-01",
     }
+    # OAuth tokens (oat-* prefix) use Bearer auth; API keys use x-api-key header.
+    if key.startswith("oat-"):
+        headers["Authorization"] = f"Bearer {key}"
+    else:
+        headers["x-api-key"] = key
     body = json.dumps(
         {
             "model": "claude-haiku-4-5-20251001",
