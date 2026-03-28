@@ -165,6 +165,12 @@ jobs:
               --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$CLAUDE_CODE_OAUTH_TOKEN" \
               --dry-run=client -o yaml | kubectl apply -f -
 
+          # planner-secrets
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create secret generic planner-secrets \
+              --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$CLAUDE_CODE_OAUTH_TOKEN" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
           # gate-secrets
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
             create secret generic gate-secrets \
