@@ -147,6 +147,11 @@ jobs:
               --dry-run=client -o yaml | kubectl apply -f -
 
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create secret generic planner-secrets \
+              --from-literal=CLAUDE_CODE_OAUTH_TOKEN="mock-token" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
             create secret generic gate-secrets \
               --from-literal=AWS_S3_BUCKET_NAME="mock-bucket" \
               --dry-run=client -o yaml | kubectl apply -f -
