@@ -1,6 +1,6 @@
 name: planner-infra-env
 description: "Planner가 infra 환경을 선택하는 시나리오"
-level: [1, 2]
+level: [1, 2, 3]
 max_depth: 1
 
 # ── mock cycle 정의 ──
@@ -13,6 +13,14 @@ cycles:
         - "none"
       session_id: "mock-session-infra"
     agent_result: "Kubernetes deployment completed."
+
+# ── Level 3: real API 실행 설정 ──
+real:
+  max_depth: 5
+  prompt: "Kubernetes 클러스터에 nginx 디플로이먼트를 배포하고 서비스를 생성해주세요. kubectl을 사용하여 인프라 작업을 수행하세요."
+  setup: []
+  verify: [planner_exact_image]
+  teardown: []
 
 # ── 공유 assertions ──
 assertions:
