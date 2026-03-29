@@ -526,6 +526,11 @@ run_scenario() {
       planner_valid_image)
         assert_planner_valid_image "$workflow_name" "$NAMESPACE"
         ;;
+      planner_exact_image)
+        local expected_env_id
+        expected_env_id=$(yaml_get "$yaml_file" '.assertions.planner_image')
+        assert_planner_image "$workflow_name" "$expected_env_id" "$NAMESPACE"
+        ;;
       *) warn "Unknown verify type: $verify_item" ;;
     esac
   done <<< "$verifies"

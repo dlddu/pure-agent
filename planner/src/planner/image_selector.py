@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import urllib.error
 import urllib.request
 
@@ -65,9 +66,10 @@ def select_image_via_llm(
 
     if not base_url:
         logger.warning("ANTHROPIC_BASE_URL not set, falling back to default environment")
-        return resolve_image(DEFAULT_ENVIRONMENT_ID), None
+        return resolve_image(DEFAULT_ENVIRONMENT_ID), "_NO_BASE_URL"
 
     url = f"{base_url.rstrip('/')}/v1/messages"
+    logger.info("LLM request: url=%s, model=claude-haiku-4-5-20251001", url)
     headers = {
         "Content-Type": "application/json",
         "x-api-key": key,
@@ -85,10 +87,30 @@ def select_image_via_llm(
     try:
         req = urllib.request.Request(url, data=body, headers=headers, method="POST")
         with urllib.request.urlopen(req, timeout=30) as resp:
-            result = json.loads(resp.read().decode())
+            raw_body = resp.read().decode()
+            logger.info("LLM response: status=%s, body_len=%d", resp.status, len(raw_body))
+
+        try:
+            result = json.loads(raw_body)
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse LLM response body: %s", raw_body[:500])
+            return resolve_image(DEFAULT_ENVIRONMENT_ID), f"_PARSE_RESP:{raw_body[:200]}"
 
         text = result.get("content", [{}])[0].get("text", "")
-        parsed = json.loads(text)
+
+        # Extract first JSON object from LLM response (handles markdown fences,
+        # trailing explanation text, etc.)
+        match = re.search(r"\{[^}]*\}", text)
+        if not match:
+            logger.warning("No JSON object found in LLM text: %s", text[:500])
+            return resolve_image(DEFAULT_ENVIRONMENT_ID), f"_PARSE_TEXT:{text[:200]}"
+
+        try:
+            parsed = json.loads(match.group())
+        except json.JSONDecodeError:
+            logger.warning("Failed to parse extracted JSON: %s", match.group())
+            return resolve_image(DEFAULT_ENVIRONMENT_ID), f"_PARSE_TEXT:{text[:200]}"
+
         raw_id = parsed.get("environment_id")
         logger.info("LLM raw response: environment_id=%s", raw_id)
         env_id = raw_id or DEFAULT_ENVIRONMENT_ID
@@ -101,6 +123,10 @@ def select_image_via_llm(
         logger.info("LLM selected environment: %s -> %s", env_id, image)
         return image, raw_id
 
+    except urllib.error.HTTPError as exc:
+        error_body = exc.read().decode()[:500] if hasattr(exc, "read") else ""
+        logger.warning("LLM HTTP error: status=%s, body=%s", exc.code, error_body)
+        return resolve_image(DEFAULT_ENVIRONMENT_ID), f"_HTTP:{exc.code}:{error_body[:200]}"
     except (urllib.error.URLError, json.JSONDecodeError, KeyError, TypeError) as exc:
         logger.warning("LLM image selection failed (%s), falling back to default", exc)
-        return resolve_image(DEFAULT_ENVIRONMENT_ID), None
+        return resolve_image(DEFAULT_ENVIRONMENT_ID), f"_ERROR:{type(exc).__name__}:{exc}"

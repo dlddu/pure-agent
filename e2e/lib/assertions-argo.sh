@@ -279,6 +279,67 @@ assert_work_dir_clean() {
 #   $2  expected_env_id  — 기대하는 environment_id (default, python-analysis, infra)
 #   $3  namespace        — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
 #
+# ── _dump_planner_debug ──────────────────────────────────────────────────────
+# Planner 노드의 raw_environment_id를 출력하고, 실패 시 Pod 로그를 덤프합니다.
+#
+# Arguments:
+#   $1  wf_json        — workflow JSON (kubectl get workflow -o json)
+#   $2  workflow_name  — argo workflow 이름
+#   $3  namespace      — kubernetes namespace
+#   $4  kube_context   — kubectl context
+#   $5  dump_logs      — "true"이면 planner Pod 로그까지 출력
+#
+_dump_planner_debug() {
+  local wf_json="$1"
+  local workflow_name="$2"
+  local namespace="$3"
+  local kube_context="$4"
+
+  # planner 노드 정보 추출
+  local planner_node
+  planner_node=$(echo "$wf_json" \
+    | jq -r '
+        [.status.nodes // {} | to_entries[] | .value
+         | select(.templateName == "planner" and .type == "Pod")]
+        | first // {}
+      ' 2>/dev/null)
+
+  # raw_environment_id 추출 (planner output parameter)
+  local raw_env_id
+  raw_env_id=$(echo "$planner_node" \
+    | jq -r '
+        .outputs.parameters // []
+        | map(select(.name == "raw_environment_id")) | first
+        | .value // ""
+      ' 2>/dev/null \
+    | tr -d '\n')
+  _argo_assert_log "Planner raw_environment_id: '${raw_env_id}'"
+
+  # planner Pod 로그 출력 (kubectl logs 사용)
+  local planner_pod_id
+  planner_pod_id=$(echo "$planner_node" | jq -r '.id // ""' 2>/dev/null)
+
+  # planner 노드의 displayName, hostNodeName 등 디버그 정보 출력
+  _argo_assert_log "Planner node debug: $(echo "$planner_node" | jq -c '{id, displayName, hostNodeName, phase, type, templateName}' 2>/dev/null)"
+
+  if [[ -n "$planner_pod_id" ]]; then
+    # 실제 pod 존재 여부 확인
+    _argo_assert_log "Checking pod existence:"
+    kubectl get pod "$planner_pod_id" -n "$namespace" --context "$kube_context" \
+      -o jsonpath='{.metadata.name} {.status.phase} containers={range .spec.containers[*]}{.name},{end}' >&2 2>&1 || true
+    echo "" >&2
+
+    _argo_assert_log "=== Planner Pod logs (pod=$planner_pod_id) ==="
+    kubectl logs "$planner_pod_id" -c main \
+      -n "$namespace" --context "$kube_context" >&2 2>&1 || \
+    kubectl logs "$planner_pod_id" \
+      -n "$namespace" --context "$kube_context" >&2 2>&1 || true
+    _argo_assert_log "=== End Planner logs ==="
+  else
+    _argo_assert_log "WARN: could not find planner Pod ID for log retrieval"
+  fi
+}
+
 assert_planner_image() {
   local workflow_name="$1"
   local expected_env_id="$2"
@@ -314,6 +375,9 @@ assert_planner_image() {
         | .value // ""
       ' 2>/dev/null \
     | tr -d '[:space:]')
+
+  # planner 디버그 정보 출력 (raw_environment_id + Pod 로그)
+  _dump_planner_debug "$wf_json" "$workflow_name" "$namespace" "$kube_context"
 
   if [[ -z "$actual_image" ]]; then
     _argo_assert_fail "assert_planner_image: could not extract agent_image from planner node (workflow=$workflow_name)"
@@ -361,6 +425,9 @@ assert_planner_valid_image() {
         | .value // ""
       ' 2>/dev/null \
     | tr -d '[:space:]')
+
+  # planner 디버그 정보 출력 (raw_environment_id + Pod 로그)
+  _dump_planner_debug "$wf_json" "$workflow_name" "$namespace" "$kube_context"
 
   if [[ -z "$actual_image" ]]; then
     # Planner output not found — dump node names for debugging
