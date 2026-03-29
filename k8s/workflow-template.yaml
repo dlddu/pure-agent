@@ -260,7 +260,12 @@ spec:
               --prompt "$PROMPT" \
               --output /tmp/agent_image.txt \
               --raw-id-output /tmp/raw_environment_id.txt \
-            || { echo "ghcr.io/dlddu/pure-agent/claude-agent:latest" > /tmp/agent_image.txt; echo "" > /tmp/raw_environment_id.txt; }
+            || {
+              rc=$?
+              echo "[planner-fallback] planner CLI failed (exit=$rc), using default image" >&2
+              echo "ghcr.io/dlddu/pure-agent/claude-agent:latest" > /tmp/agent_image.txt
+              echo "FALLBACK:exit=$rc" > /tmp/raw_environment_id.txt
+            }
         env:
           - name: PROMPT
             value: "{{inputs.parameters.prompt}}"

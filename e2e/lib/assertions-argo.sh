@@ -294,29 +294,39 @@ _dump_planner_debug() {
   local workflow_name="$2"
   local namespace="$3"
   local kube_context="$4"
-  local dump_logs="${5:-false}"
 
-  # raw_environment_id 추출 (planner output parameter)
-  local raw_env_id
-  raw_env_id=$(echo "$wf_json" \
+  # planner 노드 정보 추출
+  local planner_node
+  planner_node=$(echo "$wf_json" \
     | jq -r '
         [.status.nodes // {} | to_entries[] | .value
          | select(.templateName == "planner" and .type == "Pod")]
-        | first
-        | .outputs.parameters // []
+        | first // {}
+      ' 2>/dev/null)
+
+  # raw_environment_id 추출 (planner output parameter)
+  local raw_env_id
+  raw_env_id=$(echo "$planner_node" \
+    | jq -r '
+        .outputs.parameters // []
         | map(select(.name == "raw_environment_id")) | first
         | .value // ""
       ' 2>/dev/null \
     | tr -d '[:space:]')
   _argo_assert_log "Planner raw_environment_id: '${raw_env_id}'"
 
-  if [[ "$dump_logs" == "true" ]]; then
-    _argo_assert_log "=== Planner Pod logs ==="
-    argo logs "$workflow_name" \
-      -n "$namespace" \
-      --context "$kube_context" \
-      --node-field-selector templateName=planner >&2 2>/dev/null || true
+  # planner Pod 로그 출력 (kubectl logs 사용)
+  local planner_pod_id
+  planner_pod_id=$(echo "$planner_node" | jq -r '.id // ""' 2>/dev/null)
+  if [[ -n "$planner_pod_id" ]]; then
+    _argo_assert_log "=== Planner Pod logs (pod=$planner_pod_id) ==="
+    kubectl logs "$planner_pod_id" -c main \
+      -n "$namespace" --context "$kube_context" >&2 2>/dev/null || \
+    kubectl logs "$planner_pod_id" \
+      -n "$namespace" --context "$kube_context" >&2 2>/dev/null || true
     _argo_assert_log "=== End Planner logs ==="
+  else
+    _argo_assert_log "WARN: could not find planner Pod ID for log retrieval"
   fi
 }
 
@@ -356,17 +366,15 @@ assert_planner_image() {
       ' 2>/dev/null \
     | tr -d '[:space:]')
 
-  # 항상 raw_environment_id 출력
-  _dump_planner_debug "$wf_json" "$workflow_name" "$namespace" "$kube_context" "false"
+  # planner 디버그 정보 출력 (raw_environment_id + Pod 로그)
+  _dump_planner_debug "$wf_json" "$workflow_name" "$namespace" "$kube_context"
 
   if [[ -z "$actual_image" ]]; then
-    _dump_planner_debug "$wf_json" "$workflow_name" "$namespace" "$kube_context" "true"
     _argo_assert_fail "assert_planner_image: could not extract agent_image from planner node (workflow=$workflow_name)"
     return 1
   fi
 
   if [[ "$expected_image" != "$actual_image" ]]; then
-    _dump_planner_debug "$wf_json" "$workflow_name" "$namespace" "$kube_context" "true"
     _argo_assert_fail "assert_planner_image: expected '$expected_image' ($expected_env_id) but got '$actual_image'"
     return 1
   fi
@@ -408,14 +416,13 @@ assert_planner_valid_image() {
       ' 2>/dev/null \
     | tr -d '[:space:]')
 
-  # 항상 raw_environment_id 출력
-  _dump_planner_debug "$wf_json" "$workflow_name" "$namespace" "$kube_context" "false"
+  # planner 디버그 정보 출력 (raw_environment_id + Pod 로그)
+  _dump_planner_debug "$wf_json" "$workflow_name" "$namespace" "$kube_context"
 
   if [[ -z "$actual_image" ]]; then
-    # Planner output not found — dump node names and planner logs for debugging
+    # Planner output not found — dump node names for debugging
     _argo_assert_log "DEBUG: workflow nodes:"
     echo "$wf_json" | jq -r '[.status.nodes // {} | to_entries[] | .value | {name: .displayName, templateName, type, phase}]' >&2 || true
-    _dump_planner_debug "$wf_json" "$workflow_name" "$namespace" "$kube_context" "true"
     _argo_assert_fail "assert_planner_valid_image: could not extract agent_image from planner node (workflow=$workflow_name)"
     return 1
   fi
@@ -429,7 +436,6 @@ assert_planner_valid_image() {
   esac
 
   if [[ "$valid" != "true" ]]; then
-    _dump_planner_debug "$wf_json" "$workflow_name" "$namespace" "$kube_context" "true"
     _argo_assert_fail "assert_planner_valid_image: '$actual_image' is not a valid agent image"
     return 1
   fi
