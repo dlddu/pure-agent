@@ -8,7 +8,7 @@ on:
     branches: [main]
     paths:
       - "e2e/tests/**"
-      - "e2e/run-local.sh"
+      - "e2e/run-level1.sh"
       - "e2e/docker-compose.yml"
       - "e2e/scenarios/**"
       - "e2e/lib/**"
@@ -22,7 +22,7 @@ on:
   pull_request:
     paths:
       - "e2e/tests/**"
-      - "e2e/run-local.sh"
+      - "e2e/run-level1.sh"
       - "e2e/docker-compose.yml"
       - "e2e/scenarios/**"
       - "e2e/lib/**"
@@ -43,7 +43,7 @@ permissions:
   contents: read
 
 jobs:
-  # ── shellcheck: run-local.sh 구문 검사 ─────────────────────────────────────
+  # ── shellcheck: run-level1.sh 구문 검사 ─────────────────────────────────────
   shellcheck:
     runs-on: ubuntu-24.04-arm
     steps:
@@ -52,8 +52,8 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
-      - name: Run shellcheck on run-local.sh
-        run: shellcheck -s bash -S warning e2e/run-local.sh
+      - name: Run shellcheck on run-level1.sh
+        run: shellcheck -s bash -S warning e2e/run-level1.sh
 
   # ── bats: Level 1 e2e 시나리오 테스트 ──────────────────────────────────────
   bats-e2e-local:

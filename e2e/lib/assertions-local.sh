@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # e2e/lib/assertions-local.sh — Level ① (Docker Compose) 전용 assertion helpers
 #
-# run-local.sh에서 추출된 로컬 환경 전용 assertion 함수들입니다.
+# run-level1.sh에서 추출된 로컬 환경 전용 assertion 함수들입니다.
 # 이 파일은 직접 실행하지 않고, source하여 함수만 로드합니다.
 #
 # 호출 스크립트에서 다음 변수/함수를 미리 설정해야 합니다:
