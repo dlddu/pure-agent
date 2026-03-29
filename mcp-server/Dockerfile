@@ -2,11 +2,11 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-COPY package*.json ./
+COPY mcp-server/package*.json ./
 RUN npm ci
 
-COPY tsconfig.json ./
-COPY src/ ./src/
+COPY mcp-server/tsconfig.json ./
+COPY mcp-server/src/ ./src/
 
 RUN npm run build
 
@@ -19,7 +19,7 @@ RUN addgroup -g 1001 -S nodejs && \
 
 RUN apk add --no-cache git
 
-COPY package*.json ./
+COPY mcp-server/package*.json ./
 RUN npm ci --only=production && npm cache clean --force
 
 COPY --from=builder /app/build ./build

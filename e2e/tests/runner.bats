@@ -170,7 +170,7 @@ name: pr-creation
 level: integration
 fixtures: {}
 assertions:
-  - type: router_decision
+  - type: gate_decision
     expected: assign
   - type: exit_code
     expected: 0
@@ -188,11 +188,11 @@ name: pr-creation
 level: integration
 fixtures: {}
 assertions:
-  - type: router_decision
+  - type: gate_decision
     expected: assign
 YAML
 
   run parse_scenario_field "$yaml_file" ".assertions[0].type"
   [ "$status" -eq 0 ]
-  [ "$output" = "router_decision" ]
+  [ "$output" = "gate_decision" ]
 }

@@ -163,7 +163,7 @@ run_argo_workflow() {
   timeout "${WORKFLOW_TIMEOUT}s" \
     argo wait "$workflow_name" \
       -n "$NAMESPACE" \
-      --context "$KUBE_CONTEXT" || wait_exit=$?
+      --context "$KUBE_CONTEXT" >&2 || wait_exit=$?
 
   # Always fetch workflow status for diagnostics
   local workflow_output
@@ -220,6 +220,7 @@ run_argo_workflow() {
 #   $2  cycle_index    — cycle 인덱스
 #   $3  max_depth      — 최대 depth (기본값: 5)
 #   $4  scenario_dir   — fixture 파일 디렉토리
+#   $5  env_id         — environment_id (mock-planner가 prompt에서 파싱)
 #
 # 출력: workflow name
 #
@@ -228,6 +229,7 @@ _level2_submit_mock_workflow() {
   local cycle_index="$2"
   local max_depth="${3:-5}"
   local scenario_dir="$4"
+  local env_id="${5:-default}"
 
   local cm_name="mock-scenario-${scenario_name}-cycle${cycle_index}-$$"
   local cm_name_safe
@@ -270,8 +272,7 @@ _level2_submit_mock_workflow() {
     -n "$NAMESPACE" \
     --context "$KUBE_CONTEXT" \
     -p max_depth="$max_depth" \
-    -p prompt="[mock] scenario=${scenario_name} cycle=${cycle_index}" \
-    -p agent_image="$MOCK_AGENT_IMAGE" \
+    -p prompt="[mock] scenario=${scenario_name} cycle=${cycle_index} env=${env_id}" \
     -p mock_api_url="$MOCK_API_URL" \
     -p scenario_configmap="$cm_name_safe" \
     --output json 2>&1) || {
@@ -324,9 +325,16 @@ _level2_verify_cycle() {
   # 1. Workflow Succeeded 검증
   assert_workflow_succeeded "$workflow_name" "$NAMESPACE" || return 1
 
-  # 2-4. mock-api 기반 assertion은 Level ②에서 skip
+  # 2. Planner image assertion (Level ②)
+  local planner_image
+  planner_image=$(yaml_get "$yaml_file" '.assertions.planner_image')
+  if [[ -n "$planner_image" ]]; then
+    assert_planner_image "$workflow_name" "$planner_image" "$NAMESPACE" || return 1
+  fi
+
+  # 3. mock-api 기반 assertion은 Level ②에서 skip
   # mock-agent는 HTTP 호출을 하지 않으므로 mock-api에 recorded call이 없음.
-  # router_decision은 assert_run_cycle_count / assert_workflow_succeeded로 간접 검증.
+  # gate_decision은 assert_run_cycle_count / assert_workflow_succeeded로 간접 검증.
   log "Skipping mock-api assertions (not applicable in Level 2 mock architecture)"
 
   log "Cycle ${cycle_index} verification passed"
@@ -379,13 +387,17 @@ run_scenario_level2() {
     local cycle_dir
     cycle_dir=$(mktemp -d "/tmp/e2e-level2-${scenario_name}-cycle${cycle_index}-XXXXXX")
 
+    # environment_id 읽기 (mock-planner가 prompt에서 파싱)
+    local env_id
+    env_id=$(yaml_get "$yaml_file" ".cycles[${cycle_index}].environment_id")
+
     # cycle fixtures 배치
     prepare_cycle_fixtures "$yaml_file" "$cycle_index" "$cycle_dir"
 
     # mock Argo Workflow 제출 + 완료 대기
     local workflow_name
     workflow_name=$(_level2_submit_mock_workflow \
-      "$scenario_name" "$cycle_index" "$cycle_max_depth" "$cycle_dir")
+      "$scenario_name" "$cycle_index" "$cycle_max_depth" "$cycle_dir" "$env_id")
 
     all_workflow_names+=("$workflow_name")
 
@@ -495,7 +507,8 @@ run_scenario() {
   # ── Run ──
   local prompt
   prompt=$(build_prompt "$yaml_file" "$linear_issue_id" "$github_branch")
-  run_argo_workflow "$scenario_name" "$prompt" "$max_depth"
+  local workflow_name
+  workflow_name=$(run_argo_workflow "$scenario_name" "$prompt" "$max_depth")
 
   # ── Verify (assertions) ──
   local verify_item
@@ -509,6 +522,14 @@ run_scenario() {
         ;;
       github_pr)
         verify_github_pr "$github_branch"
+        ;;
+      planner_valid_image)
+        assert_planner_valid_image "$workflow_name" "$NAMESPACE"
+        ;;
+      planner_exact_image)
+        local expected_env_id
+        expected_env_id=$(yaml_get "$yaml_file" '.assertions.planner_image')
+        assert_planner_image "$workflow_name" "$expected_env_id" "$NAMESPACE"
         ;;
       *) warn "Unknown verify type: $verify_item" ;;
     esac

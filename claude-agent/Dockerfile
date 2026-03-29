@@ -30,16 +30,16 @@ RUN curl -fsSL https://claude.ai/install.sh | bash -s "$CLAUDE_CODE_CHANNEL"
 ENV PATH="/home/claude/.local/bin:$PATH"
 
 # Settings, shared defaults, and hooks (rarely change)
-COPY --chown=claude:claude settings.json /home/claude/.claude/settings.json
-COPY --chown=claude:claude shared/ /home/claude/shared/
-COPY --chown=claude:claude --chmod=755 hooks/ /home/claude/hooks/
+COPY --chown=claude:claude claude-agent/settings.json /home/claude/.claude/settings.json
+COPY --chown=claude:claude claude-agent/shared/ /home/claude/shared/
+COPY --chown=claude:claude --chmod=755 claude-agent/hooks/ /home/claude/hooks/
 
 # Library modules and entrypoint (change occasionally)
-COPY --chown=claude:claude --chmod=755 lib/ /home/claude/lib/
-COPY --chown=claude:claude --chmod=755 entrypoint.sh /home/claude/entrypoint.sh
-COPY --chown=claude:claude extract-result.jq /home/claude/extract-result.jq
+COPY --chown=claude:claude --chmod=755 claude-agent/lib/ /home/claude/lib/
+COPY --chown=claude:claude --chmod=755 claude-agent/entrypoint.sh /home/claude/entrypoint.sh
+COPY --chown=claude:claude claude-agent/extract-result.jq /home/claude/extract-result.jq
 
 # Project guidelines (change most frequently)
-COPY --chown=claude:claude CLAUDE.md /home/claude/CLAUDE.md
+COPY --chown=claude:claude claude-agent/CLAUDE.md /home/claude/CLAUDE.md
 
 ENTRYPOINT ["/home/claude/entrypoint.sh"]

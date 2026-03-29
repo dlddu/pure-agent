@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import request from "supertest";
-import { createApp, getCalls, resetCalls } from "./index.js";
+import { createApp, getCalls, resetCalls, getMockEnvironmentId } from "./index.js";
 import type { RecordedCall } from "./index.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -229,6 +229,85 @@ describe("mock-api", () => {
     });
   });
 
+  // ── POST /v1/messages — Mock Anthropic Messages API ──────────────────────
+
+  describe("POST /v1/messages", () => {
+    it("returns mock LLM response with default environment_id", async () => {
+      // Act
+      const res = await request(app)
+        .post("/v1/messages")
+        .send({ model: "claude-haiku-4-5-20251001", messages: [{ role: "user", content: "test" }] })
+        .set("Content-Type", "application/json");
+
+      // Assert
+      expect(res.status).toBe(200);
+      expect(res.body.id).toBe("msg_mock");
+      expect(res.body.type).toBe("message");
+      const text = JSON.parse(res.body.content[0].text);
+      expect(text.environment_id).toBe("default");
+    });
+
+    it("records LLM call in assertions", async () => {
+      // Act
+      await request(app)
+        .post("/v1/messages")
+        .send({ model: "claude-haiku-4-5-20251001", messages: [{ role: "user", content: "test" }] })
+        .set("Content-Type", "application/json");
+
+      // Assert
+      const recorded = getCalls();
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0].operationName).toBe("llm_messages");
+    });
+
+    it("returns configured environment_id after /v1/messages/configure", async () => {
+      // Arrange
+      await request(app)
+        .post("/v1/messages/configure")
+        .send({ environment_id: "python-analysis" })
+        .set("Content-Type", "application/json");
+
+      // Act
+      const res = await request(app)
+        .post("/v1/messages")
+        .send({ model: "claude-haiku-4-5-20251001", messages: [{ role: "user", content: "analyze data" }] })
+        .set("Content-Type", "application/json");
+
+      // Assert
+      const text = JSON.parse(res.body.content[0].text);
+      expect(text.environment_id).toBe("python-analysis");
+    });
+  });
+
+  // ── POST /v1/messages/configure ─────────────────────────────────────────
+
+  describe("POST /v1/messages/configure", () => {
+    it("sets the mock environment_id", async () => {
+      // Act
+      const res = await request(app)
+        .post("/v1/messages/configure")
+        .send({ environment_id: "infra" })
+        .set("Content-Type", "application/json");
+
+      // Assert
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.environment_id).toBe("infra");
+      expect(getMockEnvironmentId()).toBe("infra");
+    });
+
+    it("defaults to 'default' when environment_id is empty", async () => {
+      // Act
+      const res = await request(app)
+        .post("/v1/messages/configure")
+        .send({})
+        .set("Content-Type", "application/json");
+
+      // Assert
+      expect(res.body.environment_id).toBe("default");
+    });
+  });
+
   // ── POST /assertions/reset ────────────────────────────────────────────────
 
   describe("POST /assertions/reset", () => {
@@ -256,6 +335,20 @@ describe("mock-api", () => {
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ ok: true });
       expect(getCalls()).toEqual([]);
+    });
+
+    it("resets mock environment_id to default", async () => {
+      // Arrange
+      await request(app)
+        .post("/v1/messages/configure")
+        .send({ environment_id: "infra" })
+        .set("Content-Type", "application/json");
+
+      // Act
+      await request(app).post("/assertions/reset");
+
+      // Assert
+      expect(getMockEnvironmentId()).toBe("default");
     });
 
     it("allows new calls to be recorded after reset", async () => {

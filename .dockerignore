@@ -1,0 +1,12 @@
+.git
+node_modules
+__pycache__
+*.pyc
+*.log
+.env
+.env.*
+.DS_Store
+e2e/*
+!e2e/mock-agent/
+!e2e/mock-api/
+k8s/

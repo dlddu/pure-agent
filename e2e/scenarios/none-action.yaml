@@ -1,11 +1,12 @@
 name: none-action
-description: "actions: [\"none\"] → Router stop, Export Handler는 Linear 코멘트만 작성"
+description: "actions: [\"none\"] → Gate stop, Export Handler는 Linear 코멘트만 작성"
 level: [1, 2, 3]
 max_depth: 1
 
 # ── Level 2: mock cycle 정의 ──
 cycles:
-  - export_config:
+  - environment_id: "default"
+    export_config:
       linear_issue_id: "mock-issue-id"
       summary: "No action needed. Task already completed."
       actions:
@@ -18,10 +19,11 @@ real:
   max_depth: 5
   prompt: "아무 외부 액션 없이 종료해주세요. export_config의 actions는 [\"none\"]으로 설정하세요."
   setup: []
-  verify: []
+  verify: [planner_valid_image]
   teardown: []
 
 # ── 공유 assertions ──
 assertions:
-  router_decision: "stop"
+  planner_image: "default"
+  gate_decision: "stop"
   export_handler_exit: 0

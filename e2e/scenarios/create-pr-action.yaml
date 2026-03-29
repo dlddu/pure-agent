@@ -5,7 +5,8 @@ max_depth: 1
 
 # ── Level 2: mock cycle 정의 ──
 cycles:
-  - export_config:
+  - environment_id: "default"
+    export_config:
       linear_issue_id: "mock-issue-id"
       summary: "PR 생성 완료"
       actions:
@@ -24,11 +25,12 @@ real:
   max_depth: 5
   prompt: "테스트 레포 {{GITHUB_TEST_REPO}}에 hello.txt 파일을 생성하고 PR을 만들어주세요. 브랜치명은 {{GITHUB_BRANCH}} 를 사용하세요."
   setup: [github_branch]
-  verify: [github_pr]
+  verify: [planner_valid_image, github_pr]
   teardown: [github_branch]
 
 # ── 공유 assertions ──
 assertions:
-  router_decision: "stop"
+  planner_image: "default"
+  gate_decision: "stop"
   export_handler_exit: 0
   github_pr: true

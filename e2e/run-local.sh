@@ -7,7 +7,7 @@
 #   1. docker compose up -d (mock-api 등 데몬 서비스)
 #   2. fixture를 shared volume에 배치 (mock-agent를 통해)
 #   3. 시나리오 cycle 수만큼:
-#      a. router 실행 → 출력 검증
+#      a. gate 실행 → 출력 검증
 #      b. export-handler 실행 → 종료 코드 검증
 #   4. mock-api GET /assertions → API 호출 검증
 #   5. docker compose down
@@ -40,6 +40,10 @@ die()  { echo "[run-local] ERROR: $*" >&2; exit 1; }
 # ── Source shared libraries ───────────────────────────────────────────────────
 # shellcheck source=lib/common.sh
 source "${SCRIPT_DIR}/lib/common.sh"
+# shellcheck source=lib/mock-api.sh
+source "${SCRIPT_DIR}/lib/mock-api.sh"
+# shellcheck source=lib/mock-gh.sh
+source "${SCRIPT_DIR}/lib/mock-gh.sh"
 # shellcheck source=lib/compose.sh
 source "${SCRIPT_DIR}/lib/compose.sh"
 # shellcheck source=lib/assertions-local.sh
@@ -93,8 +97,8 @@ run_scenario() {
   [[ "$cycle_count" -gt 0 ]] || cycle_count=1
 
   # assertions 읽기
-  local router_decision
-  router_decision=$(yaml_get "$yaml_file" '.assertions.router_decision')
+  local gate_decision
+  gate_decision=$(yaml_get "$yaml_file" '.assertions.gate_decision')
 
   local export_handler_exit
   export_handler_exit=$(yaml_get "$yaml_file" '.assertions.export_handler_exit')
@@ -105,6 +109,9 @@ run_scenario() {
 
   local github_pr
   github_pr=$(yaml_get "$yaml_file" '.assertions.github_pr')
+
+  local planner_image
+  planner_image=$(yaml_get "$yaml_file" '.assertions.planner_image')
 
   # docker compose up (mock-api, gatekeeper)
   compose_up
@@ -126,6 +133,22 @@ run_scenario() {
       cycle_max_depth="$max_depth"
     fi
 
+    # planner: mock LLM 환경 설정 + 실행
+    local env_id
+    env_id=$(yaml_get "$yaml_file" ".cycles[${cycle_index}].environment_id")
+    if [[ -n "$env_id" ]]; then
+      configure_mock_llm_environment "$env_id"
+    fi
+
+    local planner_output_file
+    planner_output_file=$(mktemp "/tmp/e2e-planner-output-XXXXXX")
+    run_planner_in_compose "test prompt" "$planner_output_file"
+
+    if [[ -n "$planner_image" ]]; then
+      assert_local_planner_image "$planner_image" "$planner_output_file"
+    fi
+    rm -f "$planner_output_file"
+
     # fixture 준비
     local cycle_dir
     cycle_dir=$(mktemp -d "/tmp/e2e-local-${scenario_name}-cycle${cycle_index}-XXXXXX")
@@ -135,27 +158,27 @@ run_scenario() {
     # mock-agent: fixture를 /work 볼륨에 배치
     place_fixtures_via_mock_agent "$cycle_dir"
 
-    # router 실행
-    local router_output_file
-    router_output_file=$(mktemp "/tmp/e2e-router-output-XXXXXX")
+    # gate 실행
+    local gate_output_file
+    gate_output_file=$(mktemp "/tmp/e2e-gate-output-XXXXXX")
 
-    run_router_in_compose "$cycle_index" "$cycle_max_depth" "$router_output_file"
+    run_gate_in_compose "$cycle_index" "$cycle_max_depth" "$gate_output_file"
 
-    # router_decisions (멀티 cycle) 또는 router_decision 검증
+    # gate_decisions (멀티 cycle) 또는 gate_decision 검증
     local expected_decision
     if [[ "$cycle_count" -gt 1 ]]; then
-      expected_decision=$(yaml_get "$yaml_file" ".assertions.router_decisions[${cycle_index}]")
+      expected_decision=$(yaml_get "$yaml_file" ".assertions.gate_decisions[${cycle_index}]")
     else
-      expected_decision="$router_decision"
+      expected_decision="$gate_decision"
     fi
 
     if [[ -n "$expected_decision" ]]; then
-      assert_local_router_decision "$expected_decision" "$router_output_file"
+      assert_local_gate_decision "$expected_decision" "$gate_output_file"
     fi
 
     # continue-then-stop: cycle-0에서 /work/export_config.json 삭제 확인
     if [[ "$scenario_name" == "continue-then-stop" && "$cycle_index" -eq 0 ]]; then
-      log "continue-then-stop cycle-0: router should output 'true' (continue)"
+      log "continue-then-stop cycle-0: gate should output 'true' (continue)"
     fi
 
     # export-handler 실행
@@ -165,7 +188,7 @@ run_scenario() {
     assert_local_export_handler_exit "$export_handler_exit" "$eh_exit"
 
     # 임시 파일 정리
-    rm -f "$router_output_file"
+    rm -f "$gate_output_file"
     rm -rf "$cycle_dir"
   done
 

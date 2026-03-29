@@ -5,7 +5,7 @@
 # Direct execution prints usage.
 #
 # Functions:
-#   assert_router_decision <expected>
+#   assert_gate_decision <expected>
 #   assert_exit_code <expected> <actual>
 #   assert_mock_api <type> <expected_body_contains>
 #   assert_file_exists <path>
@@ -58,29 +58,29 @@ assert_file_contains() {
   fi
 }
 
-# ── assert_router_decision ────────────────────────────────────────────────────
-# Reads the router output file pointed to by ROUTER_OUTPUT and verifies the
+# ── assert_gate_decision ──────────────────────────────────────────────────────
+# Reads the gate output file pointed to by GATE_OUTPUT and verifies the
 # decision matches the expected value.
 
-assert_router_decision() {
+assert_gate_decision() {
   local expected="$1"
-  local router_file="${ROUTER_OUTPUT:-}"
+  local gate_file="${GATE_OUTPUT:-}"
 
-  if [ -z "$router_file" ]; then
-    echo "FAIL assert_router_decision: ROUTER_OUTPUT env var is not set" >&2
+  if [ -z "$gate_file" ]; then
+    echo "FAIL assert_gate_decision: GATE_OUTPUT env var is not set" >&2
     return 1
   fi
 
-  if [ ! -f "$router_file" ]; then
-    echo "FAIL assert_router_decision: router output file not found: '$router_file'" >&2
+  if [ ! -f "$gate_file" ]; then
+    echo "FAIL assert_gate_decision: gate output file not found: '$gate_file'" >&2
     return 1
   fi
 
   local actual
-  actual=$(cat "$router_file")
+  actual=$(cat "$gate_file")
 
   if [ "$expected" != "$actual" ]; then
-    echo "FAIL assert_router_decision: expected decision '$expected' but got '$actual'" >&2
+    echo "FAIL assert_gate_decision: expected decision '$expected' but got '$actual'" >&2
     return 1
   fi
 }

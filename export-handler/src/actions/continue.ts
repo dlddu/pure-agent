@@ -6,7 +6,7 @@ const log = createLogger("action:continue");
 export const continueHandler: ActionHandler = {
   validate(): void {},
   async execute(): Promise<ActionResult> {
-    log.warn("Continue action reached export-handler. This should have been handled by the router.");
+    log.warn("Continue action reached export-handler. This should have been handled by the gate.");
     return {};
   },
 };

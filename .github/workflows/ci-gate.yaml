@@ -1,0 +1,47 @@
+name: "CI: gate"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "gate/**"
+      - ".github/workflows/ci-gate.yaml"
+      - ".github/actions/build-image/**"
+      - ".github/workflows/_test-python.yaml"
+  pull_request:
+    paths:
+      - "gate/**"
+      - ".github/workflows/ci-gate.yaml"
+      - ".github/actions/build-image/**"
+      - ".github/workflows/_test-python.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  test:
+    uses: ./.github/workflows/_test-python.yaml
+    with:
+      service: gate
+
+  build:
+    needs: [test]
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build and push image
+        uses: ./.github/actions/build-image
+        with:
+          service: gate
+          token: ${{ secrets.GITHUB_TOKEN }}

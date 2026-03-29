@@ -10,34 +10,65 @@
 #   count_gh_pr_create_calls()  — lib/compose.sh에서 제공
 #
 # Functions:
-#   assert_local_router_decision <expected> <router_output_file>
+#   assert_local_gate_decision <expected> <gate_output_file>
 #   assert_local_linear_comment <body_contains>
 #   assert_local_export_handler_exit <expected> <actual>
 #   assert_local_github_pr [expected]
 
 set -euo pipefail
 
-# ── assert_local_router_decision ─────────────────────────────────────────────
-# router 결정값 검증
+# ── assert_local_planner_image ───────────────────────────────────────────────
+# planner가 선택한 이미지 검증
+#
+# Arguments:
+#   $1  expected_env_id       — 기대하는 environment_id (default, python-analysis, infra 등)
+#   $2  planner_output_file   — planner 출력 파일 경로
+#
+assert_local_planner_image() {
+  local expected_env_id="$1"
+  local planner_output_file="$2"
+
+  # environment_id → expected image 매핑
+  local expected_image
+  case "$expected_env_id" in
+    default)         expected_image="ghcr.io/dlddu/pure-agent/claude-agent:latest" ;;
+    python-analysis) expected_image="ghcr.io/dlddu/pure-agent/python-agent:latest" ;;
+    infra)           expected_image="ghcr.io/dlddu/pure-agent/infra-agent:latest" ;;
+    *)               expected_image="ghcr.io/dlddu/pure-agent/claude-agent:latest" ;;
+  esac
+
+  local actual
+  actual=$(cat "$planner_output_file" | tr -d '[:space:]')
+
+  if [[ "$expected_image" != "$actual" ]]; then
+    echo "FAIL assert_local_planner_image: expected '${expected_image}' (${expected_env_id}) but got '${actual}'" >&2
+    return 1
+  fi
+
+  log "assert_local_planner_image OK: ${actual}"
+}
+
+# ── assert_local_gate_decision ───────────────────────────────────────────────
+# gate 결정값 검증
 #
 # Arguments:
 #   $1  expected            — "stop", "continue", "true", "false"
-#   $2  router_output_file  — router 출력 파일 경로
+#   $2  gate_output_file    — gate 출력 파일 경로
 #
-assert_local_router_decision() {
+assert_local_gate_decision() {
   local expected="$1"
-  local router_output_file="$2"
+  local gate_output_file="$2"
 
-  if [[ ! -f "$router_output_file" ]]; then
-    echo "FAIL assert_local_router_decision: router output file not found: $router_output_file" >&2
+  if [[ ! -f "$gate_output_file" ]]; then
+    echo "FAIL assert_local_gate_decision: gate output file not found: $gate_output_file" >&2
     return 1
   fi
 
   local actual
-  actual=$(cat "$router_output_file" | tr -d '[:space:]')
+  actual=$(cat "$gate_output_file" | tr -d '[:space:]')
 
-  # router는 "true" (continue) 또는 "false" (stop) 을 출력합니다.
-  # 시나리오 YAML의 router_decision 은 "stop"/"continue" 표기를 사용합니다.
+  # gate는 "true" (continue) 또는 "false" (stop) 을 출력합니다.
+  # 시나리오 YAML의 gate_decision 은 "stop"/"continue" 표기를 사용합니다.
   local expected_raw
   case "$expected" in
     stop)     expected_raw="false" ;;
@@ -47,11 +78,11 @@ assert_local_router_decision() {
   esac
 
   if [[ "$expected_raw" != "$actual" ]]; then
-    echo "FAIL assert_local_router_decision: expected '${expected_raw}' (${expected}) but got '${actual}'" >&2
+    echo "FAIL assert_local_gate_decision: expected '${expected_raw}' (${expected}) but got '${actual}'" >&2
     return 1
   fi
 
-  log "assert_local_router_decision OK: ${actual}"
+  log "assert_local_gate_decision OK: ${actual}"
 }
 
 # ── assert_local_linear_comment ──────────────────────────────────────────────

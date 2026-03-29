@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # e2e/lib/gatekeeper.sh — Gatekeeper API 헬퍼 함수 구현
 #
-# DLD-780: web_fetch e2e 테스트 (skip 상태) — 함수 시그니처 정의
+# DLD-780: web_fetch_get e2e 테스트 (skip 상태) — 함수 시그니처 정의
 # DLD-781: 실제 curl 구현
 #
 # Usage in BATS: load_gatekeeper 함수를 통해 --source-only 모드로 로드합니다.
@@ -10,6 +10,7 @@
 #   GATEKEEPER_URL  — Gatekeeper 베이스 URL (예: http://localhost:8080)
 #
 # Functions:
+#   wait_gatekeeper
 #   gatekeeper_signup  <username> <password>
 #   gatekeeper_login   <username> <password>
 #   gatekeeper_approve <request_id> <jwt_token>
@@ -21,6 +22,29 @@ set -euo pipefail
 if [[ "${1:-}" == "--source-only" ]]; then
   true
 fi
+
+# ── wait_gatekeeper ───────────────────────────────────────────────────────────
+# Gatekeeper 서비스 health check.
+# GATEKEEPER_URL 환경 변수가 설정되어 있어야 합니다.
+# log(), die() 함수가 호출 스크립트에서 정의되어 있어야 합니다.
+#
+wait_gatekeeper() {
+  local max_attempts=30
+  local attempt=0
+  local url="${GATEKEEPER_URL}/api/health"
+
+  log "Waiting for gatekeeper at $url ..."
+  while [[ $attempt -lt $max_attempts ]]; do
+    if curl -sf "$url" >/dev/null 2>&1; then
+      log "gatekeeper is ready"
+      return 0
+    fi
+    attempt=$(( attempt + 1 ))
+    sleep 1
+  done
+
+  die "gatekeeper did not become ready within ${max_attempts}s"
+}
 
 # ── gatekeeper_signup ─────────────────────────────────────────────────────────
 # 테스트 사용자를 Gatekeeper에 등록합니다.

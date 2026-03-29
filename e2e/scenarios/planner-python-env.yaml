@@ -1,0 +1,29 @@
+name: planner-python-env
+description: "Planner가 python-analysis 환경을 선택하는 시나리오"
+level: [1, 2, 3]
+max_depth: 1
+
+# ── Level 2: mock cycle 정의 ──
+cycles:
+  - environment_id: "python-analysis"
+    export_config:
+      linear_issue_id: "mock-issue-id"
+      summary: "Data analysis task completed."
+      actions:
+        - "none"
+      session_id: "mock-session-python"
+    agent_result: "pandas analysis done."
+
+# ── Level 3: real API 실행 설정 ──
+real:
+  max_depth: 5
+  prompt: "pandas와 matplotlib를 사용하여 CSV 데이터를 분석하고 시각화해주세요. Python 데이터 분석 환경이 필요합니다."
+  setup: []
+  verify: [planner_exact_image]
+  teardown: []
+
+# ── 공유 assertions ──
+assertions:
+  planner_image: "python-analysis"
+  gate_decision: "stop"
+  export_handler_exit: 0
