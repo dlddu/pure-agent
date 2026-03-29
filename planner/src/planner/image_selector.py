@@ -86,7 +86,9 @@ def select_image_via_llm(
     try:
         req = urllib.request.Request(url, data=body, headers=headers, method="POST")
         with urllib.request.urlopen(req, timeout=30) as resp:
-            result = json.loads(resp.read().decode())
+            raw_body = resp.read().decode()
+            logger.info("LLM response: status=%s, body_len=%d", resp.status, len(raw_body))
+            result = json.loads(raw_body)
 
         text = result.get("content", [{}])[0].get("text", "")
         parsed = json.loads(text)
@@ -102,6 +104,10 @@ def select_image_via_llm(
         logger.info("LLM selected environment: %s -> %s", env_id, image)
         return image, raw_id
 
+    except urllib.error.HTTPError as exc:
+        error_body = exc.read().decode()[:500] if hasattr(exc, "read") else ""
+        logger.warning("LLM HTTP error: status=%s, body=%s", exc.code, error_body)
+        return resolve_image(DEFAULT_ENVIRONMENT_ID), f"_HTTP:{exc.code}:{error_body[:200]}"
     except (urllib.error.URLError, json.JSONDecodeError, KeyError, TypeError) as exc:
         logger.warning("LLM image selection failed (%s), falling back to default", exc)
         return resolve_image(DEFAULT_ENVIRONMENT_ID), f"_ERROR:{type(exc).__name__}:{exc}"
