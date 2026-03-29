@@ -312,7 +312,7 @@ _dump_planner_debug() {
         | map(select(.name == "raw_environment_id")) | first
         | .value // ""
       ' 2>/dev/null \
-    | tr -d '[:space:]')
+    | tr -d '\n')
   _argo_assert_log "Planner raw_environment_id: '${raw_env_id}'"
 
   # planner Pod 로그 출력 (kubectl logs 사용)

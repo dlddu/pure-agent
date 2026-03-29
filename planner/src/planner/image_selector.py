@@ -65,9 +65,10 @@ def select_image_via_llm(
 
     if not base_url:
         logger.warning("ANTHROPIC_BASE_URL not set, falling back to default environment")
-        return resolve_image(DEFAULT_ENVIRONMENT_ID), None
+        return resolve_image(DEFAULT_ENVIRONMENT_ID), "_NO_BASE_URL"
 
     url = f"{base_url.rstrip('/')}/v1/messages"
+    logger.info("LLM request: url=%s, model=claude-haiku-4-5-20251001", url)
     headers = {
         "Content-Type": "application/json",
         "x-api-key": key,
@@ -103,4 +104,4 @@ def select_image_via_llm(
 
     except (urllib.error.URLError, json.JSONDecodeError, KeyError, TypeError) as exc:
         logger.warning("LLM image selection failed (%s), falling back to default", exc)
-        return resolve_image(DEFAULT_ENVIRONMENT_ID), None
+        return resolve_image(DEFAULT_ENVIRONMENT_ID), f"_ERROR:{type(exc).__name__}:{exc}"
