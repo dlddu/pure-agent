@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # e2e/lib/gatekeeper.sh — Gatekeeper API 헬퍼 함수 구현
 #
-# DLD-780: web_fetch e2e 테스트 (skip 상태) — 함수 시그니처 정의
+# DLD-780: web_fetch_get e2e 테스트 (skip 상태) — 함수 시그니처 정의
 # DLD-781: 실제 curl 구현
 #
 # Usage in BATS: load_gatekeeper 함수를 통해 --source-only 모드로 로드합니다.

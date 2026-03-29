@@ -11,8 +11,8 @@ const WebFetchInputSchema = z.object({
     .describe("The URL to fetch"),
 });
 
-export const webFetchTool = defineTool({
-  name: "web_fetch",
+export const webFetchGetTool = defineTool({
+  name: "web_fetch_get",
   description: "지정한 URL에 GET 요청을 보내고 응답을 반환합니다.",
   schema: WebFetchInputSchema,
   handler: async (args, context, extra) => {
@@ -20,11 +20,11 @@ export const webFetchTool = defineTool({
     const method = "GET";
     const log = context.logger;
 
-    log.info("web_fetch called", { url });
+    log.info("web_fetch_get called", { url });
 
     const sessionId = await context.services.session.readSessionId();
     if (!sessionId) {
-      log.warn("Session ID not found, aborting web_fetch");
+      log.warn("Session ID not found, aborting web_fetch_get");
       return mcpError("Session ID not found");
     }
 
@@ -36,7 +36,7 @@ export const webFetchTool = defineTool({
     const approval = await context.services.gatekeeper.requestApproval(externalId, contextString);
 
     if (approval.status !== "APPROVED") {
-      log.warn("Gatekeeper denied web_fetch", { status: approval.status, externalId });
+      log.warn("Gatekeeper denied web_fetch_get", { status: approval.status, externalId });
       return mcpError(`Web fetch request ${approval.status.toLowerCase()}`);
     }
 
@@ -49,7 +49,7 @@ export const webFetchTool = defineTool({
       responseBody = responseBody.slice(0, MAX_BODY_SIZE);
     }
 
-    log.info("web_fetch completed", {
+    log.info("web_fetch_get completed", {
       url,
       status: response.status,
       bodyLength: responseBody.length,

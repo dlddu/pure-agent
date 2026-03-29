@@ -69,7 +69,7 @@ describe("Integration: MCP Protocol End-to-End", () => {
       expect(toolNames).toContain("get_issue");
       expect(toolNames).toContain("get_issue_comments");
       expect(toolNames).toContain("git_clone");
-      expect(toolNames).toContain("web_fetch");
+      expect(toolNames).toContain("web_fetch_get");
 
       for (const tool of result.tools) {
         expect(tool.inputSchema).toBeDefined();
@@ -203,7 +203,7 @@ describe("Integration: MCP Protocol End-to-End", () => {
     });
   });
 
-  describe("tools/call: web_fetch (DLD-778)", () => {
+  describe("tools/call: web_fetch_get", () => {
     it("performs HTTP fetch and returns success response when approved", async () => {
       // Mock the gatekeeper to approve the request
       const mockApproval = context.services.gatekeeper.requestApproval as ReturnType<typeof vi.fn>;
@@ -222,10 +222,9 @@ describe("Integration: MCP Protocol End-to-End", () => {
       (context as any).fetch = mockFetch;
 
       const result = await client.callTool({
-        name: "web_fetch",
+        name: "web_fetch_get",
         arguments: {
           url: "https://api.example.com/hello",
-          method: "GET",
         },
       });
 

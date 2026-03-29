@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { parseResponseText, createMockContext, createMockExtra } from "../test-utils.js";
-import { webFetchTool } from "./web-fetch.js";
+import { webFetchGetTool } from "./web-fetch-get.js";
 import type { McpToolContext } from "./types.js";
 
-describe("webFetchTool — DLD-778", () => {
+describe("webFetchGetTool", () => {
   let context: McpToolContext;
   let mockFetch: ReturnType<typeof vi.fn>;
   let mockRequestApproval: ReturnType<typeof vi.fn>;
@@ -28,21 +28,21 @@ describe("webFetchTool — DLD-778", () => {
 
   describe("input validation", () => {
     it("rejects when url is missing", async () => {
-      const result = await webFetchTool.handler({}, context, createMockExtra());
+      const result = await webFetchGetTool.handler({}, context, createMockExtra());
       const parsed = parseResponseText(result);
       expect(result.isError).toBe(true);
       expect(parsed.success).toBe(false);
     });
 
     it("rejects when url is empty string", async () => {
-      const result = await webFetchTool.handler({ url: "" }, context, createMockExtra());
+      const result = await webFetchGetTool.handler({ url: "" }, context, createMockExtra());
       const parsed = parseResponseText(result);
       expect(result.isError).toBe(true);
       expect(parsed.success).toBe(false);
     });
 
     it("rejects when url is not a valid URL format", async () => {
-      const result = await webFetchTool.handler(
+      const result = await webFetchGetTool.handler(
         { url: "not-a-valid-url" },
         context,
         createMockExtra(),
@@ -53,7 +53,7 @@ describe("webFetchTool — DLD-778", () => {
     });
 
     it("rejects when args is null", async () => {
-      const result = await webFetchTool.handler(null, context, createMockExtra());
+      const result = await webFetchGetTool.handler(null, context, createMockExtra());
       const parsed = parseResponseText(result);
       expect(result.isError).toBe(true);
       expect(parsed.success).toBe(false);
@@ -68,7 +68,7 @@ describe("webFetchTool — DLD-778", () => {
     it('returns "Session ID not found" error when sessionService.readSessionId() returns undefined', async () => {
       mockReadSessionId.mockResolvedValue(undefined);
 
-      const result = await webFetchTool.handler(
+      const result = await webFetchGetTool.handler(
         { url: "https://example.com" },
         context,
         createMockExtra(),
@@ -88,7 +88,7 @@ describe("webFetchTool — DLD-778", () => {
         text: vi.fn().mockResolvedValue('{"ok":true}'),
       });
 
-      const result = await webFetchTool.handler(
+      const result = await webFetchGetTool.handler(
         { url: "https://example.com" },
         context,
         createMockExtra(),
@@ -114,7 +114,7 @@ describe("webFetchTool — DLD-778", () => {
       });
 
       const extra = createMockExtra({ requestId: "req-42" });
-      await webFetchTool.handler({ url: "https://example.com" }, context, extra);
+      await webFetchGetTool.handler({ url: "https://example.com" }, context, extra);
 
       expect(mockRequestApproval).toHaveBeenCalledWith(
         "session-xyz:req-42",
@@ -140,7 +140,7 @@ describe("webFetchTool — DLD-778", () => {
         text: vi.fn().mockResolvedValue("<html>ok</html>"),
       });
 
-      const result = await webFetchTool.handler(
+      const result = await webFetchGetTool.handler(
         { url: "https://example.com" },
         context,
         createMockExtra(),
@@ -154,7 +154,7 @@ describe("webFetchTool — DLD-778", () => {
     it("returns error and does not fetch when requestApproval returns REJECTED", async () => {
       mockRequestApproval.mockResolvedValue({ status: "REJECTED", requestId: "req-mock-1" });
 
-      const result = await webFetchTool.handler(
+      const result = await webFetchGetTool.handler(
         { url: "https://example.com" },
         context,
         createMockExtra(),
@@ -168,7 +168,7 @@ describe("webFetchTool — DLD-778", () => {
     it("returns error when requestApproval returns EXPIRED", async () => {
       mockRequestApproval.mockResolvedValue({ status: "EXPIRED" });
 
-      const result = await webFetchTool.handler(
+      const result = await webFetchGetTool.handler(
         { url: "https://example.com" },
         context,
         createMockExtra(),
@@ -181,7 +181,7 @@ describe("webFetchTool — DLD-778", () => {
     it("returns error when requestApproval returns TIMEOUT", async () => {
       mockRequestApproval.mockResolvedValue({ status: "TIMEOUT" });
 
-      const result = await webFetchTool.handler(
+      const result = await webFetchGetTool.handler(
         { url: "https://example.com" },
         context,
         createMockExtra(),
@@ -209,7 +209,7 @@ describe("webFetchTool — DLD-778", () => {
         text: vi.fn().mockResolvedValue('{"data":"value"}'),
       });
 
-      const result = await webFetchTool.handler(
+      const result = await webFetchGetTool.handler(
         { url: "https://api.example.com/data", method: "GET" },
         context,
         createMockExtra(),
@@ -229,7 +229,7 @@ describe("webFetchTool — DLD-778", () => {
         text: vi.fn().mockResolvedValue('{"ok":true}'),
       });
 
-      await webFetchTool.handler(
+      await webFetchGetTool.handler(
         { url: "https://api.example.com/items" },
         context,
         createMockExtra(),
@@ -244,7 +244,7 @@ describe("webFetchTool — DLD-778", () => {
     it("returns error when fetch throws a network error", async () => {
       mockFetch.mockRejectedValue(new Error("Network error: connection refused"));
 
-      const result = await webFetchTool.handler(
+      const result = await webFetchGetTool.handler(
         { url: "https://unreachable.example.com" },
         context,
         createMockExtra(),
@@ -263,7 +263,7 @@ describe("webFetchTool — DLD-778", () => {
         text: vi.fn().mockResolvedValue(largeBody),
       });
 
-      const result = await webFetchTool.handler(
+      const result = await webFetchGetTool.handler(
         { url: "https://example.com/large" },
         context,
         createMockExtra(),
