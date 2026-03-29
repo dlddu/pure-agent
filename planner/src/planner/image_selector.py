@@ -100,7 +100,7 @@ def select_image_via_llm(
         # Strip markdown code fences (e.g. ```json\n{...}\n```)
         text = text.strip()
         if text.startswith("```"):
-            text = text.split("\n", 1)[-1] if "\n" in text else text[text.index("{"):]
+            text = text.split("\n", 1)[-1] if "\n" in text else text[text.index("{") :]
         if text.endswith("```"):
             text = text[: text.rfind("```")]
         text = text.strip()

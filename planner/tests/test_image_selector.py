@@ -74,11 +74,7 @@ class TestSelectImageViaLlm:
 
             resp = MagicMock()
             resp.read.return_value = json.dumps(
-                {
-                    "content": [
-                        {"type": "text", "text": '```json\n{"environment_id": "infra"}\n```'}
-                    ]
-                }
+                {"content": [{"type": "text", "text": '```json\n{"environment_id": "infra"}\n```'}]}
             ).encode()
             resp.__enter__ = lambda s: s
             resp.__exit__ = lambda s, *a: None
