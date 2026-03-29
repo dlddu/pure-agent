@@ -1,19 +1,19 @@
 #!/usr/bin/env bats
 bats_require_minimum_version 1.5.0
-# Tests for Level ② functions in e2e/run-argo.sh
+# Tests for Level 2 functions in e2e/run-level2.sh
 #
 # TDD Red Phase: the functions under test currently return 0 immediately via
 # "[SKIP] ... && return 0" guards.  These tests will all FAIL until the skip
 # guards are removed and the real logic is implemented (DLD-466).
 #
 # Covered functions:
-#   check_prerequisites (Level 2 branch)
+#   check_prerequisites
 #   prepare_cycle_fixtures (from lib/common.sh)
-#   _level2_verify_cycle
+#   verify_cycle
 
 source "$BATS_TEST_DIRNAME/test-helper.sh"
 
-# run-argo.sh reads SCENARIOS_DIR at source time; point it to fixtures.
+# run-level2.sh reads SCENARIOS_DIR at source time; point it to fixtures.
 setup() {
   common_setup
 
@@ -21,7 +21,7 @@ setup() {
   export SCENARIOS_DIR="$BATS_TEST_TMPDIR/scenarios"
   mkdir -p "$SCENARIOS_DIR"
 
-  # Level 2 defaults expected by run-argo.sh
+  # Level 2 defaults expected by run-level2.sh
   export LEVEL="2"
   export NAMESPACE="pure-agent"
   export KUBE_CONTEXT="kind-pure-agent-e2e-level2"
@@ -29,7 +29,7 @@ setup() {
   export MOCK_API_URL="http://mock-api.pure-agent.svc.cluster.local:4000"
   export WORKFLOW_TIMEOUT="600"
 
-  # Stub out external tools so sourcing run-argo.sh does not fail when the
+  # Stub out external tools so sourcing run-level2.sh does not fail when the
   # real binaries are absent in the test environment.
   yq()      { command yq "$@" 2>/dev/null || true; }
   export -f yq
@@ -408,10 +408,10 @@ YAML
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# _level2_verify_cycle
+# verify_cycle
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@test "_level2_verify_cycle: calls assert_workflow_succeeded for the given workflow" {
+@test "verify_cycle: calls assert_workflow_succeeded for the given workflow" {
   # Arrange — mock assert_workflow_succeeded to record calls.
   # Call directly (not via `run`) so the mock writes to the log in the same
   # process; `run` spawns a subshell where exports do not propagate back.
@@ -428,13 +428,13 @@ YAML
   yaml_file=$(write_scenario_yaml "none-action")
 
   # Act — direct call keeps mock side-effects visible in this shell.
-  _level2_verify_cycle "$yaml_file" "pure-agent-test-wf" 0
+  verify_cycle "$yaml_file" "pure-agent-test-wf" 0
 
   # Assert
   grep -q "assert_workflow_succeeded called with: pure-agent-test-wf" "$call_log"
 }
 
-@test "_level2_verify_cycle: fails when assert_workflow_succeeded fails" {
+@test "verify_cycle: fails when assert_workflow_succeeded fails" {
   # Arrange
   assert_workflow_succeeded() {
     return 1
@@ -446,13 +446,13 @@ YAML
   yaml_file=$(write_scenario_yaml "none-action")
 
   # Act
-  run _level2_verify_cycle "$yaml_file" "failing-wf" 0
+  run verify_cycle "$yaml_file" "failing-wf" 0
 
   # Assert
   [ "$status" -ne 0 ]
 }
 
-@test "_level2_verify_cycle: passes cycle index to log output" {
+@test "verify_cycle: passes cycle index to log output" {
   # Arrange
   assert_workflow_succeeded() { return 0; }
   export -f assert_workflow_succeeded
@@ -461,7 +461,7 @@ YAML
   yaml_file=$(write_scenario_yaml "none-action")
 
   # Act — cycle index 0 should appear in some form in output/log
-  run _level2_verify_cycle "$yaml_file" "my-wf" 0
+  run verify_cycle "$yaml_file" "my-wf" 0
 
   # Assert — function must exit cleanly
   [ "$status" -eq 0 ]

@@ -220,7 +220,7 @@ jobs:
             apply -n "$PURE_AGENT_NAMESPACE" -f /tmp/workflow-template-patched.yaml
 
       # ── Run E2E scenarios ─────────────────────────────────────────────────────
-      - name: Run E2E scenarios (run-argo.sh)
+      - name: Run E2E scenarios (run-level3.sh)
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
@@ -228,7 +228,7 @@ jobs:
           GITHUB_TEST_REPO: ${{ vars.E2E_TEST_REPO }}
           KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
         run: |
-          bash e2e/run-argo.sh \
+          bash e2e/run-level3.sh \
             --scenario "${{ github.event.inputs.scenario || 'all' }}" \
             --namespace "$PURE_AGENT_NAMESPACE"
 

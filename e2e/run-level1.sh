@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
-# e2e/run-local.sh — Level ① E2E 테스트 러너 (Docker Compose 기반)
+# e2e/run-level1.sh — Level 1 E2E 테스트 러너 (Docker Compose 기반)
 #
-# DLD-468: Level ① e2e 테스트 작성 (skipped)
+# Mock:
+#   - Agent        → mock-agent (fixture를 /work에 복사)
+#   - Linear API   → mock-api (GraphQL mock 서버)
+#   - GitHub CLI   → mock-gh (호출 기록만 저장)
+#   - Anthropic API → mock-api (Planner의 LLM 호출을 mock 응답으로 대체)
+# Real:
+#   - Gate         (실제 Python CLI 실행)
+#   - Export Handler (실제 TypeScript 실행)
+#   - Planner      (실제 Python CLI, LLM 백엔드만 mock)
+#   - Gatekeeper   (실제 서비스, DB는 ephemeral)
 #
 # 시나리오별로:
 #   1. docker compose up -d (mock-api 등 데몬 서비스)
@@ -13,7 +22,7 @@
 #   5. docker compose down
 #
 # Usage:
-#   ./e2e/run-local.sh [--scenario <name|all>]
+#   ./e2e/run-level1.sh [--scenario <name|all>]
 #
 # Environment variables:
 #   SCENARIO        — 실행할 시나리오 이름 (기본값: all)
@@ -33,9 +42,9 @@ COMPOSE_FILE="${COMPOSE_FILE:-${SCRIPT_DIR}/docker-compose.yml}"
 SCENARIOS_DIR="${SCRIPT_DIR}/scenarios"
 
 # ── Logging ───────────────────────────────────────────────────────────────────
-log()  { echo "[run-local] $*" >&2; }
-warn() { echo "[run-local] WARN: $*" >&2; }
-die()  { echo "[run-local] ERROR: $*" >&2; exit 1; }
+log()  { echo "[run-level1] $*" >&2; }
+warn() { echo "[run-level1] WARN: $*" >&2; }
+die()  { echo "[run-level1] ERROR: $*" >&2; exit 1; }
 
 # ── Source shared libraries ───────────────────────────────────────────────────
 # shellcheck source=lib/common.sh
