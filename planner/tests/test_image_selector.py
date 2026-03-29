@@ -22,8 +22,7 @@ class TestSelectImageViaLlm:
             api_key="test",
         )
         assert image == ENVIRONMENT_MAP[DEFAULT_ENVIRONMENT_ID].image
-        assert raw_id is not None and raw_id.startswith("_ERROR:")
-
+        assert raw_id is not None and raw_id.startswith("_PARSE_TEXT:")
     def test_selects_python_environment(self):
         """When LLM returns python-analysis, resolves to python image."""
 

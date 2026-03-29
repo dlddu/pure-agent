@@ -88,10 +88,20 @@ def select_image_via_llm(
         with urllib.request.urlopen(req, timeout=30) as resp:
             raw_body = resp.read().decode()
             logger.info("LLM response: status=%s, body_len=%d", resp.status, len(raw_body))
+
+        try:
             result = json.loads(raw_body)
+        except json.JSONDecodeError as exc:
+            logger.warning("Failed to parse LLM response body: %s", raw_body[:500])
+            return resolve_image(DEFAULT_ENVIRONMENT_ID), f"_PARSE_RESP:{raw_body[:200]}"
 
         text = result.get("content", [{}])[0].get("text", "")
-        parsed = json.loads(text)
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            logger.warning("LLM returned non-JSON text: %s", text[:500])
+            return resolve_image(DEFAULT_ENVIRONMENT_ID), f"_PARSE_TEXT:{text[:200]}"
+
         raw_id = parsed.get("environment_id")
         logger.info("LLM raw response: environment_id=%s", raw_id)
         env_id = raw_id or DEFAULT_ENVIRONMENT_ID

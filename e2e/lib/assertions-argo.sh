@@ -318,12 +318,22 @@ _dump_planner_debug() {
   # planner Pod 로그 출력 (kubectl logs 사용)
   local planner_pod_id
   planner_pod_id=$(echo "$planner_node" | jq -r '.id // ""' 2>/dev/null)
+
+  # planner 노드의 displayName, hostNodeName 등 디버그 정보 출력
+  _argo_assert_log "Planner node debug: $(echo "$planner_node" | jq -c '{id, displayName, hostNodeName, phase, type, templateName}' 2>/dev/null)"
+
   if [[ -n "$planner_pod_id" ]]; then
+    # 실제 pod 존재 여부 확인
+    _argo_assert_log "Checking pod existence:"
+    kubectl get pod "$planner_pod_id" -n "$namespace" --context "$kube_context" \
+      -o jsonpath='{.metadata.name} {.status.phase} containers={range .spec.containers[*]}{.name},{end}' >&2 2>&1 || true
+    echo "" >&2
+
     _argo_assert_log "=== Planner Pod logs (pod=$planner_pod_id) ==="
     kubectl logs "$planner_pod_id" -c main \
-      -n "$namespace" --context "$kube_context" >&2 2>/dev/null || \
+      -n "$namespace" --context "$kube_context" >&2 2>&1 || \
     kubectl logs "$planner_pod_id" \
-      -n "$namespace" --context "$kube_context" >&2 2>/dev/null || true
+      -n "$namespace" --context "$kube_context" >&2 2>&1 || true
     _argo_assert_log "=== End Planner logs ==="
   else
     _argo_assert_log "WARN: could not find planner Pod ID for log retrieval"
