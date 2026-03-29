@@ -305,14 +305,13 @@ jobs:
             apply -n "$PURE_AGENT_NAMESPACE" -f /tmp/workflow-template-level2.yaml
 
       # ── Run Level 2 E2E scenarios ─────────────────────────────────────────
-      - name: Run Level 2 E2E scenarios (run-argo.sh --level 2)
+      - name: Run Level 2 E2E scenarios (run-level2.sh)
         env:
           KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
           MOCK_AGENT_IMAGE: ${{ env.MOCK_AGENT_IMAGE }}
           MOCK_API_URL: "http://mock-api.${{ env.PURE_AGENT_NAMESPACE }}.svc.cluster.local:4000"
         run: |
-          bash e2e/run-argo.sh \
-            --level 2 \
+          bash e2e/run-level2.sh \
             --scenario "${{ github.event.inputs.scenario || 'all' }}" \
             --namespace "$PURE_AGENT_NAMESPACE" \
             --context "kind-${CLUSTER_NAME}"

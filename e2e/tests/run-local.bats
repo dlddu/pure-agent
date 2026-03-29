@@ -12,7 +12,7 @@ bats_require_minimum_version 1.5.0
 #   - docker (compose plugin 포함)
 #   - curl, jq, yq
 #   - e2e/docker-compose.yml
-#   - e2e/run-local.sh
+#   - e2e/run-level1.sh
 #
 # 실행 방법:
 #   bats e2e/tests/run-local.bats
@@ -24,7 +24,7 @@ bats_require_minimum_version 1.5.0
 E2E_DIR="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
 SCENARIOS_DIR="${E2E_DIR}/scenarios"
 COMPOSE_FILE="${E2E_DIR}/docker-compose.yml"
-RUN_LOCAL="${E2E_DIR}/run-local.sh"
+RUN_LOCAL="${E2E_DIR}/run-level1.sh"
 MOCK_API_URL="${MOCK_API_URL:-http://localhost:4000}"
 
 # ── 공통 setup / teardown ─────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ setup() {
   export WORK_DIR="${BATS_TEST_TMPDIR}/work"
   mkdir -p "$WORK_DIR"
 
-  # run-local.sh를 --source-only 모드로 로드하여 헬퍼 함수만 가져옴
+  # run-level1.sh를 --source-only 모드로 로드하여 헬퍼 함수만 가져옴
   # (common.sh, mock-api.sh, mock-gh.sh, compose.sh, assertions-local.sh, gatekeeper.sh)
   # shellcheck disable=SC1090
   source "$RUN_LOCAL" --source-only

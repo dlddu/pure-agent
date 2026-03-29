@@ -63,7 +63,7 @@ services:
       start_period: 5s
 
   # ── mock-agent: fixture를 /work 볼륨에 배치 ───────────────────────────────
-  # SCENARIO_DIR 환경 변수는 run-local.sh가 외부에서 주입합니다.
+  # SCENARIO_DIR 환경 변수는 run-level1.sh가 외부에서 주입합니다.
   mock-agent:
     build:
       context: ..
@@ -73,7 +73,7 @@ services:
       WORK_DIR: /work
     volumes:
       - work:/work
-      # 시나리오 fixture 디렉토리를 컨테이너에 마운트 (run-local.sh가 bind-mount로 교체)
+      # 시나리오 fixture 디렉토리를 컨테이너에 마운트 (run-level1.sh가 bind-mount로 교체)
       - "${SCENARIO_DIR:-/tmp/e2e-empty}:/scenario:ro"
     networks:
       - e2e
@@ -82,7 +82,7 @@ services:
         condition: service_healthy
 
   # ── planner: Python CLI (환경 선택) ──────────────────────────────────────
-  # run-local.sh가 docker compose run으로 개별 실행합니다.
+  # run-level1.sh가 docker compose run으로 개별 실행합니다.
   planner:
     build:
       context: ..
@@ -99,7 +99,7 @@ services:
       - runner   # docker compose run으로만 실행
 
   # ── gate: Python CLI ──────────────────────────────────────────────────────
-  # run-local.sh가 docker compose run으로 개별 실행합니다.
+  # run-level1.sh가 docker compose run으로 개별 실행합니다.
   gate:
     build:
       context: ..
@@ -108,13 +108,13 @@ services:
       - work:/work
     networks:
       - e2e
-    # 기본 커맨드는 run-local.sh가 override합니다.
+    # 기본 커맨드는 run-level1.sh가 override합니다.
     command: ["gate", "--help"]
     profiles:
       - runner   # docker compose run으로만 실행
 
   # ── export-handler: TypeScript (Node 22) ──────────────────────────────────
-  # run-local.sh가 docker compose run으로 개별 실행합니다.
+  # run-level1.sh가 docker compose run으로 개별 실행합니다.
   export-handler:
     build:
       context: ..
