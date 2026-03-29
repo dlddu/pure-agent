@@ -1,12 +1,12 @@
 name: web-fetch-rejected
-description: "web_fetch 거절 시나리오: Gatekeeper가 요청을 거절하면 web_fetch가 에러를 반환한다"
+description: "web_fetch_get 거절 시나리오: Gatekeeper가 요청을 거절하면 web_fetch_get가 에러를 반환한다"
 level: [1]
 
 # ── Level 1: mock cycle 정의 ──
 cycles:
   - export_config:
       linear_issue_id: "mock-issue-id"
-      summary: "web_fetch 거절 시나리오 완료."
+      summary: "web_fetch_get 거절 시나리오 완료."
       actions:
         - "none"
       session_id: "mock-session-web-fetch-rejected"

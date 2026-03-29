@@ -35,7 +35,7 @@ describe("createMcpServer", () => {
       expect(names).toContain("get_issue");
       expect(names).toContain("get_issue_comments");
       expect(names).toContain("git_clone");
-      expect(names).toContain("web_fetch");
+      expect(names).toContain("web_fetch_get");
     });
 
     it("each tool has name and inputSchema", async () => {

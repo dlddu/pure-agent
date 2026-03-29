@@ -9,34 +9,22 @@ const WebFetchInputSchema = z.object({
     .min(1, "URL is required")
     .url("Must be a valid URL")
     .describe("The URL to fetch"),
-  method: z
-    .enum(["GET", "POST", "PUT", "DELETE"])
-    .optional()
-    .default("GET")
-    .describe("HTTP method"),
-  headers: z
-    .record(z.string(), z.string())
-    .optional()
-    .describe("Optional request headers"),
-  body: z
-    .string()
-    .optional()
-    .describe("Optional request body"),
 });
 
-export const webFetchTool = defineTool({
-  name: "web_fetch",
-  description: "지정한 URL에 HTTP 요청을 보내고 응답을 반환합니다.",
+export const webFetchGetTool = defineTool({
+  name: "web_fetch_get",
+  description: "지정한 URL에 GET 요청을 보내고 응답을 반환합니다.",
   schema: WebFetchInputSchema,
   handler: async (args, context, extra) => {
-    const { url, method, headers, body } = args;
+    const { url } = args;
+    const method = "GET";
     const log = context.logger;
 
-    log.info("web_fetch called", { url, method });
+    log.info("web_fetch_get called", { url });
 
     const sessionId = await context.services.session.readSessionId();
     if (!sessionId) {
-      log.warn("Session ID not found, aborting web_fetch");
+      log.warn("Session ID not found, aborting web_fetch_get");
       return mcpError("Session ID not found");
     }
 
@@ -44,16 +32,16 @@ export const webFetchTool = defineTool({
     const externalId = `${sessionId}:${requestId}`;
 
     log.debug("Requesting gatekeeper approval", { externalId });
-    const contextString = JSON.stringify({ url, method, headers, body });
+    const contextString = JSON.stringify({ url, method });
     const approval = await context.services.gatekeeper.requestApproval(externalId, contextString);
 
     if (approval.status !== "APPROVED") {
-      log.warn("Gatekeeper denied web_fetch", { status: approval.status, externalId });
+      log.warn("Gatekeeper denied web_fetch_get", { status: approval.status, externalId });
       return mcpError(`Web fetch request ${approval.status.toLowerCase()}`);
     }
 
     log.info("Gatekeeper approved, executing fetch", { url, method });
-    const response = await context.fetch(url, { method, headers, body });
+    const response = await context.fetch(url, { method });
 
     let responseBody = await response.text();
     const truncated = responseBody.length > MAX_BODY_SIZE;
@@ -61,7 +49,7 @@ export const webFetchTool = defineTool({
       responseBody = responseBody.slice(0, MAX_BODY_SIZE);
     }
 
-    log.info("web_fetch completed", {
+    log.info("web_fetch_get completed", {
       url,
       status: response.status,
       bodyLength: responseBody.length,
