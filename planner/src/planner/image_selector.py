@@ -91,7 +91,7 @@ def select_image_via_llm(
 
         try:
             result = json.loads(raw_body)
-        except json.JSONDecodeError as exc:
+        except json.JSONDecodeError:
             logger.warning("Failed to parse LLM response body: %s", raw_body[:500])
             return resolve_image(DEFAULT_ENVIRONMENT_ID), f"_PARSE_RESP:{raw_body[:200]}"
 
