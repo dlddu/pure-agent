@@ -12,17 +12,17 @@ class TestSelectImageViaLlm:
         """Without ANTHROPIC_BASE_URL, falls back to default."""
         image, raw_id = select_image_via_llm("some task", anthropic_base_url="", api_key="test")
         assert image == ENVIRONMENT_MAP[DEFAULT_ENVIRONMENT_ID].image
-        assert raw_id is None
+        assert raw_id == "_NO_BASE_URL"
 
     def test_fallback_on_network_error(self):
-        """On connection error, falls back to default."""
+        """On connection error, falls back to default with error detail."""
         image, raw_id = select_image_via_llm(
             "some task",
             anthropic_base_url="http://localhost:1",
             api_key="test",
         )
         assert image == ENVIRONMENT_MAP[DEFAULT_ENVIRONMENT_ID].image
-        assert raw_id is None
+        assert raw_id is not None and raw_id.startswith("_ERROR:")
 
     def test_selects_python_environment(self):
         """When LLM returns python-analysis, resolves to python image."""
@@ -106,4 +106,4 @@ class TestSelectImageViaLlm:
                 "something", anthropic_base_url="http://fake", api_key="test"
             )
         assert image == ENVIRONMENT_MAP[DEFAULT_ENVIRONMENT_ID].image
-        assert raw_id is None
+        assert raw_id is not None and raw_id.startswith("_ERROR:")
