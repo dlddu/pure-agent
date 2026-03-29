@@ -1,14 +1,16 @@
 #!/usr/bin/env bash
 # e2e/run-level1.sh — Level 1 E2E 테스트 러너 (Docker Compose 기반)
 #
-# 검증 영역:
-#   - Docker Compose 기반 컴포넌트 단위 검증 (외부 API 전체 mock)
-#   - Gate 판단 로직 (continue/stop)
-#   - Export Handler 실행 및 종료 코드
-#   - Linear API 통합 (mock-api), GitHub PR 생성 (mock-gh)
-#   - Planner 환경 선택 (python/infra/fallback)
-#   - Gatekeeper web_fetch 승인/거부 흐름
-#   - 멀티 cycle 워크플로, depth limit
+# Mock:
+#   - Agent        → mock-agent (fixture를 /work에 복사)
+#   - Linear API   → mock-api (GraphQL mock 서버)
+#   - GitHub CLI   → mock-gh (호출 기록만 저장)
+#   - Anthropic API → mock-api (Planner의 LLM 호출을 mock 응답으로 대체)
+# Real:
+#   - Gate         (실제 Python CLI 실행)
+#   - Export Handler (실제 TypeScript 실행)
+#   - Planner      (실제 Python CLI, LLM 백엔드만 mock)
+#   - Gatekeeper   (실제 서비스, DB는 ephemeral)
 #
 # 시나리오별로:
 #   1. docker compose up -d (mock-api 등 데몬 서비스)

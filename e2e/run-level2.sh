@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 # e2e/run-level2.sh — Level 2 E2E 테스트 러너 (kind + Argo, mock 기반)
 #
-# 검증 영역:
-#   - Argo Workflow 오케스트레이션 (mock-agent + mock-api, 실제 API 불필요)
-#   - Workflow 제출 → 대기 → 성공 확인
-#   - mock-agent를 통한 cycle별 fixture 주입 (ConfigMap)
-#   - Planner 이미지 선택
-#   - 멀티 cycle 오케스트레이션 (continue-then-stop)
-#   - depth limit 종료
+# Mock:
+#   - Agent        → mock-agent (ConfigMap에서 fixture를 읽어 시뮬레이션)
+#   - Linear API   → mock-api (클러스터 내 GraphQL mock 서비스)
+#   - GitHub CLI   → mock (Workflow 내 passthrough)
+#   - Planner      → mock-planner (Alpine 스크립트, prompt에서 env 파싱)
+#   - Gate         → mock-gate (Alpine 스크립트, depth limit 로직만 구현)
+#   - Export Handler → mock (passthrough)
+#   - Anthropic API → 사용하지 않음
+#   - MCP daemon / LLM gateway → 사용하지 않음
+# Real:
+#   - Argo Workflows (WorkflowTemplate 제출, 대기, 상태 확인)
+#   - Kubernetes    (kind 클러스터, ConfigMap, Pod lifecycle)
 #
 # 시나리오 정의는 e2e/scenarios/<name>.yaml 파일에서 읽습니다.
 # cycles[] 배열의 각 cycle을 독립적인 Argo Workflow로 제출하고,

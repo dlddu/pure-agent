@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
 # e2e/run-level3.sh — Level 3 E2E 테스트 러너 (kind + Argo, 실제 API)
 #
-# 검증 영역:
-#   - 실제 API를 사용한 풀 E2E (Linear, GitHub, Anthropic)
-#   - 실제 Claude AI 에이전트 실행
-#   - Linear API 통합 (이슈 생성 → 코멘트 검증 → 정리)
-#   - GitHub API 통합 (브랜치/PR 생성 → 검증 → 정리)
-#   - YAML 기반 setup → run → verify → teardown 파이프라인
+# Mock:
+#   - 없음 (모든 컴포넌트가 실제 서비스)
+# Real:
+#   - Agent        (실제 Claude Code 에이전트, Anthropic API 호출)
+#   - Linear API   (이슈 생성 → 코멘트 검증 → 정리)
+#   - GitHub API   (브랜치/PR 생성 → 검증 → 정리)
+#   - Planner      (실제 Claude Haiku로 환경 선택)
+#   - Gate         (실제 Python CLI)
+#   - Export Handler (실제 TypeScript)
+#   - Argo Workflows / Kubernetes
+#   - MCP daemon / LLM gateway
 #
 # 시나리오 정의는 e2e/scenarios/<name>.yaml 파일에서 읽습니다.
 # YAML의 real.setup/teardown/max_depth 및 assertions 섹션을 사용하여
