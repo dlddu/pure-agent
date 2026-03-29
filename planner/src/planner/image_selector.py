@@ -96,6 +96,15 @@ def select_image_via_llm(
             return resolve_image(DEFAULT_ENVIRONMENT_ID), f"_PARSE_RESP:{raw_body[:200]}"
 
         text = result.get("content", [{}])[0].get("text", "")
+
+        # Strip markdown code fences (e.g. ```json\n{...}\n```)
+        text = text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[-1] if "\n" in text else text[text.index("{"):]
+        if text.endswith("```"):
+            text = text[: text.rfind("```")]
+        text = text.strip()
+
         try:
             parsed = json.loads(text)
         except json.JSONDecodeError:

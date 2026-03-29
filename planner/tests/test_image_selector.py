@@ -66,6 +66,56 @@ class TestSelectImageViaLlm:
         assert "infra-agent" in image
         assert raw_id == "infra"
 
+    def test_strips_markdown_code_fence(self):
+        """When LLM wraps JSON in markdown code fences, still parses correctly."""
+
+        def mock_response(*args, **kwargs):
+            from unittest.mock import MagicMock
+
+            resp = MagicMock()
+            resp.read.return_value = json.dumps(
+                {
+                    "content": [
+                        {"type": "text", "text": '```json\n{"environment_id": "infra"}\n```'}
+                    ]
+                }
+            ).encode()
+            resp.__enter__ = lambda s: s
+            resp.__exit__ = lambda s, *a: None
+            return resp
+
+        with patch("urllib.request.urlopen", side_effect=mock_response):
+            image, raw_id = select_image_via_llm(
+                "kubectl deploy", anthropic_base_url="http://fake", api_key="test"
+            )
+        assert "infra-agent" in image
+        assert raw_id == "infra"
+
+    def test_strips_markdown_code_fence_no_newline(self):
+        """When LLM wraps JSON in code fences without newlines."""
+
+        def mock_response(*args, **kwargs):
+            from unittest.mock import MagicMock
+
+            resp = MagicMock()
+            resp.read.return_value = json.dumps(
+                {
+                    "content": [
+                        {"type": "text", "text": '```json{"environment_id": "python-analysis"}```'}
+                    ]
+                }
+            ).encode()
+            resp.__enter__ = lambda s: s
+            resp.__exit__ = lambda s, *a: None
+            return resp
+
+        with patch("urllib.request.urlopen", side_effect=mock_response):
+            image, raw_id = select_image_via_llm(
+                "pandas analysis", anthropic_base_url="http://fake", api_key="test"
+            )
+        assert "python-agent" in image
+        assert raw_id == "python-analysis"
+
     def test_unknown_environment_falls_back(self):
         """When LLM returns unknown ID, falls back to default."""
 
