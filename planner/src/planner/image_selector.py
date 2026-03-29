@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import urllib.error
 import urllib.request
 
@@ -97,18 +98,17 @@ def select_image_via_llm(
 
         text = result.get("content", [{}])[0].get("text", "")
 
-        # Strip markdown code fences (e.g. ```json\n{...}\n```)
-        text = text.strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[-1] if "\n" in text else text[text.index("{") :]
-        if text.endswith("```"):
-            text = text[: text.rfind("```")]
-        text = text.strip()
+        # Extract first JSON object from LLM response (handles markdown fences,
+        # trailing explanation text, etc.)
+        match = re.search(r"\{[^}]*\}", text)
+        if not match:
+            logger.warning("No JSON object found in LLM text: %s", text[:500])
+            return resolve_image(DEFAULT_ENVIRONMENT_ID), f"_PARSE_TEXT:{text[:200]}"
 
         try:
-            parsed = json.loads(text)
+            parsed = json.loads(match.group())
         except json.JSONDecodeError:
-            logger.warning("LLM returned non-JSON text: %s", text[:500])
+            logger.warning("Failed to parse extracted JSON: %s", match.group())
             return resolve_image(DEFAULT_ENVIRONMENT_ID), f"_PARSE_TEXT:{text[:200]}"
 
         raw_id = parsed.get("environment_id")

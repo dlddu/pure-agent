@@ -112,6 +112,31 @@ class TestSelectImageViaLlm:
         assert "python-agent" in image
         assert raw_id == "python-analysis"
 
+    def test_strips_code_fence_with_trailing_text(self):
+        """When LLM adds explanation after code fence, still parses correctly."""
+
+        def mock_response(*args, **kwargs):
+            from unittest.mock import MagicMock
+
+            resp = MagicMock()
+            llm_text = (
+                '```json\n{"environment_id": "infra"}\n```\n'
+                "This task requires kubectl so infra is best."
+            )
+            resp.read.return_value = json.dumps(
+                {"content": [{"type": "text", "text": llm_text}]}
+            ).encode()
+            resp.__enter__ = lambda s: s
+            resp.__exit__ = lambda s, *a: None
+            return resp
+
+        with patch("urllib.request.urlopen", side_effect=mock_response):
+            image, raw_id = select_image_via_llm(
+                "kubectl deploy", anthropic_base_url="http://fake", api_key="test"
+            )
+        assert "infra-agent" in image
+        assert raw_id == "infra"
+
     def test_unknown_environment_falls_back(self):
         """When LLM returns unknown ID, falls back to default."""
 
