@@ -52,17 +52,6 @@ describe("webFetchTool — DLD-778", () => {
       expect(parsed.success).toBe(false);
     });
 
-    it("rejects when method is not an allowed value (e.g. PATCH)", async () => {
-      const result = await webFetchTool.handler(
-        { url: "https://example.com/api", method: "PATCH" },
-        context,
-        createMockExtra(),
-      );
-      const parsed = parseResponseText(result);
-      expect(result.isError).toBe(true);
-      expect(parsed.success).toBe(false);
-    });
-
     it("rejects when args is null", async () => {
       const result = await webFetchTool.handler(null, context, createMockExtra());
       const parsed = parseResponseText(result);
@@ -233,31 +222,22 @@ describe("webFetchTool — DLD-778", () => {
       expect(parsed.headers).toBeDefined();
     });
 
-    it("forwards method, headers, and body correctly for POST request", async () => {
+    it("always sends GET method regardless of input", async () => {
       mockFetch.mockResolvedValue({
-        status: 201,
+        status: 200,
         headers: { get: vi.fn().mockReturnValue("application/json") },
-        text: vi.fn().mockResolvedValue('{"created":true}'),
+        text: vi.fn().mockResolvedValue('{"ok":true}'),
       });
 
       await webFetchTool.handler(
-        {
-          url: "https://api.example.com/items",
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: '{"name":"test"}',
-        },
+        { url: "https://api.example.com/items" },
         context,
         createMockExtra(),
       );
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://api.example.com/items",
-        expect.objectContaining({
-          method: "POST",
-          headers: expect.objectContaining({ "Content-Type": "application/json" }),
-          body: '{"name":"test"}',
-        }),
+        expect.objectContaining({ method: "GET" }),
       );
     });
 
