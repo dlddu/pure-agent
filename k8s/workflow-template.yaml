@@ -241,6 +241,9 @@ spec:
     # Planner (image selection)
     # =============================
     - name: planner
+      metadata:
+        labels:
+          pure-agent/role: agent
       inputs:
         parameters:
           - name: prompt
