@@ -243,7 +243,7 @@ spec:
     - name: planner
       metadata:
         labels:
-          pure-agent/role: agent
+          pure-agent/role: planner
       inputs:
         parameters:
           - name: prompt
