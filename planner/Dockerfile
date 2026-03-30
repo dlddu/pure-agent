@@ -14,12 +14,16 @@ SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
-    python3-venv \
     curl \
     git \
     ca-certificates \
     jq \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install planner Python package as root (before USER switch)
+COPY planner/pyproject.toml /app/pyproject.toml
+COPY planner/src/ /app/src/
+RUN pip install --no-cache-dir --break-system-packages /app && rm -rf /app
 
 RUN useradd -m -s /bin/bash --no-log-init claude
 
@@ -38,11 +42,5 @@ COPY --chown=claude:claude planner/settings.json /home/claude/.claude/settings.j
 # Planner guidelines
 COPY --chown=claude:claude planner/CLAUDE.md /home/claude/CLAUDE.md
 ENV PLANNER_CLAUDE_MD=/home/claude/CLAUDE.md
-
-# Install planner Python package
-COPY --chown=claude:claude planner/pyproject.toml /app/pyproject.toml
-COPY --chown=claude:claude planner/src/ /app/src/
-
-RUN python3 -m pip install --no-cache-dir --break-system-packages --user /app
 
 CMD ["planner"]
