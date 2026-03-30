@@ -1,0 +1,29 @@
+name: linear-issue-env-selection
+description: "Linear 이슈 ID 기반 프롬프트 → planner 환경 선택 → 작업 완료"
+level: [1, 2, 3]
+max_depth: 1
+
+# ── Level 1/2: mock cycle 정의 ──
+cycles:
+  - environment_id: "default"
+    export_config:
+      linear_issue_id: "mock-issue-id"
+      summary: "Linear 이슈 기반 작업 완료"
+      actions:
+        - "none"
+      session_id: "mock-session-linear-issue"
+    agent_result: "Issue-based task completed."
+
+# ── Level 3: real API 실행 설정 ──
+real:
+  max_depth: 5
+  prompt: "Linear 이슈 {{LINEAR_ISSUE_ID}} 내용을 확인하고 요약해주세요."
+  setup: [linear_issue]
+  verify: [planner_valid_image]
+  teardown: [linear_issue]
+
+# ── 공유 assertions ──
+assertions:
+  planner_image: "default"
+  gate_decision: "stop"
+  export_handler_exit: 0
