@@ -81,7 +81,7 @@ services:
       mock-api:
         condition: service_healthy
 
-  # ── planner: Python CLI (환경 선택) ──────────────────────────────────────
+  # ── planner: Claude Code CLI 기반 환경 선택 ────────────────────────────
   # run-level1.sh가 docker compose run으로 개별 실행합니다.
   planner:
     build:
@@ -90,6 +90,8 @@ services:
     environment:
       ANTHROPIC_BASE_URL: "http://mock-api:4000"
       CLAUDE_CODE_OAUTH_TOKEN: "mock-api-key"
+      MCP_HOST: "mock-api"
+      MCP_PORT: "4000"
     volumes:
       - work:/work
     networks:

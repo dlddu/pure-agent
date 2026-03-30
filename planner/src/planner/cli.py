@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import os
 import sys
 
 from planner.environments import resolve_image
@@ -25,14 +26,35 @@ def main() -> None:
 
     args = parser.parse_args()
 
+    mcp_config_path = _setup_mcp_config()
+    claude_md_path = os.environ.get("PLANNER_CLAUDE_MD", "")
+
     from planner.image_selector import select_image_via_llm
 
-    image, raw_id = select_image_via_llm(args.prompt)
+    image, raw_id = select_image_via_llm(
+        args.prompt,
+        mcp_config_path=mcp_config_path,
+        claude_md_path=claude_md_path or None,
+    )
     logger.info("LLM selected -> %s (raw_id=%s)", image, raw_id)
 
     _write_output(image, args.output)
     if args.raw_id_output:
         _write_output(raw_id or "", args.raw_id_output)
+
+
+def _setup_mcp_config() -> str | None:
+    """Create MCP config if MCP_HOST is set. Returns config path or None."""
+    mcp_host = os.environ.get("MCP_HOST", "")
+    if not mcp_host:
+        logger.info("MCP_HOST not set, skipping MCP config (no tool access)")
+        return None
+
+    from planner.mcp_config import get_mcp_config_path, write_mcp_config
+
+    config_path = get_mcp_config_path()
+    write_mcp_config(config_path, mcp_host)
+    return config_path
 
 
 def _write_output(value: str, output_path: str) -> None:

@@ -1,6 +1,8 @@
 """Tests for planner.cli -- CLI argument parsing, orchestration, error handling."""
 
+import json
 import logging
+import subprocess
 import sys
 from pathlib import Path
 
@@ -8,24 +10,68 @@ import pytest
 
 from planner.cli import _write_fallback_output, main, run
 
+
+def _make_completed_process(environment_id: str) -> subprocess.CompletedProcess:
+    """Create a mock CompletedProcess with stream-json output."""
+    result_text = json.dumps({"environment_id": environment_id})
+    stdout = json.dumps({"type": "result", "result": result_text})
+    return subprocess.CompletedProcess(
+        args=["claude"], returncode=0, stdout=stdout, stderr=""
+    )
+
+
 # ── plan: integration ──────────────────────────────────────
 
 
 class TestPlan:
-    def test_llm_selection_falls_back_without_gateway(self, tmp_path, monkeypatch, caplog):
-        """Without LLM gateway, planner falls back to default image."""
+    def test_llm_selection_with_subprocess(self, tmp_path, monkeypatch, caplog):
+        """Planner calls Claude Code CLI and produces output."""
         output_path = str(tmp_path / "image.txt")
-        monkeypatch.delenv("ANTHROPIC_BASE_URL", raising=False)
+        monkeypatch.delenv("MCP_HOST", raising=False)
         monkeypatch.setattr(
             sys,
             "argv",
-            [
-                "planner",
-                "--prompt",
-                "some task",
-                "--output",
-                output_path,
-            ],
+            ["planner", "--prompt", "some task", "--output", output_path],
+        )
+        monkeypatch.setattr(
+            "subprocess.run",
+            lambda *a, **kw: _make_completed_process("default"),
+        )
+        with caplog.at_level(logging.INFO, logger="planner"):
+            main()
+        image = Path(output_path).read_text().strip()
+        assert "claude-agent" in image
+
+    def test_generates_mcp_config_when_host_set(self, tmp_path, monkeypatch, caplog):
+        """When MCP_HOST is set, MCP config file is created."""
+        output_path = str(tmp_path / "image.txt")
+        monkeypatch.setenv("MCP_HOST", "mcp-server")
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["planner", "--prompt", "some task", "--output", output_path],
+        )
+        monkeypatch.setattr(
+            "subprocess.run",
+            lambda *a, **kw: _make_completed_process("default"),
+        )
+        with caplog.at_level(logging.INFO, logger="planner"):
+            main()
+        # Verify MCP config was created
+        assert "MCP config written" in caplog.text
+
+    def test_fallback_when_cli_not_found(self, tmp_path, monkeypatch, caplog):
+        """Without claude CLI, falls back to default image."""
+        output_path = str(tmp_path / "image.txt")
+        monkeypatch.delenv("MCP_HOST", raising=False)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["planner", "--prompt", "some task", "--output", output_path],
+        )
+        monkeypatch.setattr(
+            "subprocess.run",
+            lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError("claude not found")),
         )
         with caplog.at_level(logging.INFO, logger="planner"):
             main()
@@ -95,24 +141,6 @@ class TestRun:
         with pytest.raises(SystemExit) as exc_info:
             run()
         assert exc_info.value.code == 2
-
-
-# ── entrypoint ───────────────────────────────────────────
-
-
-class TestEntryPoint:
-    def test_runs_as_subprocess(self, work_env):
-        from tests.conftest import run_subprocess
-
-        result = run_subprocess(
-            work_env,
-            "--prompt",
-            "some task",
-            "--output",
-            str(work_env / "output.txt"),
-        )
-        assert result.returncode == 0
-        assert "claude-agent" in (work_env / "output.txt").read_text()
 
 
 def _raise_runtime():

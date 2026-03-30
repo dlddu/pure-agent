@@ -13,7 +13,7 @@
 #   - mcp-daemon          : MCP Server 사이드카 (Linear 도구)
 #   - llm-gateway-daemon  : nginx 리버스 프록시 → Anthropic API
 #   - run-cycle           : Planner → Agent → Gate → Recurse 재귀 루프
-#   - planner             : LLM 기반 에이전트 실행 환경(이미지) 선택 (별도 이미지)
+#   - planner             : Claude Code CLI 기반 에이전트 실행 환경(이미지) 선택 (MCP 도구 접근 가능)
 #   - agent-job           : Claude Code CLI 실행 (이미지 파라미터화)
 #   - gate                : 계속/종료 판단
 #   - export-cycle-output : 후처리 (Linear, GitHub, S3)
@@ -193,6 +193,8 @@ spec:
                   value: "{{inputs.parameters.prompt}}"
                 - name: llm_gateway_host
                   value: "{{inputs.parameters.llm_gateway_host}}"
+                - name: mcp_host
+                  value: "{{inputs.parameters.mcp_host}}"
         - - name: agent
             template: agent-job
             arguments:
@@ -243,6 +245,7 @@ spec:
         parameters:
           - name: prompt
           - name: llm_gateway_host
+          - name: mcp_host
       outputs:
         parameters:
           - name: agent_image
@@ -269,6 +272,8 @@ spec:
         env:
           - name: PROMPT
             value: "{{inputs.parameters.prompt}}"
+          - name: MCP_HOST
+            value: "{{inputs.parameters.mcp_host}}"
           - name: ANTHROPIC_BASE_URL
             value: "http://{{inputs.parameters.llm_gateway_host}}"
           - name: CLAUDE_CODE_OAUTH_TOKEN
