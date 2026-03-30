@@ -43,6 +43,6 @@ ENV PLANNER_CLAUDE_MD=/home/claude/CLAUDE.md
 COPY --chown=claude:claude planner/pyproject.toml /app/pyproject.toml
 COPY --chown=claude:claude planner/src/ /app/src/
 
-RUN python3 -m pip install --no-cache-dir --break-system-packages /app
+RUN python3 -m pip install --no-cache-dir --break-system-packages --user /app
 
 CMD ["planner"]
