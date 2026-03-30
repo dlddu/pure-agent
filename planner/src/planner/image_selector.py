@@ -61,10 +61,13 @@ def _build_claude_command(
 
     cmd = [
         "claude",
-        "-p", full_prompt,
-        "--output-format", "stream-json",
+        "-p",
+        full_prompt,
+        "--output-format",
+        "stream-json",
         "--dangerously-skip-permissions",
-        "--model", "haiku",
+        "--model",
+        "haiku",
     ]
     if mcp_config_path and os.path.isfile(mcp_config_path):
         cmd += ["--mcp-config", mcp_config_path]

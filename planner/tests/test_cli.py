@@ -15,9 +15,7 @@ def _make_completed_process(environment_id: str) -> subprocess.CompletedProcess:
     """Create a mock CompletedProcess with stream-json output."""
     result_text = json.dumps({"environment_id": environment_id})
     stdout = json.dumps({"type": "result", "result": result_text})
-    return subprocess.CompletedProcess(
-        args=["claude"], returncode=0, stdout=stdout, stderr=""
-    )
+    return subprocess.CompletedProcess(args=["claude"], returncode=0, stdout=stdout, stderr="")
 
 
 # ── plan: integration ──────────────────────────────────────
