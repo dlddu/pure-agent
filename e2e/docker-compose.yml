@@ -81,19 +81,19 @@ services:
       mock-api:
         condition: service_healthy
 
-  # ── planner: Claude Code CLI 기반 환경 선택 ────────────────────────────
+  # ── planner: mock planner (Level 1 e2e 전용) ───────────────────────────
+  # mock-api의 /v1/messages에 HTTP 요청하여 환경을 선택하는 경량 mock.
+  # 프로덕션 planner(Claude Code CLI 기반)는 mock-api 스트리밍 미지원으로
+  # Docker Compose에서 실행 불가하므로 셸 스크립트 mock으로 대체합니다.
   # run-level1.sh가 docker compose run으로 개별 실행합니다.
   planner:
-    build:
-      context: ..
-      dockerfile: planner/Dockerfile
+    image: python:3.12-alpine
     environment:
       ANTHROPIC_BASE_URL: "http://mock-api:4000"
       CLAUDE_CODE_OAUTH_TOKEN: "mock-api-key"
-      MCP_HOST: "mock-api"
-      MCP_PORT: "4000"
     volumes:
       - work:/work
+      - ./mock-planner/planner.sh:/usr/local/bin/planner:ro
     networks:
       - e2e
     command: ["planner", "--help"]
