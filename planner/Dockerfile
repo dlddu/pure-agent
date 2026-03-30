@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM debian:bookworm-slim
+FROM python:3.12-slim-bookworm
 
 LABEL org.opencontainers.image.source="https://github.com/dlddu/pure-agent"
 LABEL org.opencontainers.image.description="Planner agent container for pure-agent (Claude Code CLI-based)"
@@ -12,8 +12,6 @@ LABEL org.opencontainers.image.revision="${GIT_SHA}"
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
     curl \
     git \
     ca-certificates \
@@ -23,7 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install planner Python package as root (before USER switch)
 COPY planner/pyproject.toml /app/pyproject.toml
 COPY planner/src/ /app/src/
-RUN pip install --no-cache-dir --break-system-packages /app && rm -rf /app
+RUN pip install --no-cache-dir /app && rm -rf /app
 
 RUN useradd -m -s /bin/bash --no-log-init claude
 
