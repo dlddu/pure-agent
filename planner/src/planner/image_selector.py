@@ -159,19 +159,31 @@ def select_image_via_llm(
         logger.warning("claude CLI timed out after %ds, falling back to default", _CLAUDE_TIMEOUT)
         return resolve_image(DEFAULT_ENVIRONMENT_ID), "_TIMEOUT"
 
+    stderr_snippet = result.stderr[:1000] if result.stderr else "(no stderr)"
+    logger.info(
+        "Claude CLI exit=%d, stdout=%d bytes, stderr=%d bytes",
+        result.returncode,
+        len(result.stdout or ""),
+        len(result.stderr or ""),
+    )
     if result.returncode != 0:
-        logger.warning(
-            "claude CLI exited with code %d: %s",
-            result.returncode,
-            result.stderr[:500] if result.stderr else "(no stderr)",
-        )
+        logger.warning("claude CLI exited with code %d: %s", result.returncode, stderr_snippet)
+    if result.stderr:
+        logger.info("Claude CLI stderr: %s", stderr_snippet)
 
     stdout = result.stdout or ""
-    logger.info("Claude CLI output: %d bytes", len(stdout))
+    if stdout:
+        logger.info("Claude CLI stdout (first 1000 chars): %s", stdout[:1000])
+    else:
+        logger.warning("Claude CLI produced no stdout")
 
     response_text = _parse_stream_json(stdout)
     if not response_text:
-        logger.warning("No parseable response from Claude CLI output")
+        logger.warning(
+            "No parseable response from Claude CLI output (stdout=%d bytes, exit=%d)",
+            len(stdout),
+            result.returncode,
+        )
         return resolve_image(DEFAULT_ENVIRONMENT_ID), "_PARSE_EMPTY"
 
     raw_id = _extract_environment_id(response_text)
