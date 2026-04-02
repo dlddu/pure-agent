@@ -65,6 +65,7 @@ def _build_claude_command(
         full_prompt,
         "--output-format",
         "stream-json",
+        "--verbose",
         "--dangerously-skip-permissions",
         "--model",
         "haiku",
