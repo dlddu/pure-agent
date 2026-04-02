@@ -37,7 +37,7 @@ setup() {
   [ -n "$output" ]
 }
 
-@test "setup_linear_test_issue: output is the issue ID field from the API response" {
+@test "setup_linear_test_issue: output line 1 is UUID, line 2 is identifier" {
   # Arrange
   curl() {
     echo '{"data":{"issueCreate":{"success":true,"issue":{"id":"abc-uuid-123","identifier":"TEST-42"}}}}'
@@ -47,9 +47,13 @@ setup() {
   # Act
   run --separate-stderr setup_linear_test_issue "report-action"
 
-  # Assert
+  # Assert — line 1 = UUID (for teardown/verify), line 2 = identifier (for prompts)
   [ "$status" -eq 0 ]
-  [ "$output" = "abc-uuid-123" ]
+  local uuid identifier
+  uuid=$(echo "$output" | sed -n '1p')
+  identifier=$(echo "$output" | sed -n '2p')
+  [ "$uuid" = "abc-uuid-123" ]
+  [ "$identifier" = "TEST-42" ]
 }
 
 @test "setup_linear_test_issue: issue title includes the scenario name" {
