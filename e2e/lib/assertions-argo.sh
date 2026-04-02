@@ -315,6 +315,20 @@ _dump_planner_debug() {
     | tr -d '\n')
   _argo_assert_log "Planner raw_environment_id: '${raw_env_id}'"
 
+  # planner_debug 출력 (stderr 캡처, pod 삭제 후에도 사용 가능)
+  local planner_debug
+  planner_debug=$(echo "$planner_node" \
+    | jq -r '
+        .outputs.parameters // []
+        | map(select(.name == "planner_debug")) | first
+        | .value // ""
+      ' 2>/dev/null || true)
+  if [[ -n "$planner_debug" && "$planner_debug" != "(no debug log)" ]]; then
+    _argo_assert_log "=== Planner debug log (stderr) ==="
+    echo "$planner_debug" >&2
+    _argo_assert_log "=== End Planner debug log ==="
+  fi
+
   # planner Pod 로그 출력 (kubectl logs 사용)
   local planner_pod_id
   planner_pod_id=$(echo "$planner_node" | jq -r '.id // ""' 2>/dev/null)
