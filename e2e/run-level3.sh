@@ -213,6 +213,7 @@ run_scenario() {
 
   # ── Setup ──
   local linear_issue_id=""
+  local linear_issue_identifier=""
   local github_branch=""
 
   local setup_item
@@ -220,7 +221,11 @@ run_scenario() {
     [[ -n "$setup_item" ]] || continue
     case "$setup_item" in
       linear_issue)
-        linear_issue_id=$(setup_linear_test_issue "$scenario_name")
+        local setup_output
+        setup_output=$(setup_linear_test_issue "$scenario_name")
+        linear_issue_id=$(echo "$setup_output" | sed -n '1p')
+        linear_issue_identifier=$(echo "$setup_output" | sed -n '2p')
+        log "Linear issue: id=$linear_issue_id identifier=$linear_issue_identifier"
         ;;
       github_branch)
         github_branch=$(setup_github_test_branch "$scenario_name")
@@ -245,8 +250,11 @@ run_scenario() {
   trap "_teardown_handler '$teardowns'" EXIT
 
   # ── Run ──
+  # Use identifier (e.g. DLD-123) in prompt so planner/agent can recognize it;
+  # keep UUID (linear_issue_id) for teardown/verify API calls.
+  local prompt_issue_ref="${linear_issue_identifier:-$linear_issue_id}"
   local prompt
-  prompt=$(build_prompt "$yaml_file" "$linear_issue_id" "$github_branch")
+  prompt=$(build_prompt "$yaml_file" "$prompt_issue_ref" "$github_branch")
   local workflow_name
   workflow_name=$(run_argo_workflow "$scenario_name" "$prompt" "$max_depth")
 
