@@ -16,6 +16,9 @@ on:
           - "report-action"
           - "create-pr-action"
           - "none-action"
+          - "linear-issue-env-selection"
+          - "planner-infra-env"
+          - "planner-python-env"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

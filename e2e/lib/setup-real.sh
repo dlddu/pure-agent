@@ -56,7 +56,8 @@ setup_linear_test_issue() {
     || die "Failed to create Linear issue. Response: $response"
 
   log "Created Linear issue: $issue_identifier (id=$issue_id)"
-  echo "$issue_id"
+  # Output UUID on line 1 (for teardown/verify API calls) and identifier on line 2 (for prompts)
+  printf '%s\n%s' "$issue_id" "$issue_identifier"
 }
 
 # ── setup_github_test_branch ─────────────────────────────────────────────────

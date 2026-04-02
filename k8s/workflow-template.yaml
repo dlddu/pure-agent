@@ -13,7 +13,7 @@
 #   - mcp-daemon          : MCP Server 사이드카 (Linear 도구)
 #   - llm-gateway-daemon  : nginx 리버스 프록시 → Anthropic API
 #   - run-cycle           : Planner → Agent → Gate → Recurse 재귀 루프
-#   - planner             : LLM 기반 에이전트 실행 환경(이미지) 선택 (별도 이미지)
+#   - planner             : Claude Code CLI 기반 에이전트 실행 환경(이미지) 선택 (MCP 도구 접근 가능)
 #   - agent-job           : Claude Code CLI 실행 (이미지 파라미터화)
 #   - gate                : 계속/종료 판단
 #   - export-cycle-output : 후처리 (Linear, GitHub, S3)
@@ -193,6 +193,8 @@ spec:
                   value: "{{inputs.parameters.prompt}}"
                 - name: llm_gateway_host
                   value: "{{inputs.parameters.llm_gateway_host}}"
+                - name: mcp_host
+                  value: "{{inputs.parameters.mcp_host}}"
         - - name: agent
             template: agent-job
             arguments:
@@ -239,10 +241,14 @@ spec:
     # Planner (image selection)
     # =============================
     - name: planner
+      metadata:
+        labels:
+          pure-agent/role: planner
       inputs:
         parameters:
           - name: prompt
           - name: llm_gateway_host
+          - name: mcp_host
       outputs:
         parameters:
           - name: agent_image
@@ -251,6 +257,10 @@ spec:
           - name: raw_environment_id
             valueFrom:
               path: /tmp/raw_environment_id.txt
+          - name: planner_debug
+            valueFrom:
+              path: /tmp/planner_debug.log
+              default: "(no debug log)"
       container:
         image: ghcr.io/dlddu/pure-agent/planner:latest
         command: ["/bin/sh", "-c"]
@@ -260,15 +270,18 @@ spec:
               --prompt "$PROMPT" \
               --output /tmp/agent_image.txt \
               --raw-id-output /tmp/raw_environment_id.txt \
+              2>/tmp/planner_debug.log \
             || {
               rc=$?
-              echo "[planner-fallback] planner CLI failed (exit=$rc), using default image" >&2
+              echo "[planner-fallback] planner CLI failed (exit=$rc), using default image" >> /tmp/planner_debug.log
               echo "ghcr.io/dlddu/pure-agent/claude-agent:latest" > /tmp/agent_image.txt
               echo "FALLBACK:exit=$rc" > /tmp/raw_environment_id.txt
             }
         env:
           - name: PROMPT
             value: "{{inputs.parameters.prompt}}"
+          - name: MCP_HOST
+            value: "{{inputs.parameters.mcp_host}}"
           - name: ANTHROPIC_BASE_URL
             value: "http://{{inputs.parameters.llm_gateway_host}}"
           - name: CLAUDE_CODE_OAUTH_TOKEN

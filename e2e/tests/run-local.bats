@@ -471,3 +471,52 @@ teardown() {
   run_export_handler || eh_exit=$?
   assert_local_export_handler_exit 0 "$eh_exit"
 }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# 시나리오 9: linear-issue-env-selection
+#
+# 검증 항목:
+#   - Linear 이슈 ID가 포함된 프롬프트에서 planner가 정상 동작
+#   - Planner가 default 환경을 선택
+#   - Gate 출력: false (stop)
+#   - Export Handler 종료 코드: 0
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@test "scenario: linear-issue-env-selection — planner handles prompt with Linear issue ID" {
+  # Arrange
+  local yaml_file="${SCENARIOS_DIR}/linear-issue-env-selection.yaml"
+  [ -f "$yaml_file" ]
+
+  # docker compose up
+  compose_up
+  wait_mock_api
+  reset_mock_api
+
+  # Planner: mock LLM 환경을 default로 설정
+  configure_mock_llm_environment "default"
+  local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
+  # 프롬프트에 Linear 이슈 ID 패턴(MOCK-1)을 포함
+  run_planner_in_compose "Linear 이슈 MOCK-1 내용을 확인하고 요약해주세요" "$planner_output"
+
+  # Assert: planner가 default (claude-agent) 이미지를 선택할 것
+  assert_local_planner_image "default" "$planner_output"
+
+  # Cycle 0: fixture 배치
+  local cycle_dir="${BATS_TEST_TMPDIR}/linear-issue-env-selection-cycle0"
+  prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
+  place_fixtures_via_mock_agent "$cycle_dir"
+
+  # gate 실행
+  local max_depth
+  max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
+  local gate_output="${BATS_TEST_TMPDIR}/gate_decision.txt"
+  run_gate_in_compose 0 "$max_depth" "$gate_output"
+
+  # Assert: gate가 "false" (stop)를 출력할 것
+  assert_local_gate_decision "stop" "$gate_output"
+
+  # export-handler 실행
+  local eh_exit=0
+  run_export_handler || eh_exit=$?
+  assert_local_export_handler_exit 0 "$eh_exit"
+}
