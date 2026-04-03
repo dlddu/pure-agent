@@ -13,6 +13,7 @@ import logging
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from typing import Any
 from typing import Protocol
 
 from gate.config import TranscriptUploadConfig
@@ -106,10 +107,15 @@ def upload_transcripts(
     """
     if uploader is None:
         import boto3
+        from botocore.config import Config as BotoConfig
 
-        kwargs: dict[str, str] = {"region_name": config.region}
+        kwargs: dict[str, Any] = {"region_name": config.region}
         if config.endpoint_url:
             kwargs["endpoint_url"] = config.endpoint_url
+            # Force path-style addressing for custom endpoints (e.g. LocalStack).
+            # Without this, boto3 uses virtual-hosted-style which requires
+            # bucket-name DNS subdomains that don't exist for local endpoints.
+            kwargs["config"] = BotoConfig(s3={"addressing_style": "path"})
         uploader = boto3.client("s3", **kwargs)
 
     transcript_files = _find_transcript_files(transcript_dir)
