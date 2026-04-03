@@ -7,13 +7,13 @@ on:
       - "planner/**"
       - ".github/workflows/ci-planner.yaml"
       - ".github/actions/build-image/**"
-      - ".github/workflows/_test-python.yaml"
+      - ".github/workflows/_test-bats.yaml"
   pull_request:
     paths:
       - "planner/**"
       - ".github/workflows/ci-planner.yaml"
       - ".github/actions/build-image/**"
-      - ".github/workflows/_test-python.yaml"
+      - ".github/workflows/_test-bats.yaml"
   workflow_dispatch:
 
 concurrency:
@@ -26,7 +26,7 @@ permissions:
 
 jobs:
   test:
-    uses: ./.github/workflows/_test-python.yaml
+    uses: ./.github/workflows/_test-bats.yaml
     with:
       service: planner
 
