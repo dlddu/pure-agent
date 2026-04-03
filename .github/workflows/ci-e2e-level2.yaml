@@ -154,7 +154,8 @@ jobs:
             create secret generic gate-secrets \
               --from-literal=AWS_S3_BUCKET_NAME="e2e-test-bucket" \
               --from-literal=AWS_ENDPOINT_URL="http://localstack.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4566" \
-              --from-literal=AWS_REGION="us-east-1" \
+              --from-literal=AWS_ACCESS_KEY_ID="test" \
+              --from-literal=AWS_SECRET_ACCESS_KEY="test" \
               --dry-run=client -o yaml | kubectl apply -f -
 
       # ── Deploy mock-api as a Service in the cluster ───────────────────────
