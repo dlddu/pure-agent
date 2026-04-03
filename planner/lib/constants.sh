@@ -13,7 +13,14 @@
 # /tmp/agent_image.txt               k8s/workflow-template.yaml
 # /tmp/raw_environment_id.txt        k8s/workflow-template.yaml
 # /tmp/planner_debug.log             k8s/workflow-template.yaml (stderr)
+# $WORK_DIR/last_agent_output.json   mcp-server session.ts
 # ═══════════════════════════════════════════════════════════════
+
+# ─── Shared paths (mcp-server가 읽음 — 이름 변경 금지) ─────
+WORK_DIR="${WORK_DIR:-/work}"
+readonly WORK_DIR
+AGENT_OUTPUT_COPY="$WORK_DIR/last_agent_output.json"   # mcp-server session.ts
+readonly AGENT_OUTPUT_COPY
 
 # ─── Internal paths ─────────────────────────────────────────
 CLAUDE_OUTPUT="${CLAUDE_OUTPUT:-/tmp/planner_claude_output.json}"

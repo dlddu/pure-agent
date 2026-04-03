@@ -10,6 +10,8 @@ common_setup() {
   export PROMPT="test prompt"
   export MCP_HOST=""
   export MCP_PORT="8080"
+  export WORK_DIR="$BATS_TEST_TMPDIR/work"
+  mkdir -p "$WORK_DIR"
   export CLAUDE_OUTPUT="$BATS_TEST_TMPDIR/claude_output.json"
   export MCP_CONFIG="$BATS_TEST_TMPDIR/mcp.json"
   export EXTRACT_ENV_FILTER="$BATS_TEST_DIRNAME/../extract-environment.jq"

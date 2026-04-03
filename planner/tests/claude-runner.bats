@@ -39,6 +39,15 @@ _load() { _load_lib logging constants environments mcp-config prompt claude-runn
   [[ "$(cat "$CLAUDE_OUTPUT")" == *"test"* ]]
 }
 
+@test "run_claude: writes output to AGENT_OUTPUT_COPY for session ID hook" {
+  _load
+  claude() { echo '{"type":"result","result":"test","session_id":"abc123"}'; }
+  export -f claude
+  run_claude 2>/dev/null
+  [ -f "$AGENT_OUTPUT_COPY" ]
+  [[ "$(cat "$AGENT_OUTPUT_COPY")" == *"session_id"* ]]
+}
+
 # ── extract_environment_id ───────────────────────────────────
 
 @test "extract_environment_id: extracts from result event" {

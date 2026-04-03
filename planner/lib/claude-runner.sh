@@ -4,7 +4,9 @@
 # Depends on: logging.sh, constants.sh, prompt.sh, mcp-config.sh
 
 # Invoke Claude Code CLI with the routing prompt.
-# Writes stream-json output to CLAUDE_OUTPUT.
+# Writes stream-json output to both CLAUDE_OUTPUT and AGENT_OUTPUT_COPY.
+# AGENT_OUTPUT_COPY is read by mcp-server sessionCommentHook to post
+# the session ID to Linear (same mechanism as claude-agent).
 # Returns 0 on success, 1 on failure.
 # Sets CLAUDE_EXIT_CODE to the actual CLI exit code.
 CLAUDE_EXIT_CODE=0
@@ -29,8 +31,8 @@ run_claude() {
   log "Running Claude Code CLI ..."
 
   set +e
-  "${cmd[@]}" > "$CLAUDE_OUTPUT" 2>&1
-  CLAUDE_EXIT_CODE=$?
+  "${cmd[@]}" 2>&1 | tee "$CLAUDE_OUTPUT" > "$AGENT_OUTPUT_COPY"
+  CLAUDE_EXIT_CODE="${PIPESTATUS[0]}"
   set -e
 
   if [ "$CLAUDE_EXIT_CODE" -ne 0 ]; then
