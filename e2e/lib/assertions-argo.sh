@@ -270,6 +270,55 @@ assert_work_dir_clean() {
   _argo_assert_log "PASS assert_work_dir_clean: /work is clean for workflow=$workflow_name"
 }
 
+# ── _dump_planner_debug ──────────────────────────────────────────────────────
+# Planner 노드의 raw_environment_id 및 디버그 정보를 출력합니다.
+#
+# Arguments:
+#   $1  wf_json        — workflow JSON (kubectl get workflow -o json)
+#   $2  workflow_name  — argo workflow 이름
+#
+_dump_planner_debug() {
+  local wf_json="$1"
+  local workflow_name="$2"
+
+  # planner 노드 정보 추출
+  local planner_node
+  planner_node=$(echo "$wf_json" \
+    | jq -r '
+        [.status.nodes // {} | to_entries[] | .value
+         | select(.templateName == "planner" and .type == "Pod")]
+        | first // {}
+      ' 2>/dev/null)
+
+  # raw_environment_id 추출 (planner output parameter)
+  local raw_env_id
+  raw_env_id=$(echo "$planner_node" \
+    | jq -r '
+        .outputs.parameters // []
+        | map(select(.name == "raw_environment_id")) | first
+        | .value // ""
+      ' 2>/dev/null \
+    | tr -d '\n')
+  _argo_assert_log "Planner raw_environment_id: '${raw_env_id}'"
+
+  # planner_debug 출력 (stderr 캡처, pod 삭제 후에도 사용 가능)
+  local planner_debug
+  planner_debug=$(echo "$planner_node" \
+    | jq -r '
+        .outputs.parameters // []
+        | map(select(.name == "planner_debug")) | first
+        | .value // ""
+      ' 2>/dev/null || true)
+  if [[ -n "$planner_debug" && "$planner_debug" != "(no debug log)" ]]; then
+    _argo_assert_log "=== Planner debug log (stderr) ==="
+    echo "$planner_debug" >&2
+    _argo_assert_log "=== End Planner debug log ==="
+  fi
+
+  # planner 노드의 displayName, hostNodeName 등 디버그 정보 출력
+  _argo_assert_log "Planner node debug: $(echo "$planner_node" | jq -c '{id, displayName, hostNodeName, phase, type, templateName}' 2>/dev/null)"
+}
+
 # ── assert_planner_image ────────────────────────────────────────────────────
 # Planner 노드가 올바른 agent 이미지를 선택했는지 검증합니다.
 # Level ②에서 사용: mock-api의 /v1/messages를 통해 결정된 이미지 검증.
@@ -314,6 +363,8 @@ assert_planner_image() {
         | .value // ""
       ' 2>/dev/null \
     | tr -d '[:space:]')
+
+  _dump_planner_debug "$wf_json" "$workflow_name"
 
   if [[ -z "$actual_image" ]]; then
     _argo_assert_fail "assert_planner_image: could not extract agent_image from planner node (workflow=$workflow_name)"
@@ -361,6 +412,8 @@ assert_planner_valid_image() {
         | .value // ""
       ' 2>/dev/null \
     | tr -d '[:space:]')
+
+  _dump_planner_debug "$wf_json" "$workflow_name"
 
   if [[ -z "$actual_image" ]]; then
     # Planner output not found — dump node names for debugging
