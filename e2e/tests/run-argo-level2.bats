@@ -423,6 +423,12 @@ YAML
   }
   export -f assert_workflow_succeeded
 
+  assert_s3_transcripts_exist() { return 0; }
+  export -f assert_s3_transcripts_exist
+
+  assert_s3_planner_log_exists() { return 0; }
+  export -f assert_s3_planner_log_exists
+
 
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
@@ -441,6 +447,12 @@ YAML
   }
   export -f assert_workflow_succeeded
 
+  assert_s3_transcripts_exist() { return 0; }
+  export -f assert_s3_transcripts_exist
+
+  assert_s3_planner_log_exists() { return 0; }
+  export -f assert_s3_planner_log_exists
+
 
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
@@ -456,6 +468,12 @@ YAML
   # Arrange
   assert_workflow_succeeded() { return 0; }
   export -f assert_workflow_succeeded
+
+  assert_s3_transcripts_exist() { return 0; }
+  export -f assert_s3_transcripts_exist
+
+  assert_s3_planner_log_exists() { return 0; }
+  export -f assert_s3_planner_log_exists
 
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
