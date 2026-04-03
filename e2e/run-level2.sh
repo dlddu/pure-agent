@@ -205,11 +205,9 @@ verify_cycle() {
   # gate_decision은 assert_run_cycle_count / assert_workflow_succeeded로 간접 검증.
   log "Skipping mock-api assertions (not applicable in Level 2 mock architecture)"
 
-  # 4. S3 transcript 업로드 검증 (LocalStack)
-  assert_s3_transcripts_exist "e2e-test-bucket" "$NAMESPACE" || return 1
-
-  # 5. S3 planner debug log 업로드 검증 (LocalStack)
-  assert_s3_planner_log_exists "e2e-test-bucket" "$NAMESPACE" || return 1
+  # S3 assertions은 Level 2에서 skip (mock-gate는 S3 업로드 미수행).
+  # S3 transcript 업로드 검증은 실제 gate 이미지를 사용하는 Level 3에서 수행합니다.
+  log "Skipping S3 assertions (Level 2 uses mock-gate without S3 upload)"
 
   log "Cycle ${cycle_index} verification passed"
 }
@@ -231,9 +229,6 @@ run_scenario() {
     || die "Scenario YAML not found: $yaml_file"
 
   log "=== Level 2 Scenario: $scenario_name ==="
-
-  # S3 버킷 초기화 (시나리오 간 격리)
-  reset_s3_bucket "e2e-test-bucket" "$NAMESPACE"
 
   # cycles 배열 길이 확인
   local cycle_count

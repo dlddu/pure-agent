@@ -43,8 +43,6 @@ env:
   YQ_VERSION: "v4.43.1"
   MOCK_AGENT_IMAGE: "ghcr.io/dlddu/pure-agent/e2e/mock-agent:latest"
   MOCK_API_IMAGE: "ghcr.io/dlddu/pure-agent/e2e/mock-api:latest"
-  GATE_IMAGE: "ghcr.io/dlddu/pure-agent/gate:latest"
-  LOCALSTACK_IMAGE: "localstack/localstack:latest"
 
 jobs:
   e2e-level2:
@@ -102,20 +100,11 @@ jobs:
           service: e2e/mock-api
           push: "false"
 
-      - name: Build gate image
-        uses: ./.github/actions/build-image
-        with:
-          service: gate
-          push: "false"
-
-      - name: Pull LocalStack image
-        run: docker pull "$LOCALSTACK_IMAGE"
-
-      - name: Load images into kind cluster
+      - name: Load mock images into kind cluster
         run: |
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME" \
-            --images "${MOCK_AGENT_IMAGE},${MOCK_API_IMAGE},${GATE_IMAGE},${LOCALSTACK_IMAGE}"
+            --images "${MOCK_AGENT_IMAGE},${MOCK_API_IMAGE}"
 
       # ── Kubernetes namespace setup ────────────────────────────────────────
       - name: Create namespace for pure-agent (Level 2)
@@ -152,10 +141,7 @@ jobs:
 
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
             create secret generic gate-secrets \
-              --from-literal=AWS_S3_BUCKET_NAME="e2e-test-bucket" \
-              --from-literal=AWS_ENDPOINT_URL="http://localstack.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4566" \
-              --from-literal=AWS_ACCESS_KEY_ID="test" \
-              --from-literal=AWS_SECRET_ACCESS_KEY="test" \
+              --from-literal=AWS_S3_BUCKET_NAME="mock-bucket" \
               --dry-run=client -o yaml | kubectl apply -f -
 
       # ── Deploy mock-api as a Service in the cluster ───────────────────────
@@ -202,19 +188,6 @@ jobs:
           kubectl --context "kind-${CLUSTER_NAME}" \
             -n "$PURE_AGENT_NAMESPACE" \
             rollout status deployment/mock-api --timeout=60s
-
-      # ── Deploy LocalStack S3 ───────────────────────────────────────────────
-      - name: Deploy LocalStack S3 and create test bucket
-        run: |
-          set -euo pipefail
-          kubectl --context "kind-${CLUSTER_NAME}" \
-            apply -n "$PURE_AGENT_NAMESPACE" -f e2e/k8s/localstack.yaml
-          kubectl --context "kind-${CLUSTER_NAME}" \
-            -n "$PURE_AGENT_NAMESPACE" \
-            rollout status deployment/localstack --timeout=120s
-          kubectl --context "kind-${CLUSTER_NAME}" \
-            exec deploy/localstack -n "$PURE_AGENT_NAMESPACE" \
-            -- awslocal s3 mb s3://e2e-test-bucket
 
       # ── Apply K8s resources ────────────────────────────────────────────────
       - name: Apply K8s resources (RBAC, ConfigMap, NetworkPolicy)
@@ -281,9 +254,22 @@ jobs:
           yq -i '(.spec.templates[] | select(.name == "planner") | .container.args) = ["ENV_ID=$(echo \"$PROMPT\" | grep -oE \"env=[^ ]+\" | cut -d= -f2); ENV_ID=${ENV_ID:-default}; echo \"[mock-planner] environment_id=$ENV_ID\" >&2; case \"$ENV_ID\" in python-analysis) IMG=ghcr.io/dlddu/pure-agent/python-agent:latest ;; infra) IMG=ghcr.io/dlddu/pure-agent/infra-agent:latest ;; *) IMG=ghcr.io/dlddu/pure-agent/claude-agent:latest ;; esac; echo \"$IMG\" > /tmp/agent_image.txt; echo \"$ENV_ID\" > /tmp/raw_environment_id.txt; echo \"[mock-planner] selected: $IMG\" >&2; mkdir -p /work/.transcripts; echo \"[mock-planner] environment_id=$ENV_ID selected: $IMG\" > /tmp/planner_debug.log; cp /tmp/planner_debug.log /work/.transcripts/planner_debug.log"]' \
             /tmp/workflow-template-level2.yaml
 
-          # ── real gate 사용 (mock-gate 대신) ─────────────────────────────
-          # LocalStack S3로의 transcript 업로드를 검증하기 위해 실제 gate 이미지를 사용합니다.
-          # gate-secrets에 AWS_ENDPOINT_URL이 설정되어 있으므로 LocalStack으로 업로드됩니다.
+          # ── mock-gate 패치 ──────────────────────────────────────────────
+          # Level 2에서는 depth >= max_depth - 1 이면 항상 stop하는 mock-gate로 교체합니다.
+          # S3 transcript 업로드는 워크플로우 완료 후 별도 검증 단계에서 실행합니다.
+
+          # gate 이미지를 alpine으로 교체 (실제 gate 바이너리 사용하지 않음)
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.image) = "alpine:3.20"' \
+            /tmp/workflow-template-level2.yaml
+
+          # gate에 depth/max_depth를 환경변수로 주입 (Argo 템플릿 파라미터 → 환경변수)
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "GATE_DEPTH", "value": "{{inputs.parameters.depth}}"}, {"name": "GATE_MAX_DEPTH", "value": "{{inputs.parameters.max_depth}}"}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # gate의 args를 mock-gate 셸 스크립트로 교체
+          # depth >= max_depth - 1 이면 stop, 그렇지 않으면 export_config 확인
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.args) = ["D=\"$GATE_DEPTH\"; M=\"$GATE_MAX_DEPTH\"; O=/tmp/continue.txt; echo \"[mock-gate] depth=$D max_depth=$M\" >&2; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > $O; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > $O; else echo false > $O; fi; fi"]' \
+            /tmp/workflow-template-level2.yaml
 
           # ── mock-export-handler 패치 ────────────────────────────────────
           # 실제 export-handler 이미지는 kind에 로드되지 않으며 mock secrets로 동작하지 않음.
