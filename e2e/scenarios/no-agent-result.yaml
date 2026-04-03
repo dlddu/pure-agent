@@ -1,5 +1,0 @@
-name: no-agent-result
-level: [2]
-max_depth: 2
-cycles:
-  - export_config: null
