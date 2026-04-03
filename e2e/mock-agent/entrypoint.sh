@@ -35,4 +35,11 @@ fi
 
 # ── Write dummy session ID ────────────────────────────────────────────────────
 
-echo "mock-session-$(date +%s)" > /tmp/session_id.txt
+SESSION_ID="mock-session-$(date +%s)"
+echo "$SESSION_ID" > /tmp/session_id.txt
+
+# ── Create dummy transcript file (for S3 upload verification) ────────────────
+
+TRANSCRIPT_DIR="${WORK_DIR}/.transcripts"
+mkdir -p "$TRANSCRIPT_DIR"
+echo "{\"type\":\"system\",\"session_id\":\"${SESSION_ID}\"}" > "${TRANSCRIPT_DIR}/${SESSION_ID}.jsonl"

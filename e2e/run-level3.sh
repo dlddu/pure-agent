@@ -42,6 +42,7 @@ WORKFLOW_TIMEOUT="${WORKFLOW_TIMEOUT:-600}"  # seconds
 KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-full}"
 GITHUB_TEST_BRANCH_PREFIX="e2e-test"
 GITHUB_TEST_REPO="${GITHUB_TEST_REPO:?GITHUB_TEST_REPO is not set}"
+LOCALSTACK_BUCKET="${LOCALSTACK_BUCKET:-}"
 
 # ── Source shared libraries ──────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -57,6 +58,8 @@ source "$LIB_DIR/teardown-real.sh" --source-only
 source "$LIB_DIR/verify-real.sh" --source-only
 # shellcheck source=lib/assertions-argo.sh
 source "$LIB_DIR/assertions-argo.sh" --source-only
+# shellcheck source=lib/localstack.sh
+source "$LIB_DIR/localstack.sh" --source-only
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 log()  { echo "[run-level3] $*" >&2; }
@@ -278,6 +281,13 @@ run_scenario() {
         local expected_env_id
         expected_env_id=$(yaml_get "$yaml_file" '.assertions.planner_image')
         assert_planner_image "$workflow_name" "$expected_env_id" "$NAMESPACE"
+        ;;
+      s3_transcripts)
+        if [[ -n "$LOCALSTACK_BUCKET" ]]; then
+          assert_s3_transcripts_exist "$LOCALSTACK_BUCKET" "$NAMESPACE" "$KUBE_CONTEXT"
+        else
+          warn "Skipping S3 transcript assertion (LOCALSTACK_BUCKET not set)"
+        fi
         ;;
       *) warn "Unknown verify type: $verify_item" ;;
     esac

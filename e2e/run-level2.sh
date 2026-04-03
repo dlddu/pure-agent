@@ -39,6 +39,7 @@ WORKFLOW_TIMEOUT="${WORKFLOW_TIMEOUT:-600}"  # seconds
 KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
 MOCK_AGENT_IMAGE="${MOCK_AGENT_IMAGE:-ghcr.io/dlddu/pure-agent/e2e/mock-agent:latest}"
 MOCK_API_URL="${MOCK_API_URL:-http://mock-api.${NAMESPACE}.svc.cluster.local:4000}"
+LOCALSTACK_BUCKET="${LOCALSTACK_BUCKET:-}"
 
 # ── Source shared libraries ──────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -48,6 +49,8 @@ SCENARIOS_DIR="${SCRIPT_DIR}/scenarios"
 source "$LIB_DIR/common.sh"
 # shellcheck source=lib/assertions-argo.sh
 source "$LIB_DIR/assertions-argo.sh" --source-only
+# shellcheck source=lib/localstack.sh
+source "$LIB_DIR/localstack.sh" --source-only
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 log()  { echo "[run-level2] $*" >&2; }
@@ -304,6 +307,13 @@ run_scenario() {
   # daemon pods ready / work dir cleanup 검증
   # mock-agent만 실행되며 MCP daemon/LLM gateway 사이드카가 없으므로 skip.
   log "Skipping daemon_pods_ready and work_dir_clean assertions (Level 2 mock architecture)"
+
+  # S3 transcript upload 검증 (LocalStack)
+  if [[ -n "$LOCALSTACK_BUCKET" ]]; then
+    assert_s3_transcripts_exist "$LOCALSTACK_BUCKET" "$NAMESPACE" "$KUBE_CONTEXT"
+  else
+    log "Skipping S3 transcript assertion (LOCALSTACK_BUCKET not set)"
+  fi
 
   log "=== PASS (Level 2): $scenario_name ==="
 }

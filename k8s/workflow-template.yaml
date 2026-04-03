@@ -387,6 +387,12 @@ spec:
                 key: AWS_S3_BUCKET_NAME
           - name: AWS_REGION
             value: "ap-northeast-2"
+          - name: AWS_ENDPOINT_URL
+            valueFrom:
+              secretKeyRef:
+                name: gate-secrets
+                key: AWS_ENDPOINT_URL
+                optional: true
         volumeMounts:
           - name: workdir
             mountPath: /work

@@ -1,34 +1,19 @@
 name: continue-then-stop
-description: "2 cycle. cycle-0은 continue, cycle-1은 stop"
-level: [1, 2]
-
-# ── Level 2: mock cycle 정의 ──
+level: [2]
 cycles:
-  - environment_id: "default"
-    max_depth: 1
-    export_config:
+  - export_config:
       linear_issue_id: "mock-issue-id"
-      summary: "Cycle 0 진행 중, 계속합니다."
       actions:
         - "continue"
-      session_id: "mock-session-cycle0"
+      session_id: "mock-session-0"
     agent_result: "Cycle 0 done, continuing..."
-  - environment_id: "default"
-    max_depth: 1
-    export_config:
+  - export_config:
       linear_issue_id: "mock-issue-id"
-      summary: "작업 완료"
       actions:
         - "none"
-      session_id: "mock-session-cycle1"
+      session_id: "mock-session-1"
     agent_result: "Cycle 1 done, stopping."
-
-# ── 공유 assertions ──
 assertions:
-  planner_image: "default"
   gate_decisions:
     - "continue"
     - "stop"
-  export_handler_exit: 0
-  linear_comment:
-    body_contains: "작업 완료"

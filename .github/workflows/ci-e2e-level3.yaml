@@ -42,6 +42,7 @@ env:
   ARGO_VERSION: "v3.6.4"
   YQ_VERSION: "v4.43.1"
   GH_CLI_VERSION: "2.67.0"
+  LOCALSTACK_BUCKET: "e2e-test-bucket"
 
 jobs:
   e2e-full:
@@ -177,8 +178,16 @@ jobs:
           # gate-secrets
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
             create secret generic gate-secrets \
-              --from-literal=AWS_S3_BUCKET_NAME="e2e-test-bucket" \
+              --from-literal=AWS_S3_BUCKET_NAME="${LOCALSTACK_BUCKET}" \
+              --from-literal=AWS_ENDPOINT_URL="http://localstack.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4566" \
               --dry-run=client -o yaml | kubectl apply -f -
+
+      # ── Deploy LocalStack for S3 transcript upload testing ─────────────────
+      - name: Deploy LocalStack S3
+        run: |
+          set -euo pipefail
+          source e2e/lib/localstack.sh --source-only
+          deploy_localstack "${LOCALSTACK_BUCKET}" "$PURE_AGENT_NAMESPACE" "kind-${CLUSTER_NAME}"
 
       # ── Apply RBAC, ConfigMap, NetworkPolicy ──────────────────────────────────
       - name: Apply K8s resources (RBAC, ConfigMap, NetworkPolicy)
@@ -219,6 +228,10 @@ jobs:
           yq -i '(.spec.templates[] | select(has("container")) | .container.imagePullPolicy) = "IfNotPresent"' \
             /tmp/workflow-template-patched.yaml
 
+          # Inject AWS credentials for LocalStack S3
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "AWS_ACCESS_KEY_ID", "value": "test"}, {"name": "AWS_SECRET_ACCESS_KEY", "value": "test"}]' \
+            /tmp/workflow-template-patched.yaml
+
           kubectl --context "kind-${CLUSTER_NAME}" \
             apply -n "$PURE_AGENT_NAMESPACE" -f /tmp/workflow-template-patched.yaml
 
@@ -230,6 +243,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           GITHUB_TEST_REPO: ${{ vars.E2E_TEST_REPO }}
           KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
+          LOCALSTACK_BUCKET: ${{ env.LOCALSTACK_BUCKET }}
         run: |
           bash e2e/run-level3.sh \
             --scenario "${{ github.event.inputs.scenario || 'all' }}" \
