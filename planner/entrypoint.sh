@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # ─── Load library modules ────────────────────────────────────
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 readonly SCRIPT_DIR
 
 source "$SCRIPT_DIR/lib/logging.sh"
