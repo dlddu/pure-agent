@@ -277,6 +277,9 @@ spec:
               echo "ghcr.io/dlddu/pure-agent/claude-agent:latest" > /tmp/agent_image.txt
               echo "FALLBACK:exit=$rc" > /tmp/raw_environment_id.txt
             }
+            # Copy planner debug log to shared volume for S3 upload by gate
+            mkdir -p /work/.transcripts
+            cp /tmp/planner_debug.log /work/.transcripts/planner_debug.log 2>/dev/null || true
         env:
           - name: PROMPT
             value: "{{inputs.parameters.prompt}}"
@@ -289,6 +292,9 @@ spec:
               secretKeyRef:
                 name: planner-secrets
                 key: CLAUDE_CODE_OAUTH_TOKEN
+        volumeMounts:
+          - name: workdir
+            mountPath: /work
 
     # =============================
     # Agent Job
@@ -382,6 +388,12 @@ spec:
               secretKeyRef:
                 name: gate-secrets
                 key: AWS_S3_BUCKET_NAME
+          - name: AWS_ENDPOINT_URL
+            valueFrom:
+              secretKeyRef:
+                name: gate-secrets
+                key: AWS_ENDPOINT_URL
+                optional: true
           - name: AWS_REGION
             value: "ap-northeast-2"
         volumeMounts:

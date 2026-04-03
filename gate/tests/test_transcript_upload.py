@@ -8,6 +8,7 @@ import pytest
 from gate.config import TranscriptUploadConfig
 from gate.transcript_upload import (
     _collect_uploads,
+    _content_type,
     _find_transcript_files,
     upload_transcripts,
 )
@@ -55,6 +56,19 @@ class TestFindTranscriptFiles:
         result = _find_transcript_files(str(tmp_path))
         assert len(result) == 1
         assert "valid.jsonl" in result[0]
+
+    def test_finds_log_files(self, tmp_path):
+        (tmp_path / "planner_debug.log").write_text("debug info")
+        (tmp_path / "session.jsonl").write_text("")
+        result = _find_transcript_files(str(tmp_path))
+        assert len(result) == 2
+        extensions = {f.rsplit(".", 1)[-1] for f in result}
+        assert extensions == {"jsonl", "log"}
+
+    def test_skips_bare_dot_log(self, tmp_path):
+        (tmp_path / ".log").write_text("")
+        result = _find_transcript_files(str(tmp_path))
+        assert result == []
 
 
 # ── _collect_uploads ────────────────────────────────────
@@ -156,3 +170,32 @@ class TestUploadTranscripts:
             Body=b"data",
             ContentType="application/jsonl",
         )
+
+    def test_uploads_log_file_with_text_content_type(self, tmp_path, upload_config, mock_s3):
+        (tmp_path / "planner_debug.log").write_text("planner log data")
+        count = upload_transcripts(str(tmp_path), upload_config, mock_s3)
+        assert count == 1
+        mock_s3.put_object.assert_called_once_with(
+            Bucket="my-bucket",
+            Key="planner_debug.log",
+            Body=b"planner log data",
+            ContentType="text/plain",
+        )
+
+    def test_uploads_mixed_jsonl_and_log(self, tmp_path, upload_config, mock_s3):
+        (tmp_path / "session.jsonl").write_text("transcript")
+        (tmp_path / "planner_debug.log").write_text("log")
+        count = upload_transcripts(str(tmp_path), upload_config, mock_s3)
+        assert count == 2
+        assert mock_s3.put_object.call_count == 2
+
+
+class TestContentType:
+    def test_jsonl_content_type(self):
+        assert _content_type("abc123.jsonl") == "application/jsonl"
+
+    def test_log_content_type(self):
+        assert _content_type("planner_debug.log") == "text/plain"
+
+    def test_unknown_extension_content_type(self):
+        assert _content_type("data.txt") == "text/plain"

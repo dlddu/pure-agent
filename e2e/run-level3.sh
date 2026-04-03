@@ -201,6 +201,9 @@ run_scenario() {
 
   log "=== Level 3 Scenario: $scenario_name ==="
 
+  # S3 버킷 초기화 (시나리오 간 격리)
+  reset_s3_bucket "e2e-test-bucket" "$NAMESPACE"
+
   # ── YAML에서 설정 읽기 ──
   local max_depth
   max_depth=$(yaml_get "$yaml_file" '.real.max_depth // 5')
@@ -278,6 +281,12 @@ run_scenario() {
         local expected_env_id
         expected_env_id=$(yaml_get "$yaml_file" '.assertions.planner_image')
         assert_planner_image "$workflow_name" "$expected_env_id" "$NAMESPACE"
+        ;;
+      s3_transcripts)
+        assert_s3_transcripts_exist "e2e-test-bucket" "$NAMESPACE"
+        ;;
+      s3_planner_log)
+        assert_s3_planner_log_exists "e2e-test-bucket" "$NAMESPACE"
         ;;
       *) warn "Unknown verify type: $verify_item" ;;
     esac

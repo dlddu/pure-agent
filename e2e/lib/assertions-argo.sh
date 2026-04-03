@@ -466,3 +466,108 @@ assert_planner_valid_image() {
 
   _argo_assert_log "PASS assert_planner_valid_image: $actual_image"
 }
+
+# ── S3 Assertions (LocalStack) ─────────────────────────────────────────────
+
+# ── reset_s3_bucket ──────────────────────────────────────────────────────────
+# LocalStack S3 버킷을 비웁니다. 시나리오 간 격리를 위해 사용합니다.
+#
+# Arguments:
+#   $1  bucket          — S3 버킷 이름 (기본값: e2e-test-bucket)
+#   $2  namespace       — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
+#
+reset_s3_bucket() {
+  local bucket="${1:-e2e-test-bucket}"
+  local namespace="${2:-${NAMESPACE:-pure-agent}}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+
+  _argo_assert_log "Resetting S3 bucket: $bucket"
+
+  kubectl exec deploy/localstack \
+    -n "$namespace" \
+    --context "$kube_context" \
+    -- awslocal s3 rm "s3://${bucket}" --recursive >&2 2>&1 || true
+
+  _argo_assert_log "S3 bucket reset complete: $bucket"
+}
+
+# ── assert_s3_transcripts_exist ──────────────────────────────────────────────
+# LocalStack S3에 transcript 파일(.jsonl)이 업로드되었는지 검증합니다.
+#
+# Arguments:
+#   $1  bucket          — S3 버킷 이름 (기본값: e2e-test-bucket)
+#   $2  namespace       — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
+#
+assert_s3_transcripts_exist() {
+  local bucket="${1:-e2e-test-bucket}"
+  local namespace="${2:-${NAMESPACE:-pure-agent}}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+
+  _argo_assert_log "Checking S3 transcripts in bucket: $bucket"
+
+  local object_list
+  object_list=$(kubectl exec deploy/localstack \
+    -n "$namespace" \
+    --context "$kube_context" \
+    -- awslocal s3api list-objects \
+       --bucket "$bucket" \
+       --query 'Contents[].Key' \
+       --output text 2>/dev/null) \
+    || { _argo_assert_fail "assert_s3_transcripts_exist: failed to list S3 objects"; return 1; }
+
+  if [[ -z "$object_list" || "$object_list" == "None" ]]; then
+    _argo_assert_fail "assert_s3_transcripts_exist: no objects found in s3://$bucket/"
+    return 1
+  fi
+
+  # .jsonl 파일이 하나 이상 존재하는지 확인
+  local jsonl_count
+  jsonl_count=$(echo "$object_list" | tr '\t' '\n' | grep -c '\.jsonl$' || true)
+
+  if [[ "$jsonl_count" -eq 0 ]]; then
+    _argo_assert_fail "assert_s3_transcripts_exist: no .jsonl files found in s3://$bucket/ (objects: $object_list)"
+    return 1
+  fi
+
+  _argo_assert_log "PASS assert_s3_transcripts_exist: $jsonl_count .jsonl file(s) in s3://$bucket/"
+  _argo_assert_log "Objects: $object_list"
+}
+
+# ── assert_s3_planner_log_exists ─────────────────────────────────────────────
+# LocalStack S3에 planner debug log가 업로드되었는지 검증합니다.
+#
+# Arguments:
+#   $1  bucket          — S3 버킷 이름 (기본값: e2e-test-bucket)
+#   $2  namespace       — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
+#
+assert_s3_planner_log_exists() {
+  local bucket="${1:-e2e-test-bucket}"
+  local namespace="${2:-${NAMESPACE:-pure-agent}}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+
+  _argo_assert_log "Checking planner debug log in S3: $bucket"
+
+  local found
+  found=$(kubectl exec deploy/localstack \
+    -n "$namespace" \
+    --context "$kube_context" \
+    -- awslocal s3api list-objects \
+       --bucket "$bucket" \
+       --prefix "planner_debug" \
+       --query 'Contents[0].Key' \
+       --output text 2>/dev/null) \
+    || { _argo_assert_fail "assert_s3_planner_log_exists: failed to query S3"; return 1; }
+
+  if [[ -z "$found" || "$found" == "None" ]]; then
+    # 전체 버킷 내용을 덤프하여 디버깅 지원
+    _argo_assert_log "DEBUG: all objects in s3://$bucket/:"
+    kubectl exec deploy/localstack \
+      -n "$namespace" \
+      --context "$kube_context" \
+      -- awslocal s3 ls "s3://${bucket}/" >&2 2>&1 || true
+    _argo_assert_fail "assert_s3_planner_log_exists: planner_debug.log not found in s3://$bucket/"
+    return 1
+  fi
+
+  _argo_assert_log "PASS assert_s3_planner_log_exists: $found"
+}

@@ -32,6 +32,7 @@ class TranscriptUploadConfig:
 
     bucket_name: str
     region: str
+    endpoint_url: str | None = None
 
     @classmethod
     def from_env(cls) -> TranscriptUploadConfig | None:
@@ -40,4 +41,5 @@ class TranscriptUploadConfig:
         if not bucket:
             return None
         region = os.environ.get("AWS_REGION", "ap-northeast-2")
-        return cls(bucket_name=bucket, region=region)
+        endpoint_url = os.environ.get("AWS_ENDPOINT_URL", "") or None
+        return cls(bucket_name=bucket, region=region, endpoint_url=endpoint_url)

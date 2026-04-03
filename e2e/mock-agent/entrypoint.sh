@@ -33,6 +33,12 @@ else
   : > /tmp/agent_result.txt
 fi
 
+# ── Create dummy transcript files for S3 upload verification ─────────────────
+
+mkdir -p "$WORK_DIR/.transcripts"
+echo "{\"mock\":\"transcript\",\"ts\":\"$(date -Iseconds)\"}" \
+  > "$WORK_DIR/.transcripts/mock-session.jsonl"
+
 # ── Write dummy session ID ────────────────────────────────────────────────────
 
 echo "mock-session-$(date +%s)" > /tmp/session_id.txt

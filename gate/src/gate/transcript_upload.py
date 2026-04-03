@@ -36,15 +36,25 @@ class UploadEntry:
     file_path: str
 
 
+_UPLOADABLE_EXTENSIONS = (".jsonl", ".log")
+
+
 def _find_transcript_files(transcript_dir: str) -> list[str]:
-    """Return paths to .jsonl files in the transcript directory."""
+    """Return paths to .jsonl and .log files in the transcript directory."""
     if not os.path.isdir(transcript_dir):
         return []
     return [
         os.path.join(transcript_dir, f)
         for f in os.listdir(transcript_dir)
-        if f.endswith(".jsonl") and f != ".jsonl"
+        if any(f.endswith(ext) for ext in _UPLOADABLE_EXTENSIONS) and f not in (".jsonl", ".log")
     ]
+
+
+def _content_type(key: str) -> str:
+    """Return the appropriate Content-Type for an upload key."""
+    if key.endswith(".jsonl"):
+        return "application/jsonl"
+    return "text/plain"
 
 
 def _collect_uploads(transcript_dir: str, transcript_files: list[str]) -> list[UploadEntry]:
@@ -54,7 +64,7 @@ def _collect_uploads(transcript_dir: str, transcript_files: list[str]) -> list[U
         filename = os.path.basename(transcript_file)
         session_id = os.path.splitext(filename)[0]
 
-        uploads.append(UploadEntry(key=f"{session_id}.jsonl", file_path=transcript_file))
+        uploads.append(UploadEntry(key=filename, file_path=transcript_file))
 
         subagent_dir = os.path.join(transcript_dir, session_id, "subagents")
         if os.path.isdir(subagent_dir):
@@ -75,7 +85,7 @@ def _upload_single(uploader: S3Uploader, bucket_name: str, entry: UploadEntry) -
     with open(entry.file_path, "rb") as f:
         body = f.read()
     uploader.put_object(
-        Bucket=bucket_name, Key=entry.key, Body=body, ContentType="application/jsonl"
+        Bucket=bucket_name, Key=entry.key, Body=body, ContentType=_content_type(entry.key)
     )
 
 
@@ -97,7 +107,10 @@ def upload_transcripts(
     if uploader is None:
         import boto3
 
-        uploader = boto3.client("s3", region_name=config.region)
+        kwargs: dict[str, str] = {"region_name": config.region}
+        if config.endpoint_url:
+            kwargs["endpoint_url"] = config.endpoint_url
+        uploader = boto3.client("s3", **kwargs)
 
     transcript_files = _find_transcript_files(transcript_dir)
     logger.info(

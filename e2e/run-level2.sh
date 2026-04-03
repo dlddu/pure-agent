@@ -205,6 +205,12 @@ verify_cycle() {
   # gate_decision은 assert_run_cycle_count / assert_workflow_succeeded로 간접 검증.
   log "Skipping mock-api assertions (not applicable in Level 2 mock architecture)"
 
+  # 4. S3 transcript 업로드 검증 (LocalStack)
+  assert_s3_transcripts_exist "e2e-test-bucket" "$NAMESPACE" || return 1
+
+  # 5. S3 planner debug log 업로드 검증 (LocalStack)
+  assert_s3_planner_log_exists "e2e-test-bucket" "$NAMESPACE" || return 1
+
   log "Cycle ${cycle_index} verification passed"
 }
 
@@ -225,6 +231,9 @@ run_scenario() {
     || die "Scenario YAML not found: $yaml_file"
 
   log "=== Level 2 Scenario: $scenario_name ==="
+
+  # S3 버킷 초기화 (시나리오 간 격리)
+  reset_s3_bucket "e2e-test-bucket" "$NAMESPACE"
 
   # cycles 배열 길이 확인
   local cycle_count

@@ -42,6 +42,7 @@ env:
   ARGO_VERSION: "v3.6.4"
   YQ_VERSION: "v4.43.1"
   GH_CLI_VERSION: "2.67.0"
+  LOCALSTACK_IMAGE: "localstack/localstack:latest"
 
 jobs:
   e2e-full:
@@ -124,11 +125,14 @@ jobs:
           service: export-handler
           push: "false"
 
+      - name: Pull LocalStack image
+        run: docker pull "$LOCALSTACK_IMAGE"
+
       - name: Load images into kind cluster
         run: |
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME" \
-            --images "ghcr.io/dlddu/pure-agent/claude-agent:latest,ghcr.io/dlddu/pure-agent/mcp-server:latest,ghcr.io/dlddu/pure-agent/gate:latest,ghcr.io/dlddu/pure-agent/planner:latest,ghcr.io/dlddu/pure-agent/export-handler:latest"
+            --images "ghcr.io/dlddu/pure-agent/claude-agent:latest,ghcr.io/dlddu/pure-agent/mcp-server:latest,ghcr.io/dlddu/pure-agent/gate:latest,ghcr.io/dlddu/pure-agent/planner:latest,ghcr.io/dlddu/pure-agent/export-handler:latest,${LOCALSTACK_IMAGE}"
 
       # ── Kubernetes namespace and secrets ──────────────────────────────────────
       - name: Create namespace and secrets for pure-agent
@@ -178,7 +182,22 @@ jobs:
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
             create secret generic gate-secrets \
               --from-literal=AWS_S3_BUCKET_NAME="e2e-test-bucket" \
+              --from-literal=AWS_ENDPOINT_URL="http://localstack.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4566" \
+              --from-literal=AWS_REGION="us-east-1" \
               --dry-run=client -o yaml | kubectl apply -f -
+
+      # ── Deploy LocalStack S3 ───────────────────────────────────────────────────
+      - name: Deploy LocalStack S3 and create test bucket
+        run: |
+          set -euo pipefail
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            apply -n "$PURE_AGENT_NAMESPACE" -f e2e/k8s/localstack.yaml
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            -n "$PURE_AGENT_NAMESPACE" \
+            rollout status deployment/localstack --timeout=120s
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            exec deploy/localstack -n "$PURE_AGENT_NAMESPACE" \
+            -- awslocal s3 mb s3://e2e-test-bucket
 
       # ── Apply RBAC, ConfigMap, NetworkPolicy ──────────────────────────────────
       - name: Apply K8s resources (RBAC, ConfigMap, NetworkPolicy)

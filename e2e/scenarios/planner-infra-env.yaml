@@ -19,7 +19,7 @@ real:
   max_depth: 5
   prompt: "Kubernetes 클러스터에 nginx deployment를 생성하고 replicas를 3으로 설정해주세요. kubectl과 helm 등 인프라 도구를 사용해야 합니다."
   setup: []
-  verify: [planner_exact_image]
+  verify: [planner_exact_image, s3_transcripts, s3_planner_log]
   teardown: []
 
 # ── 공유 assertions ──
