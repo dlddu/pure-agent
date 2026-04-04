@@ -146,7 +146,7 @@ create_s3_test_bucket() {
 
   _ls_log "Creating S3 test bucket: $S3_TEST_BUCKET (endpoint=$endpoint_url)"
 
-  kubectl run localstack-setup-$$ \
+  kubectl run localstack-setup-${$}-${RANDOM} \
     --image=amazon/aws-cli:2.27.28 \
     --restart=Never \
     --rm \
@@ -188,7 +188,7 @@ list_s3_objects() {
   local endpoint_url
   endpoint_url=$(localstack_endpoint_url)
 
-  kubectl run localstack-list-$$ \
+  kubectl run localstack-list-${$}-${RANDOM} \
     --image=amazon/aws-cli:2.27.28 \
     --restart=Never \
     --rm \
@@ -221,7 +221,7 @@ assert_s3_object_exists() {
 
   _ls_log "Checking S3 object exists: s3://$S3_TEST_BUCKET/$key"
 
-  kubectl run localstack-check-$$ \
+  kubectl run localstack-check-${$}-${RANDOM} \
     --image=amazon/aws-cli:2.27.28 \
     --restart=Never \
     --rm \
@@ -253,7 +253,7 @@ assert_s3_transcript_exists() {
   _ls_log "Checking for agent transcript(s) in S3"
 
   local objects
-  objects=$(kubectl run localstack-transcript-check-$$ \
+  objects=$(kubectl run localstack-tcheck-${$}-${RANDOM} \
     --image=amazon/aws-cli:2.27.28 \
     --restart=Never \
     --rm \
@@ -302,7 +302,7 @@ assert_s3_planner_transcript_exists() {
   _ls_log "Checking for planner transcript(s) in S3"
 
   local objects
-  objects=$(kubectl run localstack-planner-check-$$ \
+  objects=$(kubectl run localstack-pcheck-${$}-${RANDOM} \
     --image=amazon/aws-cli:2.27.28 \
     --restart=Never \
     --rm \
