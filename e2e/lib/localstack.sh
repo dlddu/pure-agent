@@ -137,27 +137,17 @@ localstack_endpoint_url() {
 }
 
 # ── create_s3_test_bucket ────────────────────────────────────────────────────
-# Creates the test S3 bucket in LocalStack using a temporary pod.
+# Creates the test S3 bucket in LocalStack using kubectl exec on the LocalStack pod.
 create_s3_test_bucket() {
   local namespace="${NAMESPACE:-pure-agent}"
   local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
-  local endpoint_url
-  endpoint_url=$(localstack_endpoint_url)
 
-  _ls_log "Creating S3 test bucket: $S3_TEST_BUCKET (endpoint=$endpoint_url)"
+  _ls_log "Creating S3 test bucket: $S3_TEST_BUCKET"
 
-  kubectl run localstack-setup-${$}-${RANDOM} \
-    --image=amazon/aws-cli:2.27.28 \
-    --restart=Never \
-    --rm \
-    --attach \
+  kubectl exec deployment/localstack \
     -n "$namespace" \
     --context "$kube_context" \
-    --env="AWS_ACCESS_KEY_ID=test" \
-    --env="AWS_SECRET_ACCESS_KEY=test" \
-    --env="AWS_DEFAULT_REGION=ap-northeast-2" \
-    --command -- \
-    aws --endpoint-url "$endpoint_url" s3 mb "s3://$S3_TEST_BUCKET" >&2 2>&1 \
+    -- awslocal s3 mb "s3://$S3_TEST_BUCKET" >&2 2>&1 \
     || _ls_warn "Bucket creation may have failed (bucket might already exist)"
 
   _ls_log "S3 test bucket ready: $S3_TEST_BUCKET"
@@ -185,25 +175,15 @@ teardown_localstack() {
 list_s3_objects() {
   local namespace="${NAMESPACE:-pure-agent}"
   local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
-  local endpoint_url
-  endpoint_url=$(localstack_endpoint_url)
 
-  kubectl run localstack-list-${$}-${RANDOM} \
-    --image=amazon/aws-cli:2.27.28 \
-    --restart=Never \
-    --rm \
-    --attach \
+  kubectl exec deployment/localstack \
     -n "$namespace" \
     --context "$kube_context" \
-    --env="AWS_ACCESS_KEY_ID=test" \
-    --env="AWS_SECRET_ACCESS_KEY=test" \
-    --env="AWS_DEFAULT_REGION=ap-northeast-2" \
-    --command -- \
-    aws --endpoint-url "$endpoint_url" s3api list-objects \
+    -- awslocal s3api list-objects \
       --bucket "$S3_TEST_BUCKET" \
       --query 'Contents[].Key' \
       --output text \
-    2>/dev/null | grep -v '^pod .* deleted' \
+    2>/dev/null \
     || echo ""
 }
 
@@ -216,26 +196,16 @@ assert_s3_object_exists() {
   local key="$1"
   local namespace="${NAMESPACE:-pure-agent}"
   local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
-  local endpoint_url
-  endpoint_url=$(localstack_endpoint_url)
 
   _ls_log "Checking S3 object exists: s3://$S3_TEST_BUCKET/$key"
 
-  kubectl run localstack-check-${$}-${RANDOM} \
-    --image=amazon/aws-cli:2.27.28 \
-    --restart=Never \
-    --rm \
-    --attach \
+  kubectl exec deployment/localstack \
     -n "$namespace" \
     --context "$kube_context" \
-    --env="AWS_ACCESS_KEY_ID=test" \
-    --env="AWS_SECRET_ACCESS_KEY=test" \
-    --env="AWS_DEFAULT_REGION=ap-northeast-2" \
-    --command -- \
-    aws --endpoint-url "$endpoint_url" s3api head-object \
+    -- awslocal s3api head-object \
       --bucket "$S3_TEST_BUCKET" \
       --key "$key" \
-    2>/dev/null | grep -v '^pod .* deleted' \
+    2>/dev/null \
     || { _ls_fail "assert_s3_object_exists: key '$key' not found in s3://$S3_TEST_BUCKET/"; return 1; }
 
   _ls_log "PASS assert_s3_object_exists: $key"
@@ -247,28 +217,18 @@ assert_s3_object_exists() {
 assert_s3_transcript_exists() {
   local namespace="${NAMESPACE:-pure-agent}"
   local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
-  local endpoint_url
-  endpoint_url=$(localstack_endpoint_url)
 
   _ls_log "Checking for agent transcript(s) in S3"
 
   local objects
-  objects=$(kubectl run localstack-tcheck-${$}-${RANDOM} \
-    --image=amazon/aws-cli:2.27.28 \
-    --restart=Never \
-    --rm \
-    --attach \
+  objects=$(kubectl exec deployment/localstack \
     -n "$namespace" \
     --context "$kube_context" \
-    --env="AWS_ACCESS_KEY_ID=test" \
-    --env="AWS_SECRET_ACCESS_KEY=test" \
-    --env="AWS_DEFAULT_REGION=ap-northeast-2" \
-    --command -- \
-    aws --endpoint-url "$endpoint_url" s3api list-objects \
+    -- awslocal s3api list-objects \
       --bucket "$S3_TEST_BUCKET" \
       --query 'Contents[].Key' \
       --output text \
-    2>/dev/null | grep -v '^pod .* deleted') \
+    2>/dev/null) \
     || objects=""
 
   if [[ -z "$objects" || "$objects" == "None" ]]; then
@@ -296,24 +256,14 @@ assert_s3_transcript_exists() {
 assert_s3_planner_transcript_exists() {
   local namespace="${NAMESPACE:-pure-agent}"
   local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
-  local endpoint_url
-  endpoint_url=$(localstack_endpoint_url)
 
   _ls_log "Checking for planner transcript(s) in S3"
 
   local objects
-  objects=$(kubectl run localstack-pcheck-${$}-${RANDOM} \
-    --image=amazon/aws-cli:2.27.28 \
-    --restart=Never \
-    --rm \
-    --attach \
+  objects=$(kubectl exec deployment/localstack \
     -n "$namespace" \
     --context "$kube_context" \
-    --env="AWS_ACCESS_KEY_ID=test" \
-    --env="AWS_SECRET_ACCESS_KEY=test" \
-    --env="AWS_DEFAULT_REGION=ap-northeast-2" \
-    --command -- \
-    aws --endpoint-url "$endpoint_url" s3api list-objects \
+    -- awslocal s3api list-objects \
       --bucket "$S3_TEST_BUCKET" \
       --query 'Contents[].Key' \
       --output text \
