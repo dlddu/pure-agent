@@ -260,10 +260,19 @@ jobs:
           yq -i '(.spec.templates[] | select(.name == "planner") | .container.args) = ["ENV_ID=$(echo \"$PROMPT\" | grep -oE \"env=[^ ]+\" | cut -d= -f2); ENV_ID=${ENV_ID:-default}; echo \"[mock-planner] environment_id=$ENV_ID\" >&2; case \"$ENV_ID\" in python-analysis) IMG=ghcr.io/dlddu/pure-agent/python-agent:latest ;; infra) IMG=ghcr.io/dlddu/pure-agent/infra-agent:latest ;; *) IMG=ghcr.io/dlddu/pure-agent/claude-agent:latest ;; esac; echo \"$IMG\" > /tmp/agent_image.txt; echo \"$ENV_ID\" > /tmp/raw_environment_id.txt; echo \"[mock-planner] selected: $IMG\" >&2"]' \
             /tmp/workflow-template-level2.yaml
 
-          # ── gate: 실제 gate 이미지 사용 ────────────────────────────────
-          # Level 2에서도 실제 gate 이미지를 사용하여 S3 transcript upload를 검증합니다.
-          # gate 이미지는 kind 클러스터에 로드됩니다.
+          # ── gate 패치: 실제 이미지 + mock 결정 로직 ───────────────────
+          # 실제 gate 이미지를 사용하여 S3 transcript upload를 실행하되,
+          # continue/stop 결정은 mock 로직으로 덮어씁니다.
+          # (mock-agent의 ConfigMap은 정적이므로 실제 gate 로직은 매 cycle 같은 결과를 반환합니다)
           yq -i "(.spec.templates[] | select(.name == \"gate\") | .container.image) = \"${GATE_IMAGE}\"" \
+            /tmp/workflow-template-level2.yaml
+
+          # gate에 depth/max_depth를 환경변수로 주입 (mock 결정 로직용)
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "GATE_DEPTH", "value": "{{inputs.parameters.depth}}"}, {"name": "GATE_MAX_DEPTH", "value": "{{inputs.parameters.max_depth}}"}]' \
+            /tmp/workflow-template-level2.yaml
+
+          # gate args: 실제 gate CLI 실행 (S3 upload) → mock 결정 로직으로 output 덮어쓰기
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.args) = ["gate --export-config \"$EXPORT_CONFIG_JSON\" --depth \"$GATE_DEPTH\" --max-depth \"$GATE_MAX_DEPTH\" --output /tmp/continue.txt 2>&1 || true; echo \"[mock-gate-override] depth=$GATE_DEPTH max_depth=$GATE_MAX_DEPTH\" >&2; D=\"$GATE_DEPTH\"; M=\"$GATE_MAX_DEPTH\"; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > /tmp/continue.txt; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > /tmp/continue.txt; else echo false > /tmp/continue.txt; fi; fi"]' \
             /tmp/workflow-template-level2.yaml
 
           # ── mock-export-handler 패치 ────────────────────────────────────
