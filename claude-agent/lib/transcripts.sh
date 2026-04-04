@@ -41,10 +41,13 @@ _find_transcripts() {
 }
 
 # Initialize the transcript output directory.
-# Cleans any pre-existing content and sets a default session ID.
+# Removes previous agent transcripts but preserves planner transcripts
+# (planner-*.jsonl) so the gate can upload both to S3.
 _init_transcript_dir() {
-  if ! rm -rf "$TRANSCRIPT_DIR"; then
-    warn "Failed to clean transcript directory: $TRANSCRIPT_DIR"
+  if [ -d "$TRANSCRIPT_DIR" ]; then
+    # Remove agent transcripts and subagent dirs, but keep planner-*.jsonl
+    find "$TRANSCRIPT_DIR" -maxdepth 1 -name "*.jsonl" ! -name "planner-*" -delete 2>/dev/null || true
+    find "$TRANSCRIPT_DIR" -maxdepth 1 -mindepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
   fi
   if ! mkdir -p "$TRANSCRIPT_DIR"; then
     warn "Failed to create transcript directory: $TRANSCRIPT_DIR"
