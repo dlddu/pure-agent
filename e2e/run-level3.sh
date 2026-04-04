@@ -98,6 +98,8 @@ _ensure_gate_s3_secret() {
   kubectl create secret generic gate-secrets \
     --from-literal=AWS_S3_BUCKET_NAME="$S3_TEST_BUCKET" \
     --from-literal=AWS_ENDPOINT_URL="$S3_ENDPOINT_URL" \
+    --from-literal=AWS_ACCESS_KEY_ID="test" \
+    --from-literal=AWS_SECRET_ACCESS_KEY="test" \
     -n "$NAMESPACE" \
     --context "$KUBE_CONTEXT" \
     --dry-run=client -o yaml \
