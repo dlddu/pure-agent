@@ -203,7 +203,7 @@ list_s3_objects() {
       --bucket "$S3_TEST_BUCKET" \
       --query 'Contents[].Key' \
       --output text \
-    2>/dev/null \
+    2>/dev/null | grep -v '^pod .* deleted' \
     || echo ""
 }
 
@@ -235,7 +235,7 @@ assert_s3_object_exists() {
     aws --endpoint-url "$endpoint_url" s3api head-object \
       --bucket "$S3_TEST_BUCKET" \
       --key "$key" \
-    2>/dev/null \
+    2>/dev/null | grep -v '^pod .* deleted' \
     || { _ls_fail "assert_s3_object_exists: key '$key' not found in s3://$S3_TEST_BUCKET/"; return 1; }
 
   _ls_log "PASS assert_s3_object_exists: $key"
@@ -268,7 +268,7 @@ assert_s3_transcript_exists() {
       --bucket "$S3_TEST_BUCKET" \
       --query 'Contents[].Key' \
       --output text \
-    2>/dev/null) \
+    2>/dev/null | grep -v '^pod .* deleted') \
     || objects=""
 
   if [[ -z "$objects" || "$objects" == "None" ]]; then
