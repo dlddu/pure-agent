@@ -57,6 +57,8 @@ source "$LIB_DIR/teardown-real.sh" --source-only
 source "$LIB_DIR/verify-real.sh" --source-only
 # shellcheck source=lib/assertions-argo.sh
 source "$LIB_DIR/assertions-argo.sh" --source-only
+# shellcheck source=lib/localstack.sh
+source "$LIB_DIR/localstack.sh" --source-only
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 log()  { echo "[run-level3] $*" >&2; }
@@ -86,6 +88,23 @@ check_prerequisites() {
   [[ -n "${GITHUB_TOKEN:-}" ]]    || die "GITHUB_TOKEN is not set"
 
   log "Prerequisites OK"
+}
+
+# ── S3 secret management ────────────────────────────────────────────────────
+# Creates or patches the gate-secrets Secret so the gate container in the
+# Argo Workflow can upload transcripts to the LocalStack S3 endpoint.
+_ensure_gate_s3_secret() {
+  log "Ensuring gate-secrets with LocalStack S3 config"
+  kubectl create secret generic gate-secrets \
+    --from-literal=AWS_S3_BUCKET_NAME="$S3_TEST_BUCKET" \
+    --from-literal=AWS_ENDPOINT_URL="$S3_ENDPOINT_URL" \
+    --from-literal=AWS_ACCESS_KEY_ID="test" \
+    --from-literal=AWS_SECRET_ACCESS_KEY="test" \
+    -n "$NAMESPACE" \
+    --context "$KUBE_CONTEXT" \
+    --dry-run=client -o yaml \
+    | kubectl apply -f - -n "$NAMESPACE" --context "$KUBE_CONTEXT" >&2
+  log "gate-secrets configured for LocalStack"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -279,6 +298,9 @@ run_scenario() {
         expected_env_id=$(yaml_get "$yaml_file" '.assertions.planner_image')
         assert_planner_image "$workflow_name" "$expected_env_id" "$NAMESPACE"
         ;;
+      s3_transcript)
+        assert_s3_transcript_exists
+        ;;
       *) warn "Unknown verify type: $verify_item" ;;
     esac
   done <<< "$verifies"
@@ -299,6 +321,21 @@ main() {
   log "SCENARIO=${SCENARIO}, NAMESPACE=${NAMESPACE}"
 
   check_prerequisites
+
+  # Deploy LocalStack for S3 transcript upload verification
+  deploy_localstack
+  wait_localstack
+  create_s3_test_bucket
+
+  # Set S3 env vars for workflows to use LocalStack
+  export S3_ENDPOINT_URL
+  S3_ENDPOINT_URL=$(localstack_endpoint_url)
+  export S3_TEST_BUCKET
+
+  # Create/update gate-secrets with LocalStack S3 configuration
+  _ensure_gate_s3_secret
+
+  trap 'teardown_localstack' EXIT
 
   if [[ "$SCENARIO" == "all" ]]; then
     local scenarios

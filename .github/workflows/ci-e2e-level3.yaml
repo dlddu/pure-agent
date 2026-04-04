@@ -219,6 +219,10 @@ jobs:
           yq -i '(.spec.templates[] | select(has("container")) | .container.imagePullPolicy) = "IfNotPresent"' \
             /tmp/workflow-template-patched.yaml
 
+          # gate에 LocalStack S3 접속용 환경변수 주입 (gate-secrets에서 읽음)
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "AWS_ENDPOINT_URL", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ENDPOINT_URL", "optional": true}}}, {"name": "AWS_ACCESS_KEY_ID", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ACCESS_KEY_ID", "optional": true}}}, {"name": "AWS_SECRET_ACCESS_KEY", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_SECRET_ACCESS_KEY", "optional": true}}}]' \
+            /tmp/workflow-template-patched.yaml
+
           kubectl --context "kind-${CLUSTER_NAME}" \
             apply -n "$PURE_AGENT_NAMESPACE" -f /tmp/workflow-template-patched.yaml
 

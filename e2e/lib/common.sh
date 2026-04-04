@@ -79,4 +79,17 @@ prepare_cycle_fixtures() {
   else
     rm -f "${out_dir}/agent_result.txt"
   fi
+
+  # transcript fixtures (optional): create mock transcript files for S3 upload testing
+  local session_id
+  session_id=$(yq eval ".cycles[${cycle_index}].export_config.session_id // \"\"" "$yaml_file" 2>/dev/null || echo "")
+  if [[ -n "$session_id" && "$session_id" != "null" ]]; then
+    local transcript_dir="${out_dir}/transcripts"
+    mkdir -p "$transcript_dir"
+    cat > "$transcript_dir/${session_id}.jsonl" <<JSONL
+{"type":"assistant","message":"mock transcript","session_id":"${session_id}"}
+{"type":"result","result":"cycle ${cycle_index} completed","session_id":"${session_id}"}
+JSONL
+    log "Prepared mock transcript for cycle ${cycle_index}: ${session_id}.jsonl"
+  fi
 }

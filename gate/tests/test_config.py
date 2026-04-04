@@ -63,6 +63,27 @@ class TestTranscriptUploadConfig:
         assert cfg is not None
         assert cfg.region == "ap-northeast-2"
 
+    def test_from_env_reads_endpoint_url(self, monkeypatch):
+        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
+        monkeypatch.setenv("AWS_ENDPOINT_URL", "http://localhost:4566")
+        cfg = TranscriptUploadConfig.from_env()
+        assert cfg is not None
+        assert cfg.endpoint_url == "http://localhost:4566"
+
+    def test_from_env_endpoint_url_defaults_to_none(self, monkeypatch):
+        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
+        monkeypatch.delenv("AWS_ENDPOINT_URL", raising=False)
+        cfg = TranscriptUploadConfig.from_env()
+        assert cfg is not None
+        assert cfg.endpoint_url is None
+
+    def test_from_env_endpoint_url_empty_string_becomes_none(self, monkeypatch):
+        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
+        monkeypatch.setenv("AWS_ENDPOINT_URL", "")
+        cfg = TranscriptUploadConfig.from_env()
+        assert cfg is not None
+        assert cfg.endpoint_url is None
+
     def test_frozen(self):
         cfg = TranscriptUploadConfig(bucket_name="b", region="r")
         with pytest.raises(AttributeError):

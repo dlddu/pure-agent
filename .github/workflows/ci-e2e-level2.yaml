@@ -43,6 +43,7 @@ env:
   YQ_VERSION: "v4.43.1"
   MOCK_AGENT_IMAGE: "ghcr.io/dlddu/pure-agent/e2e/mock-agent:latest"
   MOCK_API_IMAGE: "ghcr.io/dlddu/pure-agent/e2e/mock-api:latest"
+  GATE_IMAGE: "ghcr.io/dlddu/pure-agent/gate:latest"
 
 jobs:
   e2e-level2:
@@ -100,11 +101,17 @@ jobs:
           service: e2e/mock-api
           push: "false"
 
-      - name: Load mock images into kind cluster
+      - name: Build gate image
+        uses: ./.github/actions/build-image
+        with:
+          service: gate
+          push: "false"
+
+      - name: Load images into kind cluster
         run: |
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME" \
-            --images "${MOCK_AGENT_IMAGE},${MOCK_API_IMAGE}"
+            --images "${MOCK_AGENT_IMAGE},${MOCK_API_IMAGE},${GATE_IMAGE}"
 
       # ── Kubernetes namespace setup ────────────────────────────────────────
       - name: Create namespace for pure-agent (Level 2)
@@ -253,22 +260,23 @@ jobs:
           yq -i '(.spec.templates[] | select(.name == "planner") | .container.args) = ["ENV_ID=$(echo \"$PROMPT\" | grep -oE \"env=[^ ]+\" | cut -d= -f2); ENV_ID=${ENV_ID:-default}; echo \"[mock-planner] environment_id=$ENV_ID\" >&2; case \"$ENV_ID\" in python-analysis) IMG=ghcr.io/dlddu/pure-agent/python-agent:latest ;; infra) IMG=ghcr.io/dlddu/pure-agent/infra-agent:latest ;; *) IMG=ghcr.io/dlddu/pure-agent/claude-agent:latest ;; esac; echo \"$IMG\" > /tmp/agent_image.txt; echo \"$ENV_ID\" > /tmp/raw_environment_id.txt; echo \"[mock-planner] selected: $IMG\" >&2"]' \
             /tmp/workflow-template-level2.yaml
 
-          # ── mock-gate 패치 ──────────────────────────────────────────────
-          # 실제 gate 바이너리는 export_config.actions에 "continue"가 있으면
-          # depth/max_depth를 무시하고 항상 continue를 반환합니다.
-          # Level 2에서는 depth >= max_depth - 1 이면 항상 stop하는 mock-gate로 교체합니다.
-
-          # gate 이미지를 alpine으로 교체 (실제 gate 바이너리 사용하지 않음)
-          yq -i '(.spec.templates[] | select(.name == "gate") | .container.image) = "alpine:3.20"' \
+          # ── gate 패치: 실제 이미지 + mock 결정 로직 ───────────────────
+          # 실제 gate 이미지를 사용하여 S3 transcript upload를 실행하되,
+          # continue/stop 결정은 mock 로직으로 덮어씁니다.
+          # (mock-agent의 ConfigMap은 정적이므로 실제 gate 로직은 매 cycle 같은 결과를 반환합니다)
+          yq -i "(.spec.templates[] | select(.name == \"gate\") | .container.image) = \"${GATE_IMAGE}\"" \
             /tmp/workflow-template-level2.yaml
 
-          # gate에 depth/max_depth를 환경변수로 주입 (Argo 템플릿 파라미터 → 환경변수)
+          # gate에 depth/max_depth를 환경변수로 주입 (mock 결정 로직용)
           yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "GATE_DEPTH", "value": "{{inputs.parameters.depth}}"}, {"name": "GATE_MAX_DEPTH", "value": "{{inputs.parameters.max_depth}}"}]' \
             /tmp/workflow-template-level2.yaml
 
-          # gate의 args를 mock-gate 셸 스크립트로 교체
-          # depth >= max_depth - 1 이면 stop, 그렇지 않으면 export_config 확인
-          yq -i '(.spec.templates[] | select(.name == "gate") | .container.args) = ["D=\"$GATE_DEPTH\"; M=\"$GATE_MAX_DEPTH\"; O=/tmp/continue.txt; echo \"[mock-gate] depth=$D max_depth=$M\" >&2; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > $O; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > $O; else echo false > $O; fi; fi"]' \
+          # gate args: 실제 gate CLI 실행 (S3 upload) → mock 결정 로직으로 output 덮어쓰기
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.args) = ["gate --export-config \"$EXPORT_CONFIG_JSON\" --depth \"$GATE_DEPTH\" --max-depth \"$GATE_MAX_DEPTH\" --output /tmp/continue.txt 2>&1 || true; echo \"[mock-gate-override] depth=$GATE_DEPTH max_depth=$GATE_MAX_DEPTH\" >&2; D=\"$GATE_DEPTH\"; M=\"$GATE_MAX_DEPTH\"; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > /tmp/continue.txt; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > /tmp/continue.txt; else echo false > /tmp/continue.txt; fi; fi"]' \
+            /tmp/workflow-template-level2.yaml
+
+          # gate에 LocalStack S3 접속용 환경변수 주입 (gate-secrets에서 읽음)
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "AWS_ENDPOINT_URL", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ENDPOINT_URL", "optional": true}}}, {"name": "AWS_ACCESS_KEY_ID", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ACCESS_KEY_ID", "optional": true}}}, {"name": "AWS_SECRET_ACCESS_KEY", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_SECRET_ACCESS_KEY", "optional": true}}}]' \
             /tmp/workflow-template-level2.yaml
 
           # ── mock-export-handler 패치 ────────────────────────────────────

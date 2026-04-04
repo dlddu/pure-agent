@@ -72,6 +72,12 @@ load_common() {
   source "$LIB_DIR/common.sh"
 }
 
+# Source localstack.sh in --source-only mode.
+load_localstack() {
+  # shellcheck disable=SC1090
+  source "$LIB_DIR/localstack.sh" --source-only
+}
+
 # Source Level-2 functions from run-level2.sh.
 load_run_argo() {
   # Export variables that run-level2.sh reads at parse time.

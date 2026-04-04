@@ -41,11 +41,9 @@ _find_transcripts() {
 }
 
 # Initialize the transcript output directory.
-# Cleans any pre-existing content and sets a default session ID.
+# Preserves any pre-existing transcripts (e.g. planner transcripts written
+# earlier in the same cycle) and only resets the session ID file.
 _init_transcript_dir() {
-  if ! rm -rf "$TRANSCRIPT_DIR"; then
-    warn "Failed to clean transcript directory: $TRANSCRIPT_DIR"
-  fi
   if ! mkdir -p "$TRANSCRIPT_DIR"; then
     warn "Failed to create transcript directory: $TRANSCRIPT_DIR"
     return 0

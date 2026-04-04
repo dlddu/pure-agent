@@ -33,6 +33,23 @@ else
   : > /tmp/agent_result.txt
 fi
 
+# ── Generate mock transcripts ─────────────────────────────────────────────────
+# Create mock transcript files in /work/.transcripts/ so gate can upload them to S3.
+
+TRANSCRIPT_DIR="${WORK_DIR}/.transcripts"
+SESSION_ID="mock-session-$(date +%s)"
+
+mkdir -p "$TRANSCRIPT_DIR"
+cat > "$TRANSCRIPT_DIR/${SESSION_ID}.jsonl" <<JSONL
+{"type":"assistant","message":"mock transcript entry","timestamp":"$(date -Iseconds)"}
+{"type":"result","result":"mock agent completed","session_id":"${SESSION_ID}"}
+JSONL
+
+# If scenario provides custom transcript fixtures, copy them over
+if [ -d "$SCENARIO_DIR/transcripts" ]; then
+  cp "$SCENARIO_DIR/transcripts"/*.jsonl "$TRANSCRIPT_DIR/" 2>/dev/null || true
+fi
+
 # ── Write dummy session ID ────────────────────────────────────────────────────
 
-echo "mock-session-$(date +%s)" > /tmp/session_id.txt
+echo "$SESSION_ID" > /tmp/session_id.txt

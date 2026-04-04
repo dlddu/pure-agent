@@ -466,3 +466,125 @@ YAML
   # Assert — function must exit cleanly
   [ "$status" -eq 0 ]
 }
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# verify_cycle — S3 transcript upload verification
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@test "verify_cycle: calls S3 transcript assertion when S3_ENDPOINT_URL is set" {
+  # Arrange
+  assert_workflow_succeeded() { return 0; }
+  export -f assert_workflow_succeeded
+
+  assert_s3_transcript_exists() {
+    echo "assert_s3_transcript_exists called" >> "$WORK_DIR/s3-calls.txt"
+    return 0
+  }
+  export -f assert_s3_transcript_exists
+  export S3_ENDPOINT_URL="http://localstack.pure-agent.svc.cluster.local:4566"
+
+  local yaml_file
+  yaml_file=$(write_scenario_yaml "none-action")
+  touch "$WORK_DIR/s3-calls.txt"
+
+  # Act
+  verify_cycle "$yaml_file" "test-wf" 0
+
+  # Assert
+  grep -q "assert_s3_transcript_exists called" "$WORK_DIR/s3-calls.txt"
+}
+
+@test "verify_cycle: skips S3 assertions when S3_ENDPOINT_URL is not set" {
+  # Arrange
+  assert_workflow_succeeded() { return 0; }
+  export -f assert_workflow_succeeded
+
+  assert_s3_transcript_exists() {
+    echo "SHOULD NOT BE CALLED" >> "$WORK_DIR/s3-calls.txt"
+    return 1
+  }
+  export -f assert_s3_transcript_exists
+  unset S3_ENDPOINT_URL
+
+  local yaml_file
+  yaml_file=$(write_scenario_yaml "none-action")
+  touch "$WORK_DIR/s3-calls.txt"
+
+  # Act
+  run verify_cycle "$yaml_file" "test-wf" 0
+
+  # Assert — should pass and NOT call S3 assertions
+  [ "$status" -eq 0 ]
+  ! grep -q "SHOULD NOT BE CALLED" "$WORK_DIR/s3-calls.txt"
+}
+
+@test "verify_cycle: fails when S3 transcript assertion fails" {
+  # Arrange
+  assert_workflow_succeeded() { return 0; }
+  export -f assert_workflow_succeeded
+
+  assert_s3_transcript_exists() { return 1; }
+  export -f assert_s3_transcript_exists
+  export S3_ENDPOINT_URL="http://localstack:4566"
+
+  local yaml_file
+  yaml_file=$(write_scenario_yaml "none-action")
+
+  # Act
+  run verify_cycle "$yaml_file" "failing-s3-wf" 0
+
+  # Assert
+  [ "$status" -ne 0 ]
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# prepare_cycle_fixtures — transcript fixtures
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@test "prepare_cycle_fixtures: creates transcript fixture when session_id is present" {
+  # Arrange
+  local yaml_file
+  yaml_file=$(write_scenario_yaml "none-action")
+  local out_dir="$BATS_TEST_TMPDIR/transcript-out"
+  mkdir -p "$out_dir"
+
+  # Act
+  run prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
+
+  # Assert — transcript should be created using session_id from export_config
+  [ "$status" -eq 0 ]
+  [ -d "$out_dir/transcripts" ]
+  [ -f "$out_dir/transcripts/mock-session-0.jsonl" ]
+}
+
+@test "prepare_cycle_fixtures: transcript fixture contains valid JSONL" {
+  # Arrange
+  local yaml_file
+  yaml_file=$(write_scenario_yaml "none-action")
+  local out_dir="$BATS_TEST_TMPDIR/transcript-jsonl-out"
+  mkdir -p "$out_dir"
+
+  # Act
+  prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
+
+  # Assert — each line should be valid JSON
+  while IFS= read -r line; do
+    echo "$line" | jq . > /dev/null 2>&1
+    [ $? -eq 0 ]
+  done < "$out_dir/transcripts/mock-session-0.jsonl"
+}
+
+@test "prepare_cycle_fixtures: no transcript when export_config is null" {
+  # Arrange
+  local yaml_file
+  yaml_file=$(write_depth_limit_scenario_yaml "depth-limit")
+  local out_dir="$BATS_TEST_TMPDIR/no-transcript-out"
+  mkdir -p "$out_dir"
+
+  # Act
+  run prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
+
+  # Assert — no transcript directory should be created
+  [ "$status" -eq 0 ]
+  [ ! -d "$out_dir/transcripts" ]
+}

@@ -19,7 +19,7 @@ real:
   max_depth: 5
   prompt: "아무 외부 액션 없이 종료해주세요. export_config의 actions는 [\"none\"]으로 설정하세요."
   setup: []
-  verify: [planner_valid_image]
+  verify: [planner_valid_image, s3_transcript]
   teardown: []
 
 # ── 공유 assertions ──
