@@ -66,8 +66,15 @@ export interface SessionServiceOptions {
   stat: (path: string) => Promise<{ mtimeMs: number }>;
 }
 
+export type SessionSource = "planner" | "agent";
+
+export interface SessionInfo {
+  sessionId: string;
+  source: SessionSource;
+}
+
 export interface ISessionService {
-  readSessionId(): Promise<string | undefined>;
+  readSessionId(): Promise<SessionInfo | undefined>;
 }
 
 export interface GatekeeperServiceOptions {

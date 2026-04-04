@@ -11,7 +11,7 @@ describe("sessionCommentHook", () => {
   });
 
   it("posts session comment when response has issueId and session exists", async () => {
-    (context.services.session.readSessionId as ReturnType<typeof vi.fn>).mockResolvedValue("sess-123");
+    (context.services.session.readSessionId as ReturnType<typeof vi.fn>).mockResolvedValue({ sessionId: "sess-123", source: "agent" });
 
     const response: McpToolResponse & { _meta?: McpToolMeta } = {
       content: [{ type: "text", text: "{}" }],
@@ -62,7 +62,7 @@ describe("sessionCommentHook", () => {
   });
 
   it("swallows createComment errors silently", async () => {
-    (context.services.session.readSessionId as ReturnType<typeof vi.fn>).mockResolvedValue("sess-123");
+    (context.services.session.readSessionId as ReturnType<typeof vi.fn>).mockResolvedValue({ sessionId: "sess-123", source: "agent" });
     (context.services.linear.createComment as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error("Linear API error"),
     );

@@ -10,12 +10,12 @@ export type PostToolHook = (
 
 export const sessionCommentHook: PostToolHook = async (response, context) => {
   if (!response._meta?.issueId || response.isError) return;
-  const sessionId = await context.services.session.readSessionId();
-  if (!sessionId) return;
+  const session = await context.services.session.readSessionId();
+  if (!session) return;
   try {
     await context.services.linear.createComment(
       response._meta.issueId,
-      `**Claude Code Session ID:** \`${sessionId}\``,
+      `**Claude Code Session ID (${session.source}):** \`${session.sessionId}\``,
     );
   } catch {
     // Comment is informational — must not fail the primary operation

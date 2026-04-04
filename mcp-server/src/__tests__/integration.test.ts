@@ -212,7 +212,7 @@ describe("Integration: MCP Protocol End-to-End", () => {
 
       // Mock session to return a session id
       const mockSession = context.services.session.readSessionId as ReturnType<typeof vi.fn>;
-      mockSession.mockResolvedValue("int-session-id");
+      mockSession.mockResolvedValue({ sessionId: "int-session-id", source: "agent" });
 
       const mockFetch = vi.fn().mockResolvedValue({
         status: 200,
@@ -320,7 +320,7 @@ describe("Integration: Session Comment Hook with Planner/Agent Session IDs", () 
 
   it("posts planner session ID as Linear comment when get_issue is called", async () => {
     const mockSession = context.services.session.readSessionId as ReturnType<typeof vi.fn>;
-    mockSession.mockResolvedValue("planner-sess-xyz");
+    mockSession.mockResolvedValue({ sessionId: "planner-sess-xyz", source: "planner" });
 
     const result = await client.callTool({
       name: "get_issue",
@@ -334,13 +334,13 @@ describe("Integration: Session Comment Hook with Planner/Agent Session IDs", () 
     expect(mockSession).toHaveBeenCalled();
     expect(linear.createComment).toHaveBeenCalledWith(
       "issue-planner-1",
-      expect.stringContaining("planner-sess-xyz"),
+      "**Claude Code Session ID (planner):** `planner-sess-xyz`",
     );
   });
 
   it("posts agent session ID as Linear comment when request_feature is called", async () => {
     const mockSession = context.services.session.readSessionId as ReturnType<typeof vi.fn>;
-    mockSession.mockResolvedValue("agent-sess-abc");
+    mockSession.mockResolvedValue({ sessionId: "agent-sess-abc", source: "agent" });
 
     linear.createFeatureRequest.mockResolvedValue({
       issueId: "issue-agent-1",
@@ -356,7 +356,7 @@ describe("Integration: Session Comment Hook with Planner/Agent Session IDs", () 
     expect(result.isError).toBeFalsy();
     expect(linear.createComment).toHaveBeenCalledWith(
       "issue-agent-1",
-      expect.stringContaining("agent-sess-abc"),
+      "**Claude Code Session ID (agent):** `agent-sess-abc`",
     );
   });
 
@@ -375,7 +375,7 @@ describe("Integration: Session Comment Hook with Planner/Agent Session IDs", () 
 
   it("session comment contains correct format", async () => {
     const mockSession = context.services.session.readSessionId as ReturnType<typeof vi.fn>;
-    mockSession.mockResolvedValue("sess-format-check");
+    mockSession.mockResolvedValue({ sessionId: "sess-format-check", source: "planner" });
 
     await client.callTool({
       name: "get_issue",
@@ -384,7 +384,7 @@ describe("Integration: Session Comment Hook with Planner/Agent Session IDs", () 
 
     expect(linear.createComment).toHaveBeenCalledWith(
       "issue-planner-1",
-      "**Claude Code Session ID:** `sess-format-check`",
+      "**Claude Code Session ID (planner):** `sess-format-check`",
     );
   });
 });
