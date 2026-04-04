@@ -11,10 +11,7 @@ export type PostToolHook = (
 export const sessionCommentHook: PostToolHook = async (response, context) => {
   if (!response._meta?.issueId || response.isError) return;
   const session = await context.services.session.readSessionId();
-  if (!session) {
-    log.warn("Session ID not found, skipping comment", { issueId: response._meta.issueId });
-    return;
-  }
+  if (!session) return;
   log.info("Posting session comment", { issueId: response._meta.issueId, source: session.source, sessionId: session.sessionId });
   try {
     await context.services.linear.createComment(

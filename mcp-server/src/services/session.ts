@@ -1,5 +1,8 @@
 import { join } from "node:path";
+import { createLogger } from "../logger.js";
 import type { ISessionService, SessionServiceOptions, SessionInfo, SessionSource } from "./types.js";
+
+const log = createLogger("session");
 
 interface OutputFileEntry {
   filename: string;
@@ -24,7 +27,10 @@ export class SessionService implements ISessionService {
 
   async readSessionId(): Promise<SessionInfo | undefined> {
     const best = await this.mostRecentOutputFile();
-    if (!best) return undefined;
+    if (!best) {
+      log.warn("No output files found", { workDir: this.workDir });
+      return undefined;
+    }
     const sessionId = await this.extractSessionId(best.path);
     if (!sessionId) return undefined;
     return { sessionId, source: best.source };
@@ -49,14 +55,34 @@ export class SessionService implements ISessionService {
   }
 
   private async extractSessionId(filePath: string): Promise<string | undefined> {
+    let content: string;
     try {
-      const content = await this.readFile(filePath, "utf-8");
-      const firstLine = content.split("\n")[0].trim();
-      if (!firstLine) return undefined;
-      const parsed = JSON.parse(firstLine);
-      return typeof parsed?.session_id === "string" ? parsed.session_id : undefined;
-    } catch {
+      content = await this.readFile(filePath, "utf-8");
+    } catch (error) {
+      log.warn("Failed to read output file", { filePath, error });
       return undefined;
     }
+
+    const firstLine = content.split("\n")[0].trim();
+    if (!firstLine) {
+      log.warn("Output file is empty", { filePath });
+      return undefined;
+    }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(firstLine);
+    } catch {
+      log.warn("First line is not valid JSON", { filePath, firstLine: firstLine.slice(0, 120) });
+      return undefined;
+    }
+
+    const sessionId = (parsed as Record<string, unknown>)?.session_id;
+    if (typeof sessionId !== "string") {
+      log.warn("session_id field missing or not a string", { filePath, sessionIdType: typeof sessionId });
+      return undefined;
+    }
+
+    return sessionId;
   }
 }
