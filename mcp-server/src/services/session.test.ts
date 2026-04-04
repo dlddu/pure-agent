@@ -9,7 +9,7 @@ describe("SessionService", () => {
   beforeEach(() => {
     mockReadFile = vi.fn();
     mockStat = vi.fn();
-    service = new SessionService({ workDir: "/work", readFile: mockReadFile, stat: mockStat });
+    service = new SessionService({ workDir: "/work", readFile: mockReadFile, stat: mockStat, delayMs: 0 });
   });
 
   describe("readSessionId", () => {
