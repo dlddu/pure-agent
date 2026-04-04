@@ -1,12 +1,29 @@
 name: none-action
-level: [2]
+description: "actions: [\"none\"] → Gate stop, Export Handler는 Linear 코멘트만 작성"
+level: [1, 2, 3]
+max_depth: 1
+
+# ── Level 2: mock cycle 정의 ──
 cycles:
-  - export_config:
+  - environment_id: "default"
+    export_config:
       linear_issue_id: "mock-issue-id"
+      summary: "No action needed. Task already completed."
       actions:
         - "none"
-      session_id: "mock-session-0"
-    agent_result: "Cycle 0 done."
+      session_id: "mock-session-none"
+    agent_result: "No action needed. Task already completed."
+
+# ── Level 3: real API 실행 설정 ──
+real:
+  max_depth: 5
+  prompt: "아무 외부 액션 없이 종료해주세요. export_config의 actions는 [\"none\"]으로 설정하세요."
+  setup: []
+  verify: [planner_valid_image, s3_transcript]
+  teardown: []
+
+# ── 공유 assertions ──
 assertions:
+  planner_image: "default"
   gate_decision: "stop"
   export_handler_exit: 0
