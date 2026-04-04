@@ -39,6 +39,15 @@ _load() { _load_lib logging constants environments mcp-config prompt claude-runn
   [[ "$(cat "$CLAUDE_OUTPUT")" == *"test"* ]]
 }
 
+@test "run_claude: writes output to PLANNER_OUTPUT_COPY on shared volume" {
+  _load
+  claude() { echo '{"type":"system","session_id":"planner-sess-123"}'; echo '{"type":"result","result":"test"}'; }
+  export -f claude
+  run_claude 2>/dev/null
+  [ -f "$PLANNER_OUTPUT_COPY" ]
+  [[ "$(head -1 "$PLANNER_OUTPUT_COPY")" == *"planner-sess-123"* ]]
+}
+
 # ── extract_environment_id ───────────────────────────────────
 
 @test "extract_environment_id: extracts from result event" {

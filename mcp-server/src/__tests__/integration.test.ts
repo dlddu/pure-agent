@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterAll, afterEach } from "vitest";
 import { createDefaultTools } from "../tools/registry.js";
+import { sessionCommentHook } from "../hooks/post-tool-hooks.js";
 import { parseResponseText, createMockContext, getLinearMocks, createMcpTestClient } from "../test-utils.js";
 import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 
@@ -278,5 +279,112 @@ describe("Integration: MCP Protocol End-to-End", () => {
       const commentsParsed = parseResponseText(commentsResult);
       expect(commentsParsed.success).toBe(true);
     });
+  });
+});
+
+describe("Integration: Session Comment Hook with Planner/Agent Session IDs", () => {
+  let client: Client;
+  let cleanup: () => Promise<void>;
+  let context: ReturnType<typeof createMockContext>;
+  let linear: ReturnType<typeof getLinearMocks>;
+
+  beforeEach(async () => {
+    context = createMockContext({ workDir: "/test/work" });
+    linear = getLinearMocks(context);
+
+    linear.getIssue.mockResolvedValue({
+      id: "issue-planner-1",
+      identifier: "PA-100",
+      title: "Planner Session Test",
+      description: "Test",
+      state: { name: "Todo", type: "unstarted" },
+      priority: 3,
+      priorityLabel: "Medium",
+      labels: [],
+      assignee: undefined,
+      url: "https://linear.app/issue/PA-100",
+      createdAt: "2025-01-01T00:00:00.000Z",
+      updatedAt: "2025-01-01T00:00:00.000Z",
+    });
+
+    ({ client, cleanup } = await createMcpTestClient({
+      tools: createDefaultTools(),
+      context,
+      postToolHooks: [sessionCommentHook],
+    }));
+  });
+
+  afterEach(async () => {
+    await cleanup();
+  });
+
+  it("posts planner session ID as Linear comment when get_issue is called", async () => {
+    const mockSession = context.services.session.readSessionId as ReturnType<typeof vi.fn>;
+    mockSession.mockResolvedValue("planner-sess-xyz");
+
+    const result = await client.callTool({
+      name: "get_issue",
+      arguments: { issue_id: "PA-100" },
+    });
+
+    expect(result.isError).toBeFalsy();
+    const parsed = parseResponseText(result);
+    expect(parsed.success).toBe(true);
+
+    expect(mockSession).toHaveBeenCalled();
+    expect(linear.createComment).toHaveBeenCalledWith(
+      "issue-planner-1",
+      expect.stringContaining("planner-sess-xyz"),
+    );
+  });
+
+  it("posts agent session ID as Linear comment when request_feature is called", async () => {
+    const mockSession = context.services.session.readSessionId as ReturnType<typeof vi.fn>;
+    mockSession.mockResolvedValue("agent-sess-abc");
+
+    linear.createFeatureRequest.mockResolvedValue({
+      issueId: "issue-agent-1",
+      issueIdentifier: "PA-200",
+      issueUrl: "https://linear.app/issue/PA-200",
+    });
+
+    const result = await client.callTool({
+      name: "request_feature",
+      arguments: { title: "Agent feature", reason: "Testing agent session" },
+    });
+
+    expect(result.isError).toBeFalsy();
+    expect(linear.createComment).toHaveBeenCalledWith(
+      "issue-agent-1",
+      expect.stringContaining("agent-sess-abc"),
+    );
+  });
+
+  it("skips session comment when session ID is unavailable", async () => {
+    const mockSession = context.services.session.readSessionId as ReturnType<typeof vi.fn>;
+    mockSession.mockResolvedValue(undefined);
+
+    await client.callTool({
+      name: "get_issue",
+      arguments: { issue_id: "PA-100" },
+    });
+
+    expect(mockSession).toHaveBeenCalled();
+    expect(linear.createComment).not.toHaveBeenCalled();
+  });
+
+  it("session comment contains correct format", async () => {
+    const mockSession = context.services.session.readSessionId as ReturnType<typeof vi.fn>;
+    mockSession.mockResolvedValue("sess-format-check");
+
+    await client.callTool({
+      name: "get_issue",
+      arguments: { issue_id: "PA-100" },
+    });
+
+    expect(linear.createComment).toHaveBeenCalledWith(
+      "issue-planner-1",
+      "**Claude Code Session ID:** `sess-format-check`",
+    );
   });
 });
