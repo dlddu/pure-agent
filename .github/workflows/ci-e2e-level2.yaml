@@ -275,6 +275,10 @@ jobs:
           yq -i '(.spec.templates[] | select(.name == "gate") | .container.args) = ["gate --export-config \"$EXPORT_CONFIG_JSON\" --depth \"$GATE_DEPTH\" --max-depth \"$GATE_MAX_DEPTH\" --output /tmp/continue.txt 2>&1 || true; echo \"[mock-gate-override] depth=$GATE_DEPTH max_depth=$GATE_MAX_DEPTH\" >&2; D=\"$GATE_DEPTH\"; M=\"$GATE_MAX_DEPTH\"; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > /tmp/continue.txt; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > /tmp/continue.txt; else echo false > /tmp/continue.txt; fi; fi"]' \
             /tmp/workflow-template-level2.yaml
 
+          # gate에 LocalStack S3 접속용 환경변수 주입 (gate-secrets에서 읽음)
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "AWS_ENDPOINT_URL", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ENDPOINT_URL", "optional": true}}}, {"name": "AWS_ACCESS_KEY_ID", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ACCESS_KEY_ID", "optional": true}}}, {"name": "AWS_SECRET_ACCESS_KEY", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_SECRET_ACCESS_KEY", "optional": true}}}]' \
+            /tmp/workflow-template-level2.yaml
+
           # ── mock-export-handler 패치 ────────────────────────────────────
           # 실제 export-handler 이미지는 kind에 로드되지 않으며 mock secrets로 동작하지 않음.
           # alpine으로 교체하고 export_config/action_results를 passthrough하는 스크립트로 대체.
