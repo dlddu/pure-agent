@@ -220,8 +220,7 @@ assert_s3_object_exists() {
 
   _ls_log "Checking S3 object exists: s3://$S3_TEST_BUCKET/$key"
 
-  local result
-  result=$(kubectl run localstack-check-$$ \
+  kubectl run localstack-check-$$ \
     --image=amazon/aws-cli:2.27.28 \
     --restart=Never \
     --rm \
@@ -234,7 +233,7 @@ assert_s3_object_exists() {
     --command -- \
     aws --endpoint-url "$endpoint_url" s3api head-object \
       --bucket "$S3_TEST_BUCKET" \
-      --key "$key" 2>&1) \
+      --key "$key" 2>&1 \
     || { _ls_fail "assert_s3_object_exists: key '$key' not found in s3://$S3_TEST_BUCKET/"; return 1; }
 
   _ls_log "PASS assert_s3_object_exists: $key"

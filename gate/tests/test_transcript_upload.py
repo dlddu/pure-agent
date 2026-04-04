@@ -166,8 +166,9 @@ class TestUploadTranscripts:
         )
         (tmp_path / "session.jsonl").write_text("data")
 
-        import boto3
         from unittest.mock import patch
+
+        import boto3
 
         with patch.object(boto3, "client", wraps=boto3.client) as spy_client:
             mock_client = MagicMock()
@@ -186,8 +187,9 @@ class TestUploadTranscripts:
         )
         (tmp_path / "session.jsonl").write_text("data")
 
-        import boto3
         from unittest.mock import patch
+
+        import boto3
 
         with patch.object(boto3, "client", wraps=boto3.client) as spy_client:
             mock_client = MagicMock()
