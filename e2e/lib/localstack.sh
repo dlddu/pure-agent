@@ -211,12 +211,15 @@ assert_s3_object_exists() {
 }
 
 # ── assert_s3_transcript_exists ──────────────────────────────────────────────
-# Asserts that at least one transcript (.jsonl) exists in the S3 bucket.
+# Asserts that at least min_count transcript (.jsonl) files exist in the S3 bucket.
+# Arguments:
+#   $1  min_count  — minimum number of transcripts expected (default: 2, planner + agent)
 assert_s3_transcript_exists() {
+  local min_count="${1:-2}"
   local namespace="${NAMESPACE:-pure-agent}"
   local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
 
-  _ls_log "Checking for transcript(s) in S3"
+  _ls_log "Checking for at least $min_count transcript(s) in S3"
 
   local objects
   objects=$(kubectl exec deployment/localstack \
@@ -245,5 +248,12 @@ assert_s3_transcript_exists() {
 
   local count
   count=$(echo "$transcripts" | wc -l)
-  _ls_log "PASS assert_s3_transcript_exists: $count transcript(s) found"
+
+  if [[ "$count" -lt "$min_count" ]]; then
+    _ls_log "DEBUG: found transcripts: $transcripts"
+    _ls_fail "assert_s3_transcript_exists: expected at least $min_count transcript(s), found $count"
+    return 1
+  fi
+
+  _ls_log "PASS assert_s3_transcript_exists: $count transcript(s) found (min=$min_count)"
 }

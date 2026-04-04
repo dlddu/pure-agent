@@ -227,7 +227,7 @@ verify_cycle() {
   # 4. S3 transcript upload 검증
   if [[ -n "${S3_ENDPOINT_URL:-}" ]]; then
     log "Verifying S3 transcript upload for cycle ${cycle_index}"
-    assert_s3_transcript_exists || return 1
+    assert_s3_transcript_exists 1 || return 1
   fi
 
   log "Cycle ${cycle_index} verification passed"
