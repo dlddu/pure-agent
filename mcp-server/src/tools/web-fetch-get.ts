@@ -29,7 +29,7 @@ export const webFetchGetTool = defineTool({
     }
 
     const requestId = extra?.requestId ?? "unknown";
-    const externalId = `${sessionId}:${requestId}`;
+    const externalId = `${sessionId.sessionId}:${requestId}`;
 
     log.debug("Requesting gatekeeper approval", { externalId });
     const contextString = JSON.stringify({ url, method });
