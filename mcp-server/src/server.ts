@@ -25,7 +25,7 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
       description: tool.description,
       inputSchema: tool.schema,
     }, async (args, extra) => {
-      log.info("Tool call started", { toolName: tool.name });
+      log.info("Tool call started", { toolName: tool.name, args });
       const start = performance.now();
 
       const mcpExtra: McpToolExtra = {
