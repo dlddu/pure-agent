@@ -12,6 +12,7 @@ source "$SCRIPT_DIR/lib/environments.sh"
 source "$SCRIPT_DIR/lib/mcp-config.sh"
 source "$SCRIPT_DIR/lib/prompt.sh"
 source "$SCRIPT_DIR/lib/claude-runner.sh"
+source "$SCRIPT_DIR/lib/transcripts.sh"
 
 # ─── Cleanup ────────────────────────────────────────────────
 cleanup() { rm -f "$CLAUDE_OUTPUT" "$MCP_CONFIG" 2>/dev/null || true; }
@@ -73,6 +74,9 @@ main() {
 
   # Run Claude Code CLI (always returns 0; logs warnings on failure)
   run_claude
+
+  # Save planner transcript to shared volume for S3 upload by gate
+  save_planner_transcript
 
   # Extract environment ID from Claude output
   local raw_id

@@ -156,3 +156,41 @@ class TestUploadTranscripts:
             Body=b"data",
             ContentType="application/jsonl",
         )
+
+    def test_creates_client_with_endpoint_url(self, tmp_path, monkeypatch):
+        """When endpoint_url is set, boto3 client receives it (for LocalStack)."""
+        config = TranscriptUploadConfig(
+            bucket_name="test-bucket",
+            region="us-east-1",
+            endpoint_url="http://localhost:4566",
+        )
+        (tmp_path / "session.jsonl").write_text("data")
+
+        import boto3
+        from unittest.mock import patch
+
+        with patch.object(boto3, "client", wraps=boto3.client) as spy_client:
+            mock_client = MagicMock()
+            spy_client.return_value = mock_client
+            upload_transcripts(str(tmp_path), config)
+            spy_client.assert_called_once_with(
+                "s3", region_name="us-east-1", endpoint_url="http://localhost:4566"
+            )
+
+    def test_creates_client_without_endpoint_url_when_none(self, tmp_path, monkeypatch):
+        """When endpoint_url is None, boto3 client is created without it."""
+        config = TranscriptUploadConfig(
+            bucket_name="test-bucket",
+            region="us-east-1",
+            endpoint_url=None,
+        )
+        (tmp_path / "session.jsonl").write_text("data")
+
+        import boto3
+        from unittest.mock import patch
+
+        with patch.object(boto3, "client", wraps=boto3.client) as spy_client:
+            mock_client = MagicMock()
+            spy_client.return_value = mock_client
+            upload_transcripts(str(tmp_path), config)
+            spy_client.assert_called_once_with("s3", region_name="us-east-1")

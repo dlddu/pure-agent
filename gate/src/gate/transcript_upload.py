@@ -97,7 +97,10 @@ def upload_transcripts(
     if uploader is None:
         import boto3
 
-        uploader = boto3.client("s3", region_name=config.region)
+        client_kwargs: dict[str, str] = {"region_name": config.region}
+        if config.endpoint_url:
+            client_kwargs["endpoint_url"] = config.endpoint_url
+        uploader = boto3.client("s3", **client_kwargs)
 
     transcript_files = _find_transcript_files(transcript_dir)
     logger.info(

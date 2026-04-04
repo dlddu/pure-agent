@@ -15,6 +15,12 @@
 # /tmp/planner_debug.log             k8s/workflow-template.yaml (stderr)
 # ═══════════════════════════════════════════════════════════════
 
+# ─── Shared volume paths ───────────────────────────────────
+WORK_DIR="${WORK_DIR:-/work}"
+readonly WORK_DIR
+TRANSCRIPT_DIR="${WORK_DIR}/.transcripts"
+readonly TRANSCRIPT_DIR
+
 # ─── Internal paths ─────────────────────────────────────────
 CLAUDE_OUTPUT="${CLAUDE_OUTPUT:-/tmp/planner_claude_output.json}"
 readonly CLAUDE_OUTPUT
