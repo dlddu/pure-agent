@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { writeFile, readFile, access } from "node:fs/promises";
+import { writeFile, readFile, access, stat } from "node:fs/promises";
 import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
 import { LinearClient } from "@linear/sdk";
@@ -33,7 +33,7 @@ async function main() {
 
   log.info("Initializing MCP server...");
 
-  const sessionService = new SessionService({ workDir: config.WORK_DIR, readFile });
+  const sessionService = new SessionService({ workDir: config.WORK_DIR, readFile, stat });
 
   const gatekeeperService = new GatekeeperService({
     gatekeeperUrl: config.GATEKEEPER_URL ?? "",

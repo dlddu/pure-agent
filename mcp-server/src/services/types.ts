@@ -63,6 +63,7 @@ export interface ILinearService {
 export interface SessionServiceOptions {
   workDir: string;
   readFile: (path: string, encoding: BufferEncoding) => Promise<string>;
+  stat: (path: string) => Promise<{ mtimeMs: number }>;
 }
 
 export interface ISessionService {
