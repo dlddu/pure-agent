@@ -202,7 +202,7 @@ list_s3_objects() {
     aws --endpoint-url "$endpoint_url" s3api list-objects \
       --bucket "$S3_TEST_BUCKET" \
       --query 'Contents[].Key' \
-      --output text 2>/dev/null \
+      --output text \
     2>/dev/null \
     || echo ""
 }
@@ -234,7 +234,7 @@ assert_s3_object_exists() {
     --command -- \
     aws --endpoint-url "$endpoint_url" s3api head-object \
       --bucket "$S3_TEST_BUCKET" \
-      --key "$key" 2>&1 \
+      --key "$key" \
     2>/dev/null \
     || { _ls_fail "assert_s3_object_exists: key '$key' not found in s3://$S3_TEST_BUCKET/"; return 1; }
 
@@ -267,7 +267,7 @@ assert_s3_transcript_exists() {
     aws --endpoint-url "$endpoint_url" s3api list-objects \
       --bucket "$S3_TEST_BUCKET" \
       --query 'Contents[].Key' \
-      --output text 2>/dev/null \
+      --output text \
     2>/dev/null) \
     || objects=""
 
@@ -316,7 +316,7 @@ assert_s3_planner_transcript_exists() {
     aws --endpoint-url "$endpoint_url" s3api list-objects \
       --bucket "$S3_TEST_BUCKET" \
       --query 'Contents[].Key' \
-      --output text 2>/dev/null \
+      --output text \
     2>/dev/null) \
     || objects=""
 
