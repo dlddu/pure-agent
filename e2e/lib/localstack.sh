@@ -12,8 +12,7 @@
 #   localstack_endpoint_url — Return the in-cluster LocalStack S3 endpoint URL
 #   list_s3_objects         — List objects in the test bucket (debug helper)
 #   assert_s3_object_exists — Assert a specific S3 key exists
-#   assert_s3_transcript_exists     — Assert agent transcript files exist in S3
-#   assert_s3_planner_transcript_exists — Assert planner transcript files exist in S3
+#   assert_s3_transcript_exists     — Assert transcript files exist in S3
 #
 # Required variables (set by the calling script):
 #   NAMESPACE      — Kubernetes namespace
@@ -212,13 +211,12 @@ assert_s3_object_exists() {
 }
 
 # ── assert_s3_transcript_exists ──────────────────────────────────────────────
-# Asserts that at least one agent transcript (.jsonl) exists in the S3 bucket.
-# Excludes planner transcripts (files starting with "planner-").
+# Asserts that at least one transcript (.jsonl) exists in the S3 bucket.
 assert_s3_transcript_exists() {
   local namespace="${NAMESPACE:-pure-agent}"
   local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
 
-  _ls_log "Checking for agent transcript(s) in S3"
+  _ls_log "Checking for transcript(s) in S3"
 
   local objects
   objects=$(kubectl exec deployment/localstack \
@@ -236,56 +234,16 @@ assert_s3_transcript_exists() {
     return 1
   fi
 
-  # Filter for .jsonl files that are NOT planner transcripts
-  local agent_transcripts
-  agent_transcripts=$(echo "$objects" | tr '\t' '\n' | grep '\.jsonl$' | grep -v '^planner-' || true)
+  local transcripts
+  transcripts=$(echo "$objects" | tr '\t' '\n' | grep '\.jsonl$' || true)
 
-  if [[ -z "$agent_transcripts" ]]; then
+  if [[ -z "$transcripts" ]]; then
     _ls_log "DEBUG: all objects in bucket: $objects"
-    _ls_fail "assert_s3_transcript_exists: no agent transcript (.jsonl) found in S3"
+    _ls_fail "assert_s3_transcript_exists: no transcript (.jsonl) found in S3"
     return 1
   fi
 
   local count
-  count=$(echo "$agent_transcripts" | wc -l)
-  _ls_log "PASS assert_s3_transcript_exists: $count agent transcript(s) found"
-}
-
-# ── assert_s3_planner_transcript_exists ──────────────────────────────────────
-# Asserts that at least one planner transcript (planner-*.jsonl) exists in S3.
-assert_s3_planner_transcript_exists() {
-  local namespace="${NAMESPACE:-pure-agent}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
-
-  _ls_log "Checking for planner transcript(s) in S3"
-
-  local objects
-  objects=$(kubectl exec deployment/localstack \
-    -n "$namespace" \
-    --context "$kube_context" \
-    -- awslocal s3api list-objects \
-      --bucket "$S3_TEST_BUCKET" \
-      --query 'Contents[].Key' \
-      --output text \
-    2>/dev/null) \
-    || objects=""
-
-  if [[ -z "$objects" || "$objects" == "None" ]]; then
-    _ls_fail "assert_s3_planner_transcript_exists: no objects found in s3://$S3_TEST_BUCKET/"
-    return 1
-  fi
-
-  # Filter for planner-*.jsonl files
-  local planner_transcripts
-  planner_transcripts=$(echo "$objects" | tr '\t' '\n' | grep '^planner-.*\.jsonl$' || true)
-
-  if [[ -z "$planner_transcripts" ]]; then
-    _ls_log "DEBUG: all objects in bucket: $objects"
-    _ls_fail "assert_s3_planner_transcript_exists: no planner transcript (planner-*.jsonl) found in S3"
-    return 1
-  fi
-
-  local count
-  count=$(echo "$planner_transcripts" | wc -l)
-  _ls_log "PASS assert_s3_planner_transcript_exists: $count planner transcript(s) found"
+  count=$(echo "$transcripts" | wc -l)
+  _ls_log "PASS assert_s3_transcript_exists: $count transcript(s) found"
 }

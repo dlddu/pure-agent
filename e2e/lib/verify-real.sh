@@ -96,15 +96,14 @@ verify_github_pr() {
 }
 
 # ── verify_s3_transcripts ────────────────────────────────────────────────────
-# Verifies that both agent and planner transcripts exist in the LocalStack S3 bucket.
+# Verifies that transcripts exist in the LocalStack S3 bucket.
 # Requires localstack.sh to be sourced and S3_ENDPOINT_URL to be set.
 verify_s3_transcripts() {
   [[ -n "${S3_ENDPOINT_URL:-}" ]] || { warn "S3_ENDPOINT_URL not set, skipping S3 verification"; return 0; }
 
-  log "Verifying S3 transcripts (agent + planner)"
+  log "Verifying S3 transcripts"
   assert_s3_transcript_exists
-  assert_s3_planner_transcript_exists
-  log "PASS verify_s3_transcripts: both agent and planner transcripts found in S3"
+  log "PASS verify_s3_transcripts: transcripts found in S3"
 }
 
 # ── Source guard ──────────────────────────────────────────────────────────────

@@ -75,8 +75,8 @@ main() {
   # Run Claude Code CLI (always returns 0; logs warnings on failure)
   run_claude
 
-  # Save planner transcript to shared volume for S3 upload by gate
-  save_planner_transcript
+  # Copy planner session transcripts to shared volume for S3 upload by gate
+  collect_planner_transcripts
 
   # Extract environment ID from Claude output
   local raw_id

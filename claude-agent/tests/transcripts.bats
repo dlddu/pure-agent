@@ -126,26 +126,13 @@ _load() { _load_lib logging constants transcripts; }
   [ "$(cat "$SESSION_ID_FILE")" = "unknown" ]
 }
 
-@test "_init_transcript_dir: cleans pre-existing agent transcripts" {
+@test "_init_transcript_dir: preserves pre-existing transcripts" {
   _load
   mkdir -p "$TRANSCRIPT_DIR"
-  echo "stale" > "$TRANSCRIPT_DIR/old.jsonl"
+  echo "existing" > "$TRANSCRIPT_DIR/existing.jsonl"
   _init_transcript_dir 2>/dev/null
-  [ ! -f "$TRANSCRIPT_DIR/old.jsonl" ]
+  [ -f "$TRANSCRIPT_DIR/existing.jsonl" ]
   [ -d "$TRANSCRIPT_DIR" ]
-}
-
-@test "_init_transcript_dir: preserves planner transcripts" {
-  _load
-  mkdir -p "$TRANSCRIPT_DIR"
-  echo "planner data" > "$TRANSCRIPT_DIR/planner-12345.jsonl"
-  echo "agent data" > "$TRANSCRIPT_DIR/session-abc.jsonl"
-  mkdir -p "$TRANSCRIPT_DIR/session-abc/subagents"
-  echo "sub" > "$TRANSCRIPT_DIR/session-abc/subagents/sub1.jsonl"
-  _init_transcript_dir 2>/dev/null
-  [ -f "$TRANSCRIPT_DIR/planner-12345.jsonl" ]
-  [ ! -f "$TRANSCRIPT_DIR/session-abc.jsonl" ]
-  [ ! -d "$TRANSCRIPT_DIR/session-abc" ]
 }
 
 @test "_init_transcript_dir: succeeds when transcript dir does not exist yet" {

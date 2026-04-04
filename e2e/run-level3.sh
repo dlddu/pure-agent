@@ -301,9 +301,6 @@ run_scenario() {
       s3_transcript)
         assert_s3_transcript_exists
         ;;
-      s3_planner_transcript)
-        assert_s3_planner_transcript_exists
-        ;;
       *) warn "Unknown verify type: $verify_item" ;;
     esac
   done <<< "$verifies"

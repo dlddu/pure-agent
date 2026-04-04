@@ -20,7 +20,7 @@ real:
   max_depth: 5
   prompt: "Linear 이슈 {{LINEAR_ISSUE_ID}}를 읽고 내용을 요약해서 report로 작성해주세요."
   setup: [linear_issue]
-  verify: [planner_valid_image, linear_comment, s3_transcript, s3_planner_transcript]
+  verify: [planner_valid_image, linear_comment, s3_transcript]
   teardown: [linear_issue]
 
 # ── 공유 assertions ──
