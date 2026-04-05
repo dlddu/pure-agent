@@ -60,6 +60,27 @@ _load() { _load_lib logging constants environments mcp-config prompt claude-runn
   echo "$first_line" | jq -e '.session_id == "clean-sess"'
 }
 
+# ── session ID extraction ───────────────────────────────────
+
+@test "run_claude: writes session_id to /tmp/session_id.txt" {
+  _load
+  claude() { echo '{"type":"system","session_id":"planner-sess-abc"}'; echo '{"type":"result","result":"ok"}'; }
+  export -f claude
+  run_claude 2>/dev/null
+  [ -f /tmp/session_id.txt ]
+  [ "$(cat /tmp/session_id.txt)" = "planner-sess-abc" ]
+  rm -f /tmp/session_id.txt
+}
+
+@test "run_claude: does not create session_id file when no session_id in output" {
+  _load
+  rm -f /tmp/session_id.txt
+  claude() { echo '{"type":"result","result":"ok"}'; }
+  export -f claude
+  run_claude 2>/dev/null
+  [ ! -f /tmp/session_id.txt ]
+}
+
 # ── extract_environment_id ───────────────────────────────────
 
 @test "extract_environment_id: extracts from result event" {

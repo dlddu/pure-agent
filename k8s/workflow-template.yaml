@@ -257,6 +257,10 @@ spec:
           - name: raw_environment_id
             valueFrom:
               path: /tmp/raw_environment_id.txt
+          - name: session_id
+            valueFrom:
+              path: /tmp/session_id.txt
+              default: ""
           - name: planner_debug
             valueFrom:
               path: /tmp/planner_debug.log
