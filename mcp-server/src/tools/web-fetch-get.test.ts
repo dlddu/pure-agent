@@ -80,7 +80,7 @@ describe("webFetchGetTool", () => {
     });
 
     it("proceeds normally when sessionService.readSessionId() returns a valid session id", async () => {
-      mockReadSessionId.mockResolvedValue("session-abc-123");
+      mockReadSessionId.mockResolvedValue({ sessionId: "session-abc-123", source: "agent" });
       mockRequestApproval.mockResolvedValue({ status: "APPROVED", requestId: "req-mock-1" });
       mockFetch.mockResolvedValue({
         status: 200,
@@ -105,7 +105,7 @@ describe("webFetchGetTool", () => {
 
   describe("externalId construction", () => {
     it("passes externalId in '{session_id}:{requestId}' format to requestApproval", async () => {
-      mockReadSessionId.mockResolvedValue("session-xyz");
+      mockReadSessionId.mockResolvedValue({ sessionId: "session-xyz", source: "agent" });
       mockRequestApproval.mockResolvedValue({ status: "APPROVED", requestId: "req-mock-1" });
       mockFetch.mockResolvedValue({
         status: 200,
@@ -129,7 +129,7 @@ describe("webFetchGetTool", () => {
 
   describe("approval flow", () => {
     beforeEach(() => {
-      mockReadSessionId.mockResolvedValue("session-abc");
+      mockReadSessionId.mockResolvedValue({ sessionId: "session-abc", source: "agent" });
     });
 
     it("performs fetch when requestApproval returns APPROVED", async () => {
@@ -198,7 +198,7 @@ describe("webFetchGetTool", () => {
 
   describe("HTTP fetch execution", () => {
     beforeEach(() => {
-      mockReadSessionId.mockResolvedValue("session-abc");
+      mockReadSessionId.mockResolvedValue({ sessionId: "session-abc", source: "agent" });
       mockRequestApproval.mockResolvedValue({ status: "APPROVED", requestId: "req-mock-1" });
     });
 
