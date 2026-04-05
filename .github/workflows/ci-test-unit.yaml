@@ -1,4 +1,4 @@
-name: "CI: E2E Unit (Docker Compose)"
+name: "CI: Test Unit (Docker Compose)"
 # DLD-469: Unit E2E Docker Compose 통합 테스트 활성화
 #
 # DLD-468에서 작성된 BATS 테스트의 skip을 제거하고 실제 Docker Compose 환경에서 실행합니다.
@@ -18,7 +18,7 @@ on:
       - "gate/**"
       - "planner/**"
       - "export-handler/**"
-      - ".github/workflows/ci-e2e-unit-local.yaml"
+      - ".github/workflows/ci-test-unit.yaml"
   pull_request:
     paths:
       - "tests/tests/**"
@@ -32,7 +32,7 @@ on:
       - "gate/**"
       - "planner/**"
       - "export-handler/**"
-      - ".github/workflows/ci-e2e-unit-local.yaml"
+      - ".github/workflows/ci-test-unit.yaml"
   workflow_dispatch:
 
 concurrency:

@@ -1,4 +1,4 @@
-name: "CI: e2e unit tests"
+name: "CI: Test Lib"
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - "tests/mock-agent/**"
       - "tests/mock-gh/**"
       - "tests/mock-api/**"
-      - ".github/workflows/ci-e2e-unit.yaml"
+      - ".github/workflows/ci-test-lib.yaml"
       - ".github/workflows/_test-node.yaml"
   pull_request:
     paths:
@@ -18,7 +18,7 @@ on:
       - "tests/mock-agent/**"
       - "tests/mock-gh/**"
       - "tests/mock-api/**"
-      - ".github/workflows/ci-e2e-unit.yaml"
+      - ".github/workflows/ci-test-lib.yaml"
       - ".github/workflows/_test-node.yaml"
   workflow_dispatch:
 
