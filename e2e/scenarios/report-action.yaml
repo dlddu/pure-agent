@@ -1,6 +1,6 @@
 name: report-action
 description: "Gate stop → Export Handler가 Linear 코멘트 작성"
-level: [1, 2, 3]
+level: [unit, integration, e2e]
 max_depth: 1
 
 # ── Integration: mock cycle 정의 ──

@@ -84,7 +84,7 @@ load_run_argo() {
   export SCRIPT_DIR="$E2E_DIR"
   export LIB_DIR="$LIB_DIR"
   export SCENARIOS_DIR="${SCENARIOS_DIR:-${E2E_DIR}/scenarios}"
-  export LEVEL="${LEVEL:-2}"
+  export LEVEL="${LEVEL:-integration}"
   export NAMESPACE="${NAMESPACE:-pure-agent}"
   export KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
   export MOCK_AGENT_IMAGE="${MOCK_AGENT_IMAGE:-ghcr.io/dlddu/pure-agent/e2e/mock-agent:latest}"

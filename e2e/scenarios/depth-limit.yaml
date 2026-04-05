@@ -1,6 +1,6 @@
 name: depth-limit
 description: "빈 export_config, max_depth=2 → depth 도달 시 강제 종료"
-level: [2]
+level: [integration]
 
 # ── Integration: mock cycle 정의 ──
 max_depth: 2

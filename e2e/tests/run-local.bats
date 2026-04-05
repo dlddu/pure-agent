@@ -2,7 +2,7 @@
 bats_require_minimum_version 1.5.0
 # e2e/tests/run-local.bats — Unit E2E 시나리오 테스트 (Docker Compose 기반)
 #
-# DLD-469: Unit e2e 테스트 활성화
+# DLD-469: Unit E2E 테스트 활성화
 #
 # 테스트 구조:
 #   - Docker Compose 환경에서 실행됩니다.

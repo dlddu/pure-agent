@@ -1,6 +1,6 @@
 name: planner-session-comment
 description: "Planner가 get_issue 호출 시 Linear 이슈에 session ID (planner) 코멘트를 기록"
-level: [2, 3]
+level: [integration, e2e]
 max_depth: 1
 
 # ── Integration: mock cycle 정의 ──

@@ -1,6 +1,6 @@
 name: continue-then-stop
 description: "2 cycle. cycle-0은 continue, cycle-1은 stop"
-level: [1, 2]
+level: [unit, integration]
 
 # ── Integration: mock cycle 정의 ──
 cycles:

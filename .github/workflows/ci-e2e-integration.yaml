@@ -1,5 +1,5 @@
 name: "E2E: Integration (mock-agent + mock-api)"
-# DLD-467: Integration e2e 테스트 활성화
+# DLD-467: Integration E2E 테스트 활성화
 #
 # E2E (ci-e2e-e2e.yaml) 대비 주요 차이점:
 #   - secrets 불필요 (LINEAR_API_KEY, GH_PAT, CLAUDE_CODE_OAUTH_TOKEN)

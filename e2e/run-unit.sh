@@ -33,7 +33,7 @@ set -euo pipefail
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
 SCENARIO="${SCENARIO:-all}"
-LEVEL="${LEVEL:-1}"
+LEVEL="${LEVEL:-unit}"
 MOCK_API_URL="${MOCK_API_URL:-http://localhost:4000}"
 GATEKEEPER_URL="${GATEKEEPER_URL:-http://localhost:8080}"
 

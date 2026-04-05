@@ -3,7 +3,7 @@
 #
 # 이 파일은 직접 실행하지 않고, source하여 함수만 로드합니다.
 # 호출 스크립트에서 다음 변수를 미리 설정해야 합니다:
-#   LEVEL         — 테스트 레벨 (1, 2, 3)
+#   LEVEL         — 테스트 레벨 (unit, integration, e2e)
 #   SCENARIOS_DIR — 시나리오 YAML 디렉토리 경로
 #
 # 또한 log(), warn() 함수가 호출 스크립트에서 정의되어 있어야 합니다.
@@ -36,7 +36,7 @@ discover_scenarios() {
   for yaml_file in "${SCENARIOS_DIR}"/*.yaml; do
     [[ -f "$yaml_file" ]] || continue
     local has_level
-    has_level=$(yq eval ".level[] | select(. == ${LEVEL})" "$yaml_file" 2>/dev/null || true)
+    has_level=$(yq eval ".level[] | select(. == \"${LEVEL}\")" "$yaml_file" 2>/dev/null || true)
     [[ -n "$has_level" ]] || continue
     yaml_get "$yaml_file" '.name'
   done

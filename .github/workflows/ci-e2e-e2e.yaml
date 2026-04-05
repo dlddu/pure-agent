@@ -1,5 +1,5 @@
 name: "E2E: full (real API)"
-# DLD-465: E2E 풀 e2e를 실제로 동작하게 구현.
+# DLD-465: E2E 풀 테스트를 실제로 동작하게 구현.
 # 이 workflow는 kind 클러스터에서 Argo를 통해 실제 Claude Agent +
 # 실제 Linear/GitHub API로 시나리오를 실행합니다.
 

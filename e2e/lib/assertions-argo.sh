@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # e2e/lib/assertions-argo.sh — Argo/Kubernetes 특화 assertion helpers (Integration E2E)
 #
-# DLD-467: Integration e2e 테스트 활성화
+# DLD-467: Integration E2E 테스트 활성화
 #
 # Usage in BATS: source this file with --source-only to load functions only.
 #

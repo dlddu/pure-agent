@@ -1,6 +1,6 @@
 name: web-fetch-approved
 description: "web_fetch_get 승인 시나리오: Gatekeeper가 요청을 승인하면 HTTP fetch가 정상 수행된다"
-level: [1]
+level: [unit]
 
 # ── Unit: mock cycle 정의 ──
 cycles:

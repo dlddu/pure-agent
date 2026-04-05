@@ -1,9 +1,9 @@
 #!/bin/sh
-# e2e/mock-planner/planner.sh — Unit e2e용 mock planner
+# e2e/mock-planner/planner.sh — Unit E2E용 mock planner
 #
 # mock-api의 /v1/messages에 HTTP 요청하여 환경 선택 결과를 반환하는 경량 mock.
 # 프로덕션 planner(Claude Code CLI 기반)는 mock-api와 호환되지 않으므로
-# Unit e2e에서는 이 스크립트를 사용합니다.
+# Unit E2E에서는 이 스크립트를 사용합니다.
 #
 # 사용법:
 #   planner.sh --prompt "task" --output /path/to/output.txt [--raw-id-output /path/to/raw.txt]

@@ -33,7 +33,7 @@ set -euo pipefail
 
 # ── Defaults ─────────────────────────────────────────────────────────────────
 SCENARIO="${SCENARIO:-all}"
-LEVEL="${LEVEL:-2}"
+LEVEL="${LEVEL:-integration}"
 NAMESPACE="${NAMESPACE:-pure-agent}"
 WORKFLOW_TIMEOUT="${WORKFLOW_TIMEOUT:-600}"  # seconds
 KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"

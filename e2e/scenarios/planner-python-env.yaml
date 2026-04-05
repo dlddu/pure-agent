@@ -1,6 +1,6 @@
 name: planner-python-env
 description: "Planner가 python-analysis 환경을 선택하는 시나리오"
-level: [1, 2, 3]
+level: [unit, integration, e2e]
 max_depth: 1
 
 # ── Integration: mock cycle 정의 ──

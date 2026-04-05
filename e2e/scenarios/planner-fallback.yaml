@@ -1,6 +1,6 @@
 name: planner-fallback
 description: "알 수 없는 environment_id → default fallback 검증"
-level: [1, 2]
+level: [unit, integration]
 max_depth: 1
 
 # ── mock cycle 정의 ──

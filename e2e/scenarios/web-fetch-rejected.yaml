@@ -1,6 +1,6 @@
 name: web-fetch-rejected
 description: "web_fetch_get 거절 시나리오: Gatekeeper가 요청을 거절하면 web_fetch_get가 에러를 반환한다"
-level: [1]
+level: [unit]
 
 # ── Unit: mock cycle 정의 ──
 cycles:

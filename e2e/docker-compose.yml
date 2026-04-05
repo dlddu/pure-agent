@@ -1,6 +1,6 @@
 # e2e/docker-compose.yml — Unit E2E Docker Compose 서비스 정의
 #
-# DLD-468: Unit e2e 테스트 작성 (skipped)
+# DLD-468: Unit E2E 테스트 작성 (skipped)
 #
 # 서비스 구성:
 #   mock-api      — Linear GraphQL mock (포트 4000)

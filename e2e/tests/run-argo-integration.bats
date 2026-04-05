@@ -22,7 +22,7 @@ setup() {
   mkdir -p "$SCENARIOS_DIR"
 
   # Integration defaults expected by run-integration.sh
-  export LEVEL="2"
+  export LEVEL="integration"
   export NAMESPACE="pure-agent"
   export KUBE_CONTEXT="kind-pure-agent-e2e-integration"
   export MOCK_AGENT_IMAGE="ghcr.io/dlddu/pure-agent/mock-agent:latest"
@@ -44,7 +44,7 @@ write_scenario_yaml() {
   local yaml_file="$SCENARIOS_DIR/${name}.yaml"
   cat > "$yaml_file" <<YAML
 name: ${name}
-level: [2]
+level: [integration]
 cycles:
   - export_config:
       linear_issue_id: "mock-issue-id"
@@ -64,7 +64,7 @@ write_multi_cycle_scenario_yaml() {
   local yaml_file="$SCENARIOS_DIR/${name}.yaml"
   cat > "$yaml_file" <<YAML
 name: ${name}
-level: [2]
+level: [integration]
 cycles:
   - export_config:
       linear_issue_id: "mock-issue-id"
@@ -92,7 +92,7 @@ write_depth_limit_scenario_yaml() {
   local yaml_file="$SCENARIOS_DIR/${name}.yaml"
   cat > "$yaml_file" <<YAML
 name: ${name}
-level: [2]
+level: [integration]
 max_depth: ${max_depth}
 cycles:
   - export_config: null
@@ -115,7 +115,7 @@ YAML
   yq()      { return 0; }
   export -f argo kubectl jq yq
 
-  export LEVEL="2"
+  export LEVEL="integration"
 
   # Act
   run check_prerequisites
@@ -140,7 +140,7 @@ YAML
     builtin command "$@"
   }
   export -f command
-  export LEVEL="2"
+  export LEVEL="integration"
 
   run check_prerequisites
 
@@ -156,7 +156,7 @@ YAML
     builtin command "$@"
   }
   export -f command
-  export LEVEL="2"
+  export LEVEL="integration"
 
   run check_prerequisites
 
@@ -172,7 +172,7 @@ YAML
     builtin command "$@"
   }
   export -f command
-  export LEVEL="2"
+  export LEVEL="integration"
 
   run check_prerequisites
 
@@ -188,7 +188,7 @@ YAML
     builtin command "$@"
   }
   export -f command
-  export LEVEL="2"
+  export LEVEL="integration"
 
   run check_prerequisites
 
@@ -203,7 +203,7 @@ YAML
   yq()      { return 0; }
   export -f argo kubectl jq yq
   unset LINEAR_API_KEY
-  export LEVEL="2"
+  export LEVEL="integration"
 
   run check_prerequisites
 
@@ -219,7 +219,7 @@ YAML
   yq()      { return 0; }
   export -f argo kubectl jq yq
   unset GITHUB_TOKEN
-  export LEVEL="2"
+  export LEVEL="integration"
 
   run check_prerequisites
 
@@ -233,7 +233,7 @@ YAML
   jq()      { return 0; }
   yq()      { return 0; }
   export -f argo kubectl jq yq
-  export LEVEL="2"
+  export LEVEL="integration"
 
   run check_prerequisites
 
@@ -390,7 +390,7 @@ YAML
   local yaml_file="$SCENARIOS_DIR/no-agent-result.yaml"
   cat > "$yaml_file" <<YAML
 name: no-agent-result
-level: [2]
+level: [integration]
 max_depth: 2
 cycles:
   - export_config: null

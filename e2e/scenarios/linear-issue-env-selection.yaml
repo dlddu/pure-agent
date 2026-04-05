@@ -1,6 +1,6 @@
 name: linear-issue-env-selection
 description: "Linear 이슈 ID 기반 프롬프트 → planner 환경 선택 → 작업 완료"
-level: [1, 2, 3]
+level: [unit, integration, e2e]
 max_depth: 1
 
 # ── Unit/Integration: mock cycle 정의 ──

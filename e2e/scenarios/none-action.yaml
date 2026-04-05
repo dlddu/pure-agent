@@ -1,6 +1,6 @@
 name: none-action
 description: "actions: [\"none\"] → Gate stop, Export Handler는 Linear 코멘트만 작성"
-level: [1, 2, 3]
+level: [unit, integration, e2e]
 max_depth: 1
 
 # ── Integration: mock cycle 정의 ──
