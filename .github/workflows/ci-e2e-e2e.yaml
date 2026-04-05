@@ -90,7 +90,7 @@ jobs:
       # ── Cluster setup ─────────────────────────────────────────────────────────
       - name: Set up kind cluster and install Argo Workflows
         run: |
-          bash e2e/lib/setup-kind.sh \
+          bash tests/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME"
 
       # ── Build and load images (GHA cache, no push) ──────────────────────────
@@ -126,7 +126,7 @@ jobs:
 
       - name: Load images into kind cluster
         run: |
-          bash e2e/lib/setup-kind.sh \
+          bash tests/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME" \
             --images "ghcr.io/dlddu/pure-agent/claude-agent:latest,ghcr.io/dlddu/pure-agent/mcp-server:latest,ghcr.io/dlddu/pure-agent/gate:latest,ghcr.io/dlddu/pure-agent/planner:latest,ghcr.io/dlddu/pure-agent/export-handler:latest"
 
@@ -235,7 +235,7 @@ jobs:
           GITHUB_TEST_REPO: ${{ vars.E2E_TEST_REPO }}
           KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
         run: |
-          bash e2e/run-e2e.sh \
+          bash tests/run-e2e.sh \
             --scenario "${{ github.event.inputs.scenario || 'all' }}" \
             --namespace "$PURE_AGENT_NAMESPACE"
 

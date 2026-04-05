@@ -41,8 +41,8 @@ env:
   KIND_VERSION: "v0.22.0"
   ARGO_VERSION: "v3.6.4"
   YQ_VERSION: "v4.43.1"
-  MOCK_AGENT_IMAGE: "ghcr.io/dlddu/pure-agent/e2e/mock-agent:latest"
-  MOCK_API_IMAGE: "ghcr.io/dlddu/pure-agent/e2e/mock-api:latest"
+  MOCK_AGENT_IMAGE: "ghcr.io/dlddu/pure-agent/tests/mock-agent:latest"
+  MOCK_API_IMAGE: "ghcr.io/dlddu/pure-agent/tests/mock-api:latest"
   GATE_IMAGE: "ghcr.io/dlddu/pure-agent/gate:latest"
 
 jobs:
@@ -85,20 +85,20 @@ jobs:
       # ── Cluster setup ─────────────────────────────────────────────────────
       - name: Set up kind cluster and install Argo Workflows
         run: |
-          bash e2e/lib/setup-kind.sh \
+          bash tests/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME"
 
       # ── Build mock images (Integration 전용: mock-agent, mock-api のみ) ───────
       - name: Build mock-agent image
         uses: ./.github/actions/build-image
         with:
-          service: e2e/mock-agent
+          service: tests/mock-agent
           push: "false"
 
       - name: Build mock-api image
         uses: ./.github/actions/build-image
         with:
-          service: e2e/mock-api
+          service: tests/mock-api
           push: "false"
 
       - name: Build gate image
@@ -109,7 +109,7 @@ jobs:
 
       - name: Load images into kind cluster
         run: |
-          bash e2e/lib/setup-kind.sh \
+          bash tests/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME" \
             --images "${MOCK_AGENT_IMAGE},${MOCK_API_IMAGE},${GATE_IMAGE}"
 
@@ -319,7 +319,7 @@ jobs:
           MOCK_AGENT_IMAGE: ${{ env.MOCK_AGENT_IMAGE }}
           MOCK_API_URL: "http://mock-api.${{ env.PURE_AGENT_NAMESPACE }}.svc.cluster.local:4000"
         run: |
-          bash e2e/run-integration.sh \
+          bash tests/run-integration.sh \
             --scenario "${{ github.event.inputs.scenario || 'all' }}" \
             --namespace "$PURE_AGENT_NAMESPACE" \
             --context "kind-${CLUSTER_NAME}"

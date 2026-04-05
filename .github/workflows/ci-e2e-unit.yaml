@@ -4,20 +4,20 @@ on:
   push:
     branches: [main]
     paths:
-      - "e2e/lib/**"
-      - "e2e/tests/**"
-      - "e2e/mock-agent/**"
-      - "e2e/mock-gh/**"
-      - "e2e/mock-api/**"
+      - "tests/lib/**"
+      - "tests/tests/**"
+      - "tests/mock-agent/**"
+      - "tests/mock-gh/**"
+      - "tests/mock-api/**"
       - ".github/workflows/ci-e2e-unit.yaml"
       - ".github/workflows/_test-node.yaml"
   pull_request:
     paths:
-      - "e2e/lib/**"
-      - "e2e/tests/**"
-      - "e2e/mock-agent/**"
-      - "e2e/mock-gh/**"
-      - "e2e/mock-api/**"
+      - "tests/lib/**"
+      - "tests/tests/**"
+      - "tests/mock-agent/**"
+      - "tests/mock-gh/**"
+      - "tests/mock-api/**"
       - ".github/workflows/ci-e2e-unit.yaml"
       - ".github/workflows/_test-node.yaml"
   workflow_dispatch:
@@ -30,7 +30,7 @@ permissions:
   contents: read
 
 jobs:
-  # ── lib: e2e/lib/*.sh 유닛 테스트 ──────────────────────────────────────────
+  # ── lib: tests/lib/*.sh 유닛 테스트 ──────────────────────────────────────────
   test-lib:
     runs-on: ubuntu-24.04-arm
     steps:
@@ -42,23 +42,23 @@ jobs:
           sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_arm64
           sudo chmod +x /usr/local/bin/yq
 
-      - name: Run shellcheck on e2e/lib
+      - name: Run shellcheck on tests/lib
         run: |
-          find e2e/lib -name '*.sh' -print0 \
+          find tests/lib -name '*.sh' -print0 \
             | xargs -0 --no-run-if-empty shellcheck -s bash -S warning
 
       - name: Run BATS tests for lib
         run: |
-          bats e2e/tests/assertions.bats
-          bats e2e/tests/assertions-argo.bats
-          bats e2e/tests/runner.bats
-          bats e2e/tests/setup-real.bats
-          bats e2e/tests/teardown-real.bats
-          bats e2e/tests/verify-real.bats
-          bats e2e/tests/run-argo-integration.bats
-          bats e2e/tests/gatekeeper.bats
+          bats tests/tests/assertions.bats
+          bats tests/tests/assertions-argo.bats
+          bats tests/tests/runner.bats
+          bats tests/tests/setup-real.bats
+          bats tests/tests/teardown-real.bats
+          bats tests/tests/verify-real.bats
+          bats tests/tests/run-argo-integration.bats
+          bats tests/tests/gatekeeper.bats
 
-  # ── mock-agent: e2e/mock-agent 유닛 테스트 ─────────────────────────────────
+  # ── mock-agent: tests/mock-agent 유닛 테스트 ─────────────────────────────────
   test-mock-agent:
     runs-on: ubuntu-24.04-arm
     steps:
@@ -69,13 +69,13 @@ jobs:
 
       - name: Run shellcheck on mock-agent
         run: |
-          find e2e/mock-agent -name '*.sh' -print0 \
+          find tests/mock-agent -name '*.sh' -print0 \
             | xargs -0 --no-run-if-empty shellcheck -s bash -S warning
 
       - name: Run BATS tests for mock-agent
-        run: bats e2e/mock-agent/tests/
+        run: bats tests/mock-agent/tests/
 
-  # ── mock-gh: e2e/mock-gh 유닛 테스트 ───────────────────────────────────────
+  # ── mock-gh: tests/mock-gh 유닛 테스트 ───────────────────────────────────────
   test-mock-gh:
     runs-on: ubuntu-24.04-arm
     steps:
@@ -86,14 +86,14 @@ jobs:
 
       - name: Run shellcheck on mock-gh
         run: |
-          find e2e/mock-gh -name 'gh' -print0 \
+          find tests/mock-gh -name 'gh' -print0 \
             | xargs -0 --no-run-if-empty shellcheck -s bash -S warning
 
       - name: Run BATS tests for mock-gh
-        run: bats e2e/mock-gh/tests/
+        run: bats tests/mock-gh/tests/
 
-  # ── mock-api: e2e/mock-api Vitest ──────────────────────────────────────────
+  # ── mock-api: tests/mock-api Vitest ──────────────────────────────────────────
   test-mock-api:
     uses: ./.github/workflows/_test-node.yaml
     with:
-      service: e2e/mock-api
+      service: tests/mock-api
