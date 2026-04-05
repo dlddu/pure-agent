@@ -50,7 +50,7 @@ describe("createMcpServer", () => {
 
   describe("session comment posting", () => {
     it("posts session comment after successful request_feature", async () => {
-      (mockContext.services.session.readSessionId as ReturnType<typeof vi.fn>).mockResolvedValue("sess-abc");
+      (mockContext.services.session.readSessionId as ReturnType<typeof vi.fn>).mockResolvedValue({ sessionId: "sess-abc", source: "agent" });
 
       await client.callTool({
         name: "request_feature",
@@ -60,12 +60,12 @@ describe("createMcpServer", () => {
       expect(mockContext.services.session.readSessionId).toHaveBeenCalled();
       expect(mockContext.services.linear.createComment).toHaveBeenCalledWith(
         "issue-1",
-        expect.stringContaining("sess-abc"),
+        "**Claude Code Session ID (agent):** `sess-abc`",
       );
     });
 
     it("posts session comment after successful get_issue", async () => {
-      (mockContext.services.session.readSessionId as ReturnType<typeof vi.fn>).mockResolvedValue("sess-abc");
+      (mockContext.services.session.readSessionId as ReturnType<typeof vi.fn>).mockResolvedValue({ sessionId: "sess-abc", source: "agent" });
 
       await client.callTool({
         name: "get_issue",
@@ -75,7 +75,7 @@ describe("createMcpServer", () => {
       expect(mockContext.services.session.readSessionId).toHaveBeenCalled();
       expect(mockContext.services.linear.createComment).toHaveBeenCalledWith(
         "issue-1",
-        expect.stringContaining("sess-abc"),
+        "**Claude Code Session ID (agent):** `sess-abc`",
       );
     });
 
@@ -90,7 +90,7 @@ describe("createMcpServer", () => {
     });
 
     it("does not post session comment when tool returns error", async () => {
-      (mockContext.services.session.readSessionId as ReturnType<typeof vi.fn>).mockResolvedValue("sess-abc");
+      (mockContext.services.session.readSessionId as ReturnType<typeof vi.fn>).mockResolvedValue({ sessionId: "sess-abc", source: "agent" });
       (mockContext.services.linear.getIssue as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error("Not found"),
       );
@@ -113,7 +113,7 @@ describe("createMcpServer", () => {
     });
 
     it("catches and ignores createComment errors", async () => {
-      (mockContext.services.session.readSessionId as ReturnType<typeof vi.fn>).mockResolvedValue("sess-abc");
+      (mockContext.services.session.readSessionId as ReturnType<typeof vi.fn>).mockResolvedValue({ sessionId: "sess-abc", source: "agent" });
       (mockContext.services.linear.createComment as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error("Linear API error"),
       );

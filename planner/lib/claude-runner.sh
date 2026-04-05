@@ -29,8 +29,8 @@ run_claude() {
   log "Running Claude Code CLI ..."
 
   set +e
-  "${cmd[@]}" > "$CLAUDE_OUTPUT" 2>&1
-  CLAUDE_EXIT_CODE=$?
+  "${cmd[@]}" | tee "$CLAUDE_OUTPUT" "$PLANNER_OUTPUT_COPY"
+  CLAUDE_EXIT_CODE="${PIPESTATUS[0]}"
   set -e
 
   if [ "$CLAUDE_EXIT_CODE" -ne 0 ]; then

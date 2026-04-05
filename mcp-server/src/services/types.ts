@@ -63,10 +63,20 @@ export interface ILinearService {
 export interface SessionServiceOptions {
   workDir: string;
   readFile: (path: string, encoding: BufferEncoding) => Promise<string>;
+  stat: (path: string) => Promise<{ mtimeMs: number }>;
+  /** Delay in ms before reading output files. Defaults to 10000. */
+  delayMs?: number;
+}
+
+export type SessionSource = "planner" | "agent";
+
+export interface SessionInfo {
+  sessionId: string;
+  source: SessionSource;
 }
 
 export interface ISessionService {
-  readSessionId(): Promise<string | undefined>;
+  readSessionId(): Promise<SessionInfo | undefined>;
 }
 
 export interface GatekeeperServiceOptions {

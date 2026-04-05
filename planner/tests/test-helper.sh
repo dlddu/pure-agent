@@ -13,6 +13,8 @@ common_setup() {
   export CLAUDE_OUTPUT="$BATS_TEST_TMPDIR/claude_output.json"
   export MCP_CONFIG="$BATS_TEST_TMPDIR/mcp.json"
   export EXTRACT_ENV_FILTER="$BATS_TEST_DIRNAME/../extract-environment.jq"
+  export WORK_DIR="$BATS_TEST_TMPDIR/work"
+  mkdir -p "$WORK_DIR"
   export PLANNER_CLAUDE_MD=""
 }
 

@@ -39,6 +39,27 @@ _load() { _load_lib logging constants environments mcp-config prompt claude-runn
   [[ "$(cat "$CLAUDE_OUTPUT")" == *"test"* ]]
 }
 
+@test "run_claude: writes output to PLANNER_OUTPUT_COPY on shared volume" {
+  _load
+  claude() { echo '{"type":"system","session_id":"planner-sess-123"}'; echo '{"type":"result","result":"test"}'; }
+  export -f claude
+  run_claude 2>/dev/null
+  [ -f "$PLANNER_OUTPUT_COPY" ]
+  [[ "$(head -1 "$PLANNER_OUTPUT_COPY")" == *"planner-sess-123"* ]]
+}
+
+@test "run_claude: PLANNER_OUTPUT_COPY first line is clean JSON without stderr noise" {
+  _load
+  claude() { echo '{"type":"system","session_id":"clean-sess"}' ; echo 'verbose log on stderr' >&2; echo '{"type":"result","result":"ok"}'; }
+  export -f claude
+  run_claude 2>/dev/null
+  # First line must be valid JSON with session_id, not stderr output
+  local first_line
+  first_line="$(head -1 "$PLANNER_OUTPUT_COPY")"
+  [[ "$first_line" == *'"session_id"'* ]]
+  echo "$first_line" | jq -e '.session_id == "clean-sess"'
+}
+
 # ── extract_environment_id ───────────────────────────────────
 
 @test "extract_environment_id: extracts from result event" {
