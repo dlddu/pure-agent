@@ -1,6 +1,6 @@
 #!/usr/bin/env bats
 bats_require_minimum_version 1.5.0
-# Tests for Level 2 functions in e2e/run-level2.sh
+# Tests for Integration functions in e2e/run-integration.sh
 #
 # TDD Red Phase: the functions under test currently return 0 immediately via
 # "[SKIP] ... && return 0" guards.  These tests will all FAIL until the skip
@@ -13,7 +13,7 @@ bats_require_minimum_version 1.5.0
 
 source "$BATS_TEST_DIRNAME/test-helper.sh"
 
-# run-level2.sh reads SCENARIOS_DIR at source time; point it to fixtures.
+# run-integration.sh reads SCENARIOS_DIR at source time; point it to fixtures.
 setup() {
   common_setup
 
@@ -21,15 +21,15 @@ setup() {
   export SCENARIOS_DIR="$BATS_TEST_TMPDIR/scenarios"
   mkdir -p "$SCENARIOS_DIR"
 
-  # Level 2 defaults expected by run-level2.sh
+  # Integration defaults expected by run-integration.sh
   export LEVEL="2"
   export NAMESPACE="pure-agent"
-  export KUBE_CONTEXT="kind-pure-agent-e2e-level2"
+  export KUBE_CONTEXT="kind-pure-agent-e2e-integration"
   export MOCK_AGENT_IMAGE="ghcr.io/dlddu/pure-agent/mock-agent:latest"
   export MOCK_API_URL="http://mock-api.pure-agent.svc.cluster.local:4000"
   export WORKFLOW_TIMEOUT="600"
 
-  # Stub out external tools so sourcing run-level2.sh does not fail when the
+  # Stub out external tools so sourcing run-integration.sh does not fail when the
   # real binaries are absent in the test environment.
   yq()      { command yq "$@" 2>/dev/null || true; }
   export -f yq
@@ -37,7 +37,7 @@ setup() {
   load_run_argo
 }
 
-# ── Helper: write a minimal Level-2 scenario YAML ─────────────────────────────
+# ── Helper: write a minimal Integration scenario YAML ─────────────────────────────
 
 write_scenario_yaml() {
   local name="$1"
@@ -104,10 +104,10 @@ YAML
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# check_prerequisites — Level 2 branch
+# check_prerequisites — Integration branch
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@test "check_prerequisites (Level 2): passes when all required tools are present" {
+@test "check_prerequisites (Integration): passes when all required tools are present" {
   # Arrange — stub all required commands to exist
   argo()    { return 0; }
   kubectl() { return 0; }
@@ -124,7 +124,7 @@ YAML
   [ "$status" -eq 0 ]
 }
 
-@test "check_prerequisites (Level 2): fails when argo is not installed" {
+@test "check_prerequisites (Integration): fails when argo is not installed" {
   # Arrange — argo not found
   argo() { return 127; }
   kubectl() { return 0; }
@@ -147,7 +147,7 @@ YAML
   [ "$status" -ne 0 ]
 }
 
-@test "check_prerequisites (Level 2): fails when kubectl is not installed" {
+@test "check_prerequisites (Integration): fails when kubectl is not installed" {
   # Arrange
   command() {
     if [[ "$2" == "kubectl" ]]; then
@@ -163,7 +163,7 @@ YAML
   [ "$status" -ne 0 ]
 }
 
-@test "check_prerequisites (Level 2): fails when jq is not installed" {
+@test "check_prerequisites (Integration): fails when jq is not installed" {
   # Arrange
   command() {
     if [[ "$2" == "jq" ]]; then
@@ -179,7 +179,7 @@ YAML
   [ "$status" -ne 0 ]
 }
 
-@test "check_prerequisites (Level 2): fails when yq is not installed" {
+@test "check_prerequisites (Integration): fails when yq is not installed" {
   # Arrange
   command() {
     if [[ "$2" == "yq" ]]; then
@@ -195,7 +195,7 @@ YAML
   [ "$status" -ne 0 ]
 }
 
-@test "check_prerequisites (Level 2): does not require LINEAR_API_KEY" {
+@test "check_prerequisites (Integration): does not require LINEAR_API_KEY" {
   # Arrange — all tools present, but LINEAR_API_KEY unset
   argo()    { return 0; }
   kubectl() { return 0; }
@@ -207,11 +207,11 @@ YAML
 
   run check_prerequisites
 
-  # Should still pass — Level 2 does not need API keys
+  # Should still pass — Integration does not need API keys
   [ "$status" -eq 0 ]
 }
 
-@test "check_prerequisites (Level 2): does not require GITHUB_TOKEN" {
+@test "check_prerequisites (Integration): does not require GITHUB_TOKEN" {
   # Arrange
   argo()    { return 0; }
   kubectl() { return 0; }
@@ -226,7 +226,7 @@ YAML
   [ "$status" -eq 0 ]
 }
 
-@test "check_prerequisites (Level 2): success output does not mention Level 3" {
+@test "check_prerequisites (Integration): success output does not mention E2E" {
   # Arrange
   argo()    { return 0; }
   kubectl() { return 0; }
@@ -238,7 +238,7 @@ YAML
   run check_prerequisites
 
   [ "$status" -eq 0 ]
-  [[ "$output" != *"Level 3"* ]]
+  [[ "$output" != *"E2E"* ]]
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════

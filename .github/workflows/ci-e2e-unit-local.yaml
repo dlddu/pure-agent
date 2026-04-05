@@ -1,5 +1,5 @@
-name: "CI: e2e Level 1 (Docker Compose)"
-# DLD-469: Level ① Docker Compose 통합 테스트 활성화
+name: "CI: e2e Unit (Docker Compose)"
+# DLD-469: Unit Docker Compose 통합 테스트 활성화
 #
 # DLD-468에서 작성된 BATS 테스트의 skip을 제거하고 실제 Docker Compose 환경에서 실행합니다.
 
@@ -8,7 +8,7 @@ on:
     branches: [main]
     paths:
       - "e2e/tests/**"
-      - "e2e/run-level1.sh"
+      - "e2e/run-unit.sh"
       - "e2e/docker-compose.yml"
       - "e2e/scenarios/**"
       - "e2e/lib/**"
@@ -18,11 +18,11 @@ on:
       - "gate/**"
       - "planner/**"
       - "export-handler/**"
-      - ".github/workflows/ci-e2e-level1.yaml"
+      - ".github/workflows/ci-e2e-unit-local.yaml"
   pull_request:
     paths:
       - "e2e/tests/**"
-      - "e2e/run-level1.sh"
+      - "e2e/run-unit.sh"
       - "e2e/docker-compose.yml"
       - "e2e/scenarios/**"
       - "e2e/lib/**"
@@ -32,7 +32,7 @@ on:
       - "gate/**"
       - "planner/**"
       - "export-handler/**"
-      - ".github/workflows/ci-e2e-level1.yaml"
+      - ".github/workflows/ci-e2e-unit-local.yaml"
   workflow_dispatch:
 
 concurrency:
@@ -43,7 +43,7 @@ permissions:
   contents: read
 
 jobs:
-  # ── shellcheck: run-level1.sh 구문 검사 ─────────────────────────────────────
+  # ── shellcheck: run-unit.sh 구문 검사 ─────────────────────────────────────
   shellcheck:
     runs-on: ubuntu-24.04-arm
     steps:
@@ -52,10 +52,10 @@ jobs:
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
 
-      - name: Run shellcheck on run-level1.sh
-        run: shellcheck -s bash -S warning e2e/run-level1.sh
+      - name: Run shellcheck on run-unit.sh
+        run: shellcheck -s bash -S warning e2e/run-unit.sh
 
-  # ── bats: Level 1 e2e 시나리오 테스트 ──────────────────────────────────────
+  # ── bats: Unit e2e 시나리오 테스트 ──────────────────────────────────────
   bats-e2e-local:
     runs-on: ubuntu-24.04-arm
     needs: shellcheck
@@ -73,6 +73,6 @@ jobs:
       - name: Build Docker Compose images
         run: docker compose -f e2e/docker-compose.yml build
 
-      - name: Run Level 1 e2e BATS tests
+      - name: Run Unit e2e BATS tests
         # DLD-469: skip이 제거된 테스트를 Docker Compose 환경에서 실제 실행합니다.
         run: bats e2e/tests/run-local.bats

@@ -55,7 +55,7 @@ jobs:
           bats e2e/tests/setup-real.bats
           bats e2e/tests/teardown-real.bats
           bats e2e/tests/verify-real.bats
-          bats e2e/tests/run-argo-level2.bats
+          bats e2e/tests/run-argo-integration.bats
           bats e2e/tests/gatekeeper.bats
 
   # ── mock-agent: e2e/mock-agent 유닛 테스트 ─────────────────────────────────

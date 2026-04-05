@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# e2e/run-level2.sh — Level 2 E2E 테스트 러너 (kind + Argo, mock 기반)
+# e2e/run-integration.sh — Integration E2E 테스트 러너 (kind + Argo, mock 기반)
 #
 # Mock:
 #   - Agent        → mock-agent (ConfigMap에서 fixture를 읽어 시뮬레이션)
@@ -19,12 +19,12 @@
 # mock-agent가 ConfigMap에서 fixture를 읽어 시뮬레이션합니다.
 #
 # Usage:
-#   ./e2e/run-level2.sh [--scenario <name|all>] [--namespace <ns>] [--context <ctx>]
+#   ./e2e/run-integration.sh [--scenario <name|all>] [--namespace <ns>] [--context <ctx>]
 #
 # Environment variables:
 #   SCENARIO          — 실행할 시나리오 이름 (기본값: all)
 #   NAMESPACE         — Kubernetes 네임스페이스 (기본값: pure-agent)
-#   KUBE_CONTEXT      — kubectl context (기본값: kind-pure-agent-e2e-level2)
+#   KUBE_CONTEXT      — kubectl context (기본값: kind-pure-agent-e2e-integration)
 #   MOCK_AGENT_IMAGE  — mock-agent 이미지 (기본값: ghcr.io/dlddu/pure-agent/e2e/mock-agent:latest)
 #   MOCK_API_URL      — mock-api 서비스 URL
 #   WORKFLOW_TIMEOUT   — Workflow 대기 타임아웃 초 (기본값: 600)
@@ -36,7 +36,7 @@ SCENARIO="${SCENARIO:-all}"
 LEVEL="${LEVEL:-2}"
 NAMESPACE="${NAMESPACE:-pure-agent}"
 WORKFLOW_TIMEOUT="${WORKFLOW_TIMEOUT:-600}"  # seconds
-KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
 MOCK_AGENT_IMAGE="${MOCK_AGENT_IMAGE:-ghcr.io/dlddu/pure-agent/e2e/mock-agent:latest}"
 MOCK_API_URL="${MOCK_API_URL:-http://mock-api.${NAMESPACE}.svc.cluster.local:4000}"
 
@@ -52,9 +52,9 @@ source "$LIB_DIR/assertions-argo.sh" --source-only
 source "$LIB_DIR/localstack.sh" --source-only
 
 # ── Logging ──────────────────────────────────────────────────────────────────
-log()  { echo "[run-level2] $*" >&2; }
-warn() { echo "[run-level2] WARN: $*" >&2; }
-die()  { echo "[run-level2] ERROR: $*" >&2; exit 1; }
+log()  { echo "[run-integration] $*" >&2; }
+warn() { echo "[run-integration] WARN: $*" >&2; }
+die()  { echo "[run-integration] ERROR: $*" >&2; exit 1; }
 
 # ── Arg parsing ──────────────────────────────────────────────────────────────
 __SOURCE_ONLY=false
@@ -222,7 +222,7 @@ verify_cycle() {
   # 3. mock-api 기반 assertion은 skip
   # mock-agent는 HTTP 호출을 하지 않으므로 mock-api에 recorded call이 없음.
   # gate_decision은 assert_run_cycle_count / assert_workflow_succeeded로 간접 검증.
-  log "Skipping mock-api assertions (not applicable in Level 2 mock architecture)"
+  log "Skipping mock-api assertions (not applicable in Integration mock architecture)"
 
   # 4. S3 transcript upload 검증
   if [[ -n "${S3_ENDPOINT_URL:-}" ]]; then
@@ -249,7 +249,7 @@ run_scenario() {
   [[ -f "$yaml_file" ]] \
     || die "Scenario YAML not found: $yaml_file"
 
-  log "=== Level 2 Scenario: $scenario_name ==="
+  log "=== Integration Scenario: $scenario_name ==="
 
   # cycles 배열 길이 확인
   local cycle_count
@@ -280,7 +280,7 @@ run_scenario() {
 
     # 임시 fixture 디렉토리 생성
     local cycle_dir
-    cycle_dir=$(mktemp -d "/tmp/e2e-level2-${scenario_name}-cycle${cycle_index}-XXXXXX")
+    cycle_dir=$(mktemp -d "/tmp/e2e-integration-${scenario_name}-cycle${cycle_index}-XXXXXX")
 
     # environment_id 읽기 (mock-planner가 prompt에서 파싱)
     local env_id
@@ -328,9 +328,9 @@ run_scenario() {
 
   # daemon pods ready / work dir cleanup 검증
   # mock-agent만 실행되며 MCP daemon/LLM gateway 사이드카가 없으므로 skip.
-  log "Skipping daemon_pods_ready and work_dir_clean assertions (Level 2 mock architecture)"
+  log "Skipping daemon_pods_ready and work_dir_clean assertions (Integration mock architecture)"
 
-  log "=== PASS (Level 2): $scenario_name ==="
+  log "=== PASS (Integration): $scenario_name ==="
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -338,7 +338,7 @@ run_scenario() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 main() {
-  log "Starting Level 2 E2E test runner (kind + Argo, mock)"
+  log "Starting Integration E2E test runner (kind + Argo, mock)"
   log "SCENARIO=${SCENARIO}, NAMESPACE=${NAMESPACE}"
 
   check_prerequisites
@@ -362,7 +362,7 @@ main() {
     local scenarios
     scenarios=$(discover_scenarios)
     [[ -n "$scenarios" ]] \
-      || die "No Level 2 scenarios found in $SCENARIOS_DIR"
+      || die "No Integration scenarios found in $SCENARIOS_DIR"
 
     local name
     while IFS= read -r name; do
@@ -373,7 +373,7 @@ main() {
     run_scenario "$SCENARIO"
   fi
 
-  log "All Level 2 scenarios completed"
+  log "All Integration scenarios completed"
 }
 
 # ── Source guard ──────────────────────────────────────────────────────────────

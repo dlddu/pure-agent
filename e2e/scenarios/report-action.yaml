@@ -3,7 +3,7 @@ description: "Gate stop → Export Handler가 Linear 코멘트 작성"
 level: [1, 2, 3]
 max_depth: 1
 
-# ── Level 2: mock cycle 정의 ──
+# ── Integration: mock cycle 정의 ──
 cycles:
   - environment_id: "default"
     export_config:
@@ -15,7 +15,7 @@ cycles:
       session_id: "mock-session-report"
     agent_result: "Task completed successfully"
 
-# ── Level 3: real API 실행 설정 ──
+# ── E2E: real API 실행 설정 ──
 real:
   max_depth: 5
   prompt: "Linear 이슈 {{LINEAR_ISSUE_ID}}를 읽고 내용을 요약해서 report로 작성해주세요."

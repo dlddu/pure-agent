@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# e2e/lib/compose.sh — Docker Compose 인프라 및 컴포넌트 실행 헬퍼 함수 (Level ① E2E)
+# e2e/lib/compose.sh — Docker Compose 인프라 및 컴포넌트 실행 헬퍼 함수 (Unit E2E)
 #
 # Docker Compose 서비스의 시작/종료 및 각 컴포넌트(planner, gate, export-handler,
 # mock-agent) 실행 함수를 제공합니다.

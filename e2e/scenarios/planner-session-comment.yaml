@@ -3,7 +3,7 @@ description: "Planner가 get_issue 호출 시 Linear 이슈에 session ID (plann
 level: [2, 3]
 max_depth: 1
 
-# ── Level 2: mock cycle 정의 ──
+# ── Integration: mock cycle 정의 ──
 cycles:
   - environment_id: "default"
     export_config:
@@ -14,7 +14,7 @@ cycles:
       session_id: "mock-session-planner-comment"
     agent_result: "Task completed with planner session comment."
 
-# ── Level 3: real API 실행 설정 ──
+# ── E2E: real API 실행 설정 ──
 real:
   max_depth: 5
   prompt: "Linear 이슈 {{LINEAR_ISSUE_ID}} 내용을 확인하고 간단히 요약해주세요."

@@ -1,6 +1,6 @@
-# e2e/docker-compose.yml — Level ① E2E Docker Compose 서비스 정의
+# e2e/docker-compose.yml — Unit E2E Docker Compose 서비스 정의
 #
-# DLD-468: Level ① e2e 테스트 작성 (skipped)
+# DLD-468: Unit e2e 테스트 작성 (skipped)
 #
 # 서비스 구성:
 #   mock-api      — Linear GraphQL mock (포트 4000)
@@ -63,7 +63,7 @@ services:
       start_period: 5s
 
   # ── mock-agent: fixture를 /work 볼륨에 배치 ───────────────────────────────
-  # SCENARIO_DIR 환경 변수는 run-level1.sh가 외부에서 주입합니다.
+  # SCENARIO_DIR 환경 변수는 run-unit.sh가 외부에서 주입합니다.
   mock-agent:
     build:
       context: ..
@@ -73,7 +73,7 @@ services:
       WORK_DIR: /work
     volumes:
       - work:/work
-      # 시나리오 fixture 디렉토리를 컨테이너에 마운트 (run-level1.sh가 bind-mount로 교체)
+      # 시나리오 fixture 디렉토리를 컨테이너에 마운트 (run-unit.sh가 bind-mount로 교체)
       - "${SCENARIO_DIR:-/tmp/e2e-empty}:/scenario:ro"
     networks:
       - e2e
@@ -81,11 +81,11 @@ services:
       mock-api:
         condition: service_healthy
 
-  # ── planner: mock planner (Level 1 e2e 전용) ───────────────────────────
+  # ── planner: mock planner (Unit e2e 전용) ───────────────────────────
   # mock-api의 /v1/messages에 HTTP 요청하여 환경을 선택하는 경량 mock.
   # 프로덕션 planner(Claude Code CLI 기반)는 mock-api 스트리밍 미지원으로
   # Docker Compose에서 실행 불가하므로 셸 스크립트 mock으로 대체합니다.
-  # run-level1.sh가 docker compose run으로 개별 실행합니다.
+  # run-unit.sh가 docker compose run으로 개별 실행합니다.
   planner:
     image: python:3.12-alpine
     environment:
@@ -101,7 +101,7 @@ services:
       - runner   # docker compose run으로만 실행
 
   # ── gate: Python CLI ──────────────────────────────────────────────────────
-  # run-level1.sh가 docker compose run으로 개별 실행합니다.
+  # run-unit.sh가 docker compose run으로 개별 실행합니다.
   gate:
     build:
       context: ..
@@ -110,13 +110,13 @@ services:
       - work:/work
     networks:
       - e2e
-    # 기본 커맨드는 run-level1.sh가 override합니다.
+    # 기본 커맨드는 run-unit.sh가 override합니다.
     command: ["gate", "--help"]
     profiles:
       - runner   # docker compose run으로만 실행
 
   # ── export-handler: TypeScript (Node 22) ──────────────────────────────────
-  # run-level1.sh가 docker compose run으로 개별 실행합니다.
+  # run-unit.sh가 docker compose run으로 개별 실행합니다.
   export-handler:
     build:
       context: ..

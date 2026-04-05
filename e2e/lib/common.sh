@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# e2e/lib/common.sh — run-level1.sh / run-level2.sh / run-level3.sh 공용 헬퍼 함수
+# e2e/lib/common.sh — run-unit.sh / run-integration.sh / run-e2e.sh 공용 헬퍼 함수
 #
 # 이 파일은 직접 실행하지 않고, source하여 함수만 로드합니다.
 # 호출 스크립트에서 다음 변수를 미리 설정해야 합니다:

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# e2e/run-level1.sh — Level 1 E2E 테스트 러너 (Docker Compose 기반)
+# e2e/run-unit.sh — Unit E2E 테스트 러너 (Docker Compose 기반)
 #
 # Mock:
 #   - Agent        → mock-agent (fixture를 /work에 복사)
@@ -22,7 +22,7 @@
 #   5. docker compose down
 #
 # Usage:
-#   ./e2e/run-level1.sh [--scenario <name|all>]
+#   ./e2e/run-unit.sh [--scenario <name|all>]
 #
 # Environment variables:
 #   SCENARIO        — 실행할 시나리오 이름 (기본값: all)
@@ -42,9 +42,9 @@ COMPOSE_FILE="${COMPOSE_FILE:-${SCRIPT_DIR}/docker-compose.yml}"
 SCENARIOS_DIR="${SCRIPT_DIR}/scenarios"
 
 # ── Logging ───────────────────────────────────────────────────────────────────
-log()  { echo "[run-level1] $*" >&2; }
-warn() { echo "[run-level1] WARN: $*" >&2; }
-die()  { echo "[run-level1] ERROR: $*" >&2; exit 1; }
+log()  { echo "[run-unit] $*" >&2; }
+warn() { echo "[run-unit] WARN: $*" >&2; }
+die()  { echo "[run-unit] ERROR: $*" >&2; exit 1; }
 
 # ── Source shared libraries ───────────────────────────────────────────────────
 # shellcheck source=lib/common.sh
@@ -93,7 +93,7 @@ run_scenario() {
   [[ -f "$yaml_file" ]] \
     || die "Scenario YAML not found: $yaml_file"
 
-  log "=== Level 1 Scenario: $scenario_name ==="
+  log "=== Unit Scenario: $scenario_name ==="
 
   # max_depth
   local max_depth
@@ -214,13 +214,13 @@ run_scenario() {
   trap - EXIT
   compose_down
 
-  log "=== PASS (Level 1): $scenario_name ==="
+  log "=== PASS (Unit): $scenario_name ==="
 }
 
 # ── main ──────────────────────────────────────────────────────────────────────
 
 main() {
-  log "Starting Level 1 E2E test runner (Docker Compose)"
+  log "Starting Unit E2E test runner (Docker Compose)"
   log "SCENARIO=${SCENARIO}"
 
   check_prerequisites
@@ -229,7 +229,7 @@ main() {
     local scenarios
     scenarios=$(discover_scenarios)
     [[ -n "$scenarios" ]] \
-      || die "No Level 1 scenarios found in $SCENARIOS_DIR"
+      || die "No Unit scenarios found in $SCENARIOS_DIR"
 
     local name
     while IFS= read -r name; do
@@ -240,7 +240,7 @@ main() {
     run_scenario "$SCENARIO"
   fi
 
-  log "All Level 1 scenarios completed"
+  log "All Unit scenarios completed"
 }
 
 # ── Source guard ──────────────────────────────────────────────────────────────

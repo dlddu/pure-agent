@@ -28,7 +28,7 @@ bats_require_minimum_version 1.5.0
 E2E_DIR="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
 SCENARIOS_DIR="${E2E_DIR}/scenarios"
 COMPOSE_FILE="${E2E_DIR}/docker-compose.yml"
-RUN_LOCAL="${E2E_DIR}/run-level1.sh"
+RUN_LOCAL="${E2E_DIR}/run-unit.sh"
 MOCK_API_URL="${MOCK_API_URL:-http://localhost:4000}"
 GATEKEEPER_URL="${GATEKEEPER_URL:-http://localhost:8080}"
 
@@ -39,7 +39,7 @@ setup() {
   export WORK_DIR="${BATS_TEST_TMPDIR}/work"
   mkdir -p "$WORK_DIR"
 
-  # run-level1.sh를 --source-only 모드로 로드하여 헬퍼 함수만 가져옴
+  # run-unit.sh를 --source-only 모드로 로드하여 헬퍼 함수만 가져옴
   # shellcheck disable=SC1090
   source "$RUN_LOCAL" --source-only
 

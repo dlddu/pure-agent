@@ -1,8 +1,8 @@
 #!/usr/bin/env bats
 bats_require_minimum_version 1.5.0
-# e2e/tests/run-local.bats — Level ① E2E 시나리오 테스트 (Docker Compose 기반)
+# e2e/tests/run-local.bats — Unit E2E 시나리오 테스트 (Docker Compose 기반)
 #
-# DLD-469: Level ① e2e 테스트 활성화
+# DLD-469: Unit e2e 테스트 활성화
 #
 # 테스트 구조:
 #   - Docker Compose 환경에서 실행됩니다.
@@ -12,7 +12,7 @@ bats_require_minimum_version 1.5.0
 #   - docker (compose plugin 포함)
 #   - curl, jq, yq
 #   - e2e/docker-compose.yml
-#   - e2e/run-level1.sh
+#   - e2e/run-unit.sh
 #
 # 실행 방법:
 #   bats e2e/tests/run-local.bats
@@ -24,7 +24,7 @@ bats_require_minimum_version 1.5.0
 E2E_DIR="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
 SCENARIOS_DIR="${E2E_DIR}/scenarios"
 COMPOSE_FILE="${E2E_DIR}/docker-compose.yml"
-RUN_LOCAL="${E2E_DIR}/run-level1.sh"
+RUN_LOCAL="${E2E_DIR}/run-unit.sh"
 MOCK_API_URL="${MOCK_API_URL:-http://localhost:4000}"
 
 # ── 공통 setup / teardown ─────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ setup() {
   export WORK_DIR="${BATS_TEST_TMPDIR}/work"
   mkdir -p "$WORK_DIR"
 
-  # run-level1.sh를 --source-only 모드로 로드하여 헬퍼 함수만 가져옴
+  # run-unit.sh를 --source-only 모드로 로드하여 헬퍼 함수만 가져옴
   # (common.sh, mock-api.sh, mock-gh.sh, compose.sh, assertions-local.sh, gatekeeper.sh)
   # shellcheck disable=SC1090
   source "$RUN_LOCAL" --source-only
@@ -290,13 +290,13 @@ teardown() {
 #   - Gate 출력: false (stop) — depth >= max_depth - 1이므로 강제 종료
 #   - Export Handler 종료 코드: 0
 #
-# 참고: depth-limit 시나리오는 level: [2]에서만 정의 (Level 1에는 미포함)
-# Level ① 테스트에서는 max_depth=2, depth=1로 gate가 stop을 반환하는지 확인
+# 참고: depth-limit 시나리오는 level: [integration]에서만 정의 (Unit에는 미포함)
+# Unit 테스트에서는 max_depth=2, depth=1로 gate가 stop을 반환하는지 확인
 # ═══════════════════════════════════════════════════════════════════════════════
 
 @test "scenario: depth-limit — gate outputs false when depth reaches max_depth" {
   # Arrange
-  # depth-limit는 level:[2]에서만 정의되지만, Level ① 테스트로서
+  # depth-limit는 level:[integration]에서만 정의되지만, Unit 테스트로서
   # max_depth=2, depth=1 조합에서 gate가 stop하는지 검증
   local yaml_file="${SCENARIOS_DIR}/depth-limit.yaml"
   [ -f "$yaml_file" ]

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# e2e/run-level3.sh — Level 3 E2E 테스트 러너 (kind + Argo, 실제 API)
+# e2e/run-e2e.sh — E2E 테스트 러너 (kind + Argo, 실제 API)
 #
 # Mock:
 #   - 없음 (모든 컴포넌트가 실제 서비스)
@@ -18,7 +18,7 @@
 # 제네릭하게 시나리오를 실행합니다.
 #
 # Usage:
-#   ./e2e/run-level3.sh [--scenario <name|all>] [--namespace <ns>] [--context <ctx>]
+#   ./e2e/run-e2e.sh [--scenario <name|all>] [--namespace <ns>] [--context <ctx>]
 #
 # Environment variables (required):
 #   LINEAR_API_KEY        — Linear Personal API Key
@@ -61,9 +61,9 @@ source "$LIB_DIR/assertions-argo.sh" --source-only
 source "$LIB_DIR/localstack.sh" --source-only
 
 # ── Logging ──────────────────────────────────────────────────────────────────
-log()  { echo "[run-level3] $*" >&2; }
-warn() { echo "[run-level3] WARN: $*" >&2; }
-die()  { echo "[run-level3] ERROR: $*" >&2; exit 1; }
+log()  { echo "[run-e2e] $*" >&2; }
+warn() { echo "[run-e2e] WARN: $*" >&2; }
+die()  { echo "[run-e2e] ERROR: $*" >&2; exit 1; }
 
 # ── Arg parsing ──────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
@@ -218,7 +218,7 @@ run_scenario() {
   [[ -f "$yaml_file" ]] \
     || die "Scenario YAML not found: $yaml_file"
 
-  log "=== Level 3 Scenario: $scenario_name ==="
+  log "=== E2E Scenario: $scenario_name ==="
 
   # ── YAML에서 설정 읽기 ──
   local max_depth
@@ -309,7 +309,7 @@ run_scenario() {
   _teardown_handler "$teardowns"
   trap - EXIT
 
-  log "=== PASS (Level 3): $scenario_name ==="
+  log "=== PASS (E2E): $scenario_name ==="
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -317,7 +317,7 @@ run_scenario() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 main() {
-  log "Starting Level 3 E2E test runner (kind + Argo, real API)"
+  log "Starting E2E test runner (kind + Argo, real API)"
   log "SCENARIO=${SCENARIO}, NAMESPACE=${NAMESPACE}"
 
   check_prerequisites
@@ -341,7 +341,7 @@ main() {
     local scenarios
     scenarios=$(discover_scenarios)
     [[ -n "$scenarios" ]] \
-      || die "No Level 3 scenarios found in $SCENARIOS_DIR"
+      || die "No E2E scenarios found in $SCENARIOS_DIR"
 
     local name
     while IFS= read -r name; do
@@ -352,7 +352,7 @@ main() {
     run_scenario "$SCENARIO"
   fi
 
-  log "All Level 3 scenarios completed"
+  log "All E2E scenarios completed"
 }
 
 main "$@"

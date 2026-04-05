@@ -2,7 +2,7 @@
 # e2e/lib/localstack.sh — LocalStack S3 deployment and assertion helpers
 #
 # Deploys LocalStack as a Kubernetes Deployment + Service in the test namespace
-# for S3 transcript upload verification in Level 2 and Level 3 E2E tests.
+# for S3 transcript upload verification in Integration and E2E tests.
 #
 # Functions:
 #   deploy_localstack       — Create LocalStack Deployment + Service
@@ -43,7 +43,7 @@ _ls_fail() { echo "FAIL $*" >&2; return 1; }
 # Creates a LocalStack Deployment + Service in the test namespace.
 deploy_localstack() {
   local namespace="${NAMESPACE:-pure-agent}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
 
   _ls_log "Deploying LocalStack (image=$LOCALSTACK_IMAGE) in namespace=$namespace"
 
@@ -114,7 +114,7 @@ EOF
 # Waits for the LocalStack pod to be ready.
 wait_localstack() {
   local namespace="${NAMESPACE:-pure-agent}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
 
   _ls_log "Waiting for LocalStack to be ready (timeout=$LOCALSTACK_TIMEOUT)"
 
@@ -139,7 +139,7 @@ localstack_endpoint_url() {
 # Creates the test S3 bucket in LocalStack using kubectl exec on the LocalStack pod.
 create_s3_test_bucket() {
   local namespace="${NAMESPACE:-pure-agent}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
 
   _ls_log "Creating S3 test bucket: $S3_TEST_BUCKET"
 
@@ -156,7 +156,7 @@ create_s3_test_bucket() {
 # Removes LocalStack Deployment + Service from the namespace.
 teardown_localstack() {
   local namespace="${NAMESPACE:-pure-agent}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
 
   _ls_log "Tearing down LocalStack resources"
 
@@ -173,7 +173,7 @@ teardown_localstack() {
 # Output: one S3 key per line.
 list_s3_objects() {
   local namespace="${NAMESPACE:-pure-agent}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
 
   kubectl exec deployment/localstack \
     -n "$namespace" \
@@ -194,7 +194,7 @@ list_s3_objects() {
 assert_s3_object_exists() {
   local key="$1"
   local namespace="${NAMESPACE:-pure-agent}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
 
   _ls_log "Checking S3 object exists: s3://$S3_TEST_BUCKET/$key"
 
@@ -217,7 +217,7 @@ assert_s3_object_exists() {
 assert_s3_transcript_exists() {
   local min_count="${1:-2}"
   local namespace="${NAMESPACE:-pure-agent}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
 
   _ls_log "Checking for at least $min_count transcript(s) in S3"
 

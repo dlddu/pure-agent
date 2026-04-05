@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# e2e/lib/assertions-argo.sh — Argo/Kubernetes 특화 assertion helpers (Level ② E2E)
+# e2e/lib/assertions-argo.sh — Argo/Kubernetes 특화 assertion helpers (Integration E2E)
 #
-# DLD-467: Level ② e2e 테스트 활성화
+# DLD-467: Integration e2e 테스트 활성화
 #
 # Usage in BATS: source this file with --source-only to load functions only.
 #
@@ -33,7 +33,7 @@ _argo_assert_fail() { echo "FAIL $*" >&2; return 1; }
 assert_workflow_succeeded() {
   local workflow_name="$1"
   local namespace="${2:-${NAMESPACE:-pure-agent}}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
 
   _argo_assert_log "Checking workflow phase: $workflow_name (ns=$namespace)"
 
@@ -63,7 +63,7 @@ assert_workflow_succeeded() {
 assert_daemon_pods_ready() {
   local workflow_name="$1"
   local namespace="${2:-${NAMESPACE:-pure-agent}}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
   local timeout="${DAEMON_READY_TIMEOUT:-60s}"
 
   _argo_assert_log "Checking daemon pod readiness for workflow: $workflow_name"
@@ -106,7 +106,7 @@ assert_run_cycle_count() {
   local workflow_name="$1"
   local expected_count="$2"
   local namespace="${3:-${NAMESPACE:-pure-agent}}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
 
   _argo_assert_log "Checking run-cycle execution count: $workflow_name (expected=$expected_count)"
 
@@ -147,7 +147,7 @@ assert_max_depth_termination() {
   local workflow_name="$1"
   local max_depth="$2"
   local namespace="${3:-${NAMESPACE:-pure-agent}}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
 
   _argo_assert_log "Checking max_depth termination: $workflow_name (max_depth=$max_depth)"
 
@@ -198,7 +198,7 @@ assert_max_depth_termination() {
 assert_work_dir_clean() {
   local workflow_name="$1"
   local namespace="${2:-${NAMESPACE:-pure-agent}}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
 
   _argo_assert_log "Checking /work directory cleanup: $workflow_name"
 
@@ -272,7 +272,7 @@ assert_work_dir_clean() {
 
 # ── assert_planner_image ────────────────────────────────────────────────────
 # Planner 노드가 올바른 agent 이미지를 선택했는지 검증합니다.
-# Level ②에서 사용: mock-api의 /v1/messages를 통해 결정된 이미지 검증.
+# Integration에서 사용: mock-api의 /v1/messages를 통해 결정된 이미지 검증.
 #
 # Arguments:
 #   $1  workflow_name    — argo workflow 이름
@@ -337,7 +337,7 @@ assert_planner_image() {
   local workflow_name="$1"
   local expected_env_id="$2"
   local namespace="${3:-${NAMESPACE:-pure-agent}}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-level2}"
+  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
 
   # environment_id → expected image 매핑
   local expected_image
@@ -387,7 +387,7 @@ assert_planner_image() {
 
 # ── assert_planner_valid_image ──────────────────────────────────────────────
 # Planner가 유효한 agent 이미지를 선택했는지 검증합니다 (특정 이미지가 아닌 유효성만).
-# Level ③에서 사용: 실제 LLM 호출은 비결정적이므로 3개 known image 중 하나인지만 확인.
+# E2E에서 사용: 실제 LLM 호출은 비결정적이므로 3개 known image 중 하나인지만 확인.
 #
 # Arguments:
 #   $1  workflow_name  — argo workflow 이름

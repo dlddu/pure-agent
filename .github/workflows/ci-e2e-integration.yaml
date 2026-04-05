@@ -1,7 +1,7 @@
-name: "E2E: Level 2 (mock-agent + mock-api)"
-# DLD-467: Level ② e2e 테스트 활성화
+name: "E2E: Integration (mock-agent + mock-api)"
+# DLD-467: Integration e2e 테스트 활성화
 #
-# Level ③ (ci-e2e-level3.yaml) 대비 주요 차이점:
+# E2E (ci-e2e-e2e.yaml) 대비 주요 차이점:
 #   - secrets 불필요 (LINEAR_API_KEY, GH_PAT, CLAUDE_CODE_OAUTH_TOKEN)
 #   - 빌드 대상: mock-agent, mock-api 이미지만
 #   - 실제 Claude Agent / Linear / GitHub API 호출 없음
@@ -35,7 +35,7 @@ permissions:
   contents: read
 
 env:
-  CLUSTER_NAME: "pure-agent-e2e-level2"
+  CLUSTER_NAME: "pure-agent-e2e-integration"
   ARGO_NAMESPACE: "argo"
   PURE_AGENT_NAMESPACE: "pure-agent"
   KIND_VERSION: "v0.22.0"
@@ -46,7 +46,7 @@ env:
   GATE_IMAGE: "ghcr.io/dlddu/pure-agent/gate:latest"
 
 jobs:
-  e2e-level2:
+  e2e-integration:
     runs-on: ubuntu-24.04-arm
 
     steps:
@@ -88,7 +88,7 @@ jobs:
           bash e2e/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME"
 
-      # ── Build mock images (Level ② 전용: mock-agent, mock-api のみ) ───────
+      # ── Build mock images (Integration 전용: mock-agent, mock-api のみ) ───────
       - name: Build mock-agent image
         uses: ./.github/actions/build-image
         with:
@@ -114,13 +114,13 @@ jobs:
             --images "${MOCK_AGENT_IMAGE},${MOCK_API_IMAGE},${GATE_IMAGE}"
 
       # ── Kubernetes namespace setup ────────────────────────────────────────
-      - name: Create namespace for pure-agent (Level 2)
+      - name: Create namespace for pure-agent (Integration)
         run: |
           set -euo pipefail
           kubectl --context "kind-${CLUSTER_NAME}" create namespace "$PURE_AGENT_NAMESPACE" \
             --dry-run=client -o yaml | kubectl apply -f -
 
-          # Level ② 用ダミーシークレット (mock なので実際の値は不要)
+          # Integration 用ダミーシークレット (mock なので実際の値は不要)
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
             create secret generic mcp-server-secrets \
               --from-literal=LINEAR_API_KEY="mock-key" \
@@ -208,101 +208,101 @@ jobs:
             apply -n "$PURE_AGENT_NAMESPACE" -f k8s/network-policy.yaml
 
       # ── Apply WorkflowTemplate (mock-agent + mock-gate 用パッチ) ────────
-      - name: Apply Argo WorkflowTemplate (patched for Level 2)
+      - name: Apply Argo WorkflowTemplate (patched for Integration)
         run: |
           set -euo pipefail
 
-          cp k8s/workflow-template.yaml /tmp/workflow-template-level2.yaml
+          cp k8s/workflow-template.yaml /tmp/workflow-template-integration.yaml
 
           # kind 호환 패치: storageClassName, accessMode, nodeSelector, tolerations
           sed -i 's/storageClassName: efs/storageClassName: standard/' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
           sed -i 's/ReadWriteMany/ReadWriteOnce/' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
           yq -i 'del(.spec.templates[].nodeSelector)' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
           yq -i 'del(.spec.templates[].tolerations)' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # imagePullPolicy: IfNotPresent (kind ローカル画像)
           yq -i '(.spec.templates[] | select(has("container")) | .container.imagePullPolicy) = "IfNotPresent"' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # mock-agent 이미지로 claude-agent 이미지를 대체
           yq -i "(.spec.templates[] | select(.name == \"agent-job\") | .container.image) = \"${MOCK_AGENT_IMAGE}\"" \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # mock-agent 엔트리포인트 패치: /home/claude/entrypoint.sh → /app/entrypoint.sh
           yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.command) = ["/app/entrypoint.sh"]' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # mock-agent에 SCENARIO_DIR 환경변수 주입 (ConfigMap 마운트 경로)
           yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.env) += [{"name": "SCENARIO_DIR", "value": "/scenario"}]' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # scenario_configmap 파라미터 추가 (기본값: scenario-default)
           yq -i '.spec.arguments.parameters += [{"name": "scenario_configmap", "value": "scenario-default"}]' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # Workflow 최상위에 scenario-data 볼륨 추가 (ConfigMap 기반)
           yq -i '.spec.volumes = [{"name": "scenario-data", "configMap": {"name": "{{workflow.parameters.scenario_configmap}}", "optional": true}}]' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # agent-job에 scenario-data 볼륨 마운트 추가
           yq -i '(.spec.templates[] | select(.name == "agent-job") | .container.volumeMounts) += [{"name": "scenario-data", "mountPath": "/scenario", "readOnly": true}]' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # ── mock-planner 패치 ─────────────────────────────────────────────
           # 실제 planner 바이너리 대신 alpine 셸 스크립트로 교체.
           # prompt에서 "env=<id>"를 파싱하여 environment_id → agent image로 매핑합니다.
           yq -i '(.spec.templates[] | select(.name == "planner") | .container.image) = "alpine:3.20"' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
           yq -i '(.spec.templates[] | select(.name == "planner") | .container.args) = ["ENV_ID=$(echo \"$PROMPT\" | grep -oE \"env=[^ ]+\" | cut -d= -f2); ENV_ID=${ENV_ID:-default}; echo \"[mock-planner] environment_id=$ENV_ID\" >&2; case \"$ENV_ID\" in python-analysis) IMG=ghcr.io/dlddu/pure-agent/python-agent:latest ;; infra) IMG=ghcr.io/dlddu/pure-agent/infra-agent:latest ;; *) IMG=ghcr.io/dlddu/pure-agent/claude-agent:latest ;; esac; echo \"$IMG\" > /tmp/agent_image.txt; echo \"$ENV_ID\" > /tmp/raw_environment_id.txt; echo \"[mock-planner] selected: $IMG\" >&2"]' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # ── gate 패치: 실제 이미지 + mock 결정 로직 ───────────────────
           # 실제 gate 이미지를 사용하여 S3 transcript upload를 실행하되,
           # continue/stop 결정은 mock 로직으로 덮어씁니다.
           # (mock-agent의 ConfigMap은 정적이므로 실제 gate 로직은 매 cycle 같은 결과를 반환합니다)
           yq -i "(.spec.templates[] | select(.name == \"gate\") | .container.image) = \"${GATE_IMAGE}\"" \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # gate에 depth/max_depth를 환경변수로 주입 (mock 결정 로직용)
           yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "GATE_DEPTH", "value": "{{inputs.parameters.depth}}"}, {"name": "GATE_MAX_DEPTH", "value": "{{inputs.parameters.max_depth}}"}]' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # gate args: 실제 gate CLI 실행 (S3 upload) → mock 결정 로직으로 output 덮어쓰기
           yq -i '(.spec.templates[] | select(.name == "gate") | .container.args) = ["gate --export-config \"$EXPORT_CONFIG_JSON\" --depth \"$GATE_DEPTH\" --max-depth \"$GATE_MAX_DEPTH\" --output /tmp/continue.txt 2>&1 || true; echo \"[mock-gate-override] depth=$GATE_DEPTH max_depth=$GATE_MAX_DEPTH\" >&2; D=\"$GATE_DEPTH\"; M=\"$GATE_MAX_DEPTH\"; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > /tmp/continue.txt; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > /tmp/continue.txt; else echo false > /tmp/continue.txt; fi; fi"]' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # gate에 LocalStack S3 접속용 환경변수 주입 (gate-secrets에서 읽음)
           yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "AWS_ENDPOINT_URL", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ENDPOINT_URL", "optional": true}}}, {"name": "AWS_ACCESS_KEY_ID", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ACCESS_KEY_ID", "optional": true}}}, {"name": "AWS_SECRET_ACCESS_KEY", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_SECRET_ACCESS_KEY", "optional": true}}}]' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # ── mock-export-handler 패치 ────────────────────────────────────
           # 실제 export-handler 이미지는 kind에 로드되지 않으며 mock secrets로 동작하지 않음.
           # alpine으로 교체하고 export_config/action_results를 passthrough하는 스크립트로 대체.
           yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.image) = "alpine:3.20"' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
           yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.command) = ["/bin/sh", "-c"]' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
           yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.args) = ["echo \"[mock-export-handler] passthrough\" >&2; cp /work/export_config.json /tmp/export_config.json 2>/dev/null || echo \"{}\" > /tmp/export_config.json; echo \"{}\" > /tmp/action_results.json"]' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # ── mock-daemon 패치 ─────────────────────────────────────────────
           # mcp-server, llm-gateway 이미지도 kind에 로드되지 않음. alpine으로 교체.
           yq -i '(.spec.templates[] | select(.name == "mcp-daemon") | .container.image) = "alpine:3.20"' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
           yq -i '(.spec.templates[] | select(.name == "mcp-daemon") | .container.command) = ["/bin/sh", "-c", "echo mock-mcp-daemon; sleep 3600"]' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
           yq -i '(.spec.templates[] | select(.name == "llm-gateway-daemon") | .container.image) = "alpine:3.20"' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
           yq -i '(.spec.templates[] | select(.name == "llm-gateway-daemon") | .container.command) = ["/bin/sh", "-c", "echo mock-llm-gateway; sleep 3600"]' \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # mock-api URL을 환경 변수로 주입
           yq -i "(.spec.templates[] | select(has(\"container\")) | .container.env) += [{\"name\": \"MOCK_API_URL\", \"value\": \"http://mock-api.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4000\"}]" \
-            /tmp/workflow-template-level2.yaml
+            /tmp/workflow-template-integration.yaml
 
           # scenario-default 빈 ConfigMap 생성 (워크플로우 볼륨 기본값)
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
@@ -310,16 +310,16 @@ jobs:
             kubectl apply -f -
 
           kubectl --context "kind-${CLUSTER_NAME}" \
-            apply -n "$PURE_AGENT_NAMESPACE" -f /tmp/workflow-template-level2.yaml
+            apply -n "$PURE_AGENT_NAMESPACE" -f /tmp/workflow-template-integration.yaml
 
-      # ── Run Level 2 E2E scenarios ─────────────────────────────────────────
-      - name: Run Level 2 E2E scenarios (run-level2.sh)
+      # ── Run Integration E2E scenarios ─────────────────────────────────────────
+      - name: Run Integration E2E scenarios (run-integration.sh)
         env:
           KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
           MOCK_AGENT_IMAGE: ${{ env.MOCK_AGENT_IMAGE }}
           MOCK_API_URL: "http://mock-api.${{ env.PURE_AGENT_NAMESPACE }}.svc.cluster.local:4000"
         run: |
-          bash e2e/run-level2.sh \
+          bash e2e/run-integration.sh \
             --scenario "${{ github.event.inputs.scenario || 'all' }}" \
             --namespace "$PURE_AGENT_NAMESPACE" \
             --context "kind-${CLUSTER_NAME}"
