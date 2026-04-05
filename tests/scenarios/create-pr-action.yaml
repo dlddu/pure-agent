@@ -1,0 +1,36 @@
+name: create-pr-action
+description: "PR 생성 (mock gh) + Linear 코멘트"
+level: [unit, integration, e2e]
+max_depth: 1
+
+# ── Integration: mock cycle 정의 ──
+cycles:
+  - environment_id: "default"
+    export_config:
+      linear_issue_id: "mock-issue-id"
+      summary: "PR 생성 완료"
+      actions:
+        - "create_pr"
+      pr:
+        title: "feat: test PR from e2e"
+        body: "E2E 테스트에서 생성된 PR입니다."
+        branch: "feat/test-branch"
+        repo: "mock-org/mock-repo"
+        repo_path: "/work/repo"
+      session_id: "mock-session-pr"
+    agent_result: "PR created successfully"
+
+# ── E2E: real API 실행 설정 ──
+real:
+  max_depth: 5
+  prompt: "테스트 레포 {{GITHUB_TEST_REPO}}에 hello.txt 파일을 생성하고 PR을 만들어주세요. 브랜치명은 {{GITHUB_BRANCH}} 를 사용하세요."
+  setup: [github_branch]
+  verify: [planner_valid_image, github_pr, s3_transcript]
+  teardown: [github_branch]
+
+# ── 공유 assertions ──
+assertions:
+  planner_image: "default"
+  gate_decision: "stop"
+  export_handler_exit: 0
+  github_pr: true

@@ -1,0 +1,99 @@
+name: "CI: Test Lib"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tests/lib/**"
+      - "tests/tests/**"
+      - "tests/mock-agent/**"
+      - "tests/mock-gh/**"
+      - "tests/mock-api/**"
+      - ".github/workflows/ci-test-lib.yaml"
+      - ".github/workflows/_test-node.yaml"
+  pull_request:
+    paths:
+      - "tests/lib/**"
+      - "tests/tests/**"
+      - "tests/mock-agent/**"
+      - "tests/mock-gh/**"
+      - "tests/mock-api/**"
+      - ".github/workflows/ci-test-lib.yaml"
+      - ".github/workflows/_test-node.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ── lib: tests/lib/*.sh 유닛 테스트 ──────────────────────────────────────────
+  test-lib:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update && sudo apt-get install -y bats jq
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_arm64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Run shellcheck on tests/lib
+        run: |
+          find tests/lib -name '*.sh' -print0 \
+            | xargs -0 --no-run-if-empty shellcheck -s bash -S warning
+
+      - name: Run BATS tests for lib
+        run: |
+          bats tests/tests/assertions.bats
+          bats tests/tests/assertions-argo.bats
+          bats tests/tests/runner.bats
+          bats tests/tests/setup-real.bats
+          bats tests/tests/teardown-real.bats
+          bats tests/tests/verify-real.bats
+          bats tests/tests/run-argo-integration.bats
+          bats tests/tests/gatekeeper.bats
+
+  # ── mock-agent: tests/mock-agent 유닛 테스트 ─────────────────────────────────
+  test-mock-agent:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bats jq
+
+      - name: Run shellcheck on mock-agent
+        run: |
+          find tests/mock-agent -name '*.sh' -print0 \
+            | xargs -0 --no-run-if-empty shellcheck -s bash -S warning
+
+      - name: Run BATS tests for mock-agent
+        run: bats tests/mock-agent/tests/
+
+  # ── mock-gh: tests/mock-gh 유닛 테스트 ───────────────────────────────────────
+  test-mock-gh:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y bats jq
+
+      - name: Run shellcheck on mock-gh
+        run: |
+          find tests/mock-gh -name 'gh' -print0 \
+            | xargs -0 --no-run-if-empty shellcheck -s bash -S warning
+
+      - name: Run BATS tests for mock-gh
+        run: bats tests/mock-gh/tests/
+
+  # ── mock-api: tests/mock-api Vitest ──────────────────────────────────────────
+  test-mock-api:
+    uses: ./.github/workflows/_test-node.yaml
+    with:
+      service: tests/mock-api

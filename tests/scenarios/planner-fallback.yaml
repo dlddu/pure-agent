@@ -1,0 +1,21 @@
+name: planner-fallback
+description: "알 수 없는 environment_id → default fallback 검증"
+level: [unit, integration]
+max_depth: 1
+
+# ── mock cycle 정의 ──
+cycles:
+  - environment_id: "unknown-env"
+    export_config:
+      linear_issue_id: "mock-issue-id"
+      summary: "Fallback test completed."
+      actions:
+        - "none"
+      session_id: "mock-session-fallback"
+    agent_result: "Fallback to default environment."
+
+# ── 공유 assertions ──
+assertions:
+  planner_image: "default"
+  gate_decision: "stop"
+  export_handler_exit: 0

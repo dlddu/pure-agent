@@ -1,0 +1,31 @@
+name: planner-session-comment
+description: "Planner가 get_issue 호출 시 Linear 이슈에 session ID (planner) 코멘트를 기록"
+level: [integration, e2e]
+max_depth: 1
+
+# ── Integration: mock cycle 정의 ──
+cycles:
+  - environment_id: "default"
+    export_config:
+      linear_issue_id: "mock-issue-id"
+      summary: "Planner session comment 검증 완료"
+      actions:
+        - "none"
+      session_id: "mock-session-planner-comment"
+    agent_result: "Task completed with planner session comment."
+
+# ── E2E: real API 실행 설정 ──
+real:
+  max_depth: 5
+  prompt: "Linear 이슈 {{LINEAR_ISSUE_ID}} 내용을 확인하고 간단히 요약해주세요."
+  setup: [linear_issue]
+  verify: [planner_valid_image, s3_transcript, linear_comment]
+  teardown: [linear_issue]
+
+# ── 공유 assertions ──
+assertions:
+  planner_image: "default"
+  gate_decision: "stop"
+  export_handler_exit: 0
+  linear_comment:
+    body_contains: "Session ID (planner)"

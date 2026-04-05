@@ -1,0 +1,78 @@
+name: "CI: Test Unit (Docker Compose)"
+# DLD-469: Unit E2E Docker Compose 통합 테스트 활성화
+#
+# DLD-468에서 작성된 BATS 테스트의 skip을 제거하고 실제 Docker Compose 환경에서 실행합니다.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "tests/tests/**"
+      - "tests/run-unit.sh"
+      - "tests/docker-compose.yml"
+      - "tests/scenarios/**"
+      - "tests/lib/**"
+      - "tests/mock-api/**"
+      - "tests/mock-agent/**"
+      - "tests/mock-gh/**"
+      - "gate/**"
+      - "planner/**"
+      - "export-handler/**"
+      - ".github/workflows/ci-test-unit.yaml"
+  pull_request:
+    paths:
+      - "tests/tests/**"
+      - "tests/run-unit.sh"
+      - "tests/docker-compose.yml"
+      - "tests/scenarios/**"
+      - "tests/lib/**"
+      - "tests/mock-api/**"
+      - "tests/mock-agent/**"
+      - "tests/mock-gh/**"
+      - "gate/**"
+      - "planner/**"
+      - "export-handler/**"
+      - ".github/workflows/ci-test-unit.yaml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ── shellcheck: run-unit.sh 구문 검사 ─────────────────────────────────────
+  shellcheck:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+
+      - name: Run shellcheck on run-unit.sh
+        run: shellcheck -s bash -S warning tests/run-unit.sh
+
+  # ── bats: Unit e2e 시나리오 테스트 ──────────────────────────────────────
+  bats-e2e-local:
+    runs-on: ubuntu-24.04-arm
+    needs: shellcheck
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bats jq curl
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_arm64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Build Docker Compose images
+        run: docker compose -f tests/docker-compose.yml build
+
+      - name: Run Unit E2E BATS tests
+        # DLD-469: skip이 제거된 테스트를 Docker Compose 환경에서 실제 실행합니다.
+        run: bats tests/tests/run-local.bats

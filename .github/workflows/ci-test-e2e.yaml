@@ -1,0 +1,246 @@
+name: "CI: Test E2E (kind + Argo, real API)"
+# DLD-465: E2E 풀 테스트를 실제로 동작하게 구현.
+# 이 workflow는 kind 클러스터에서 Argo를 통해 실제 Claude Agent +
+# 실제 Linear/GitHub API로 시나리오를 실행합니다.
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: "실행할 시나리오 (all 또는 시나리오명: report-action | create-pr-action | none-action)"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - "all"
+          - "report-action"
+          - "create-pr-action"
+          - "none-action"
+          - "linear-issue-env-selection"
+          - "planner-infra-env"
+          - "planner-python-env"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+# Required GitHub Actions secrets:
+#   LINEAR_API_KEY            — Linear Personal API Key (테스트 전용)
+#   LINEAR_TEAM_ID            — Linear Team ID
+#   GH_PAT                    — GitHub PAT (PR 생성용, repo scope 필요)
+#   CLAUDE_CODE_OAUTH_TOKEN   — Claude Code OAuth token
+
+env:
+  E2E_SKIP: "false"
+  CLUSTER_NAME: "pure-agent-e2e-full"
+  ARGO_NAMESPACE: "argo"
+  PURE_AGENT_NAMESPACE: "pure-agent"
+  KIND_VERSION: "v0.22.0"
+  ARGO_VERSION: "v3.6.4"
+  YQ_VERSION: "v4.43.1"
+  GH_CLI_VERSION: "2.67.0"
+
+jobs:
+  e2e-full:
+    runs-on: ubuntu-24.04-arm
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Tool installation ─────────────────────────────────────────────────────
+      - name: Install dependencies (kind, kubectl, argo CLI, jq, curl, yq)
+        run: |
+          set -euo pipefail
+
+          # kind
+          sudo curl -Lo /usr/local/bin/kind \
+            "https://kind.sigs.k8s.io/dl/${KIND_VERSION}/kind-linux-arm64"
+          sudo chmod +x /usr/local/bin/kind
+
+          # kubectl
+          sudo curl -Lo /usr/local/bin/kubectl \
+            "https://dl.k8s.io/release/$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/arm64/kubectl"
+          sudo chmod +x /usr/local/bin/kubectl
+
+          # argo CLI
+          curl -sLO "https://github.com/argoproj/argo-workflows/releases/download/${ARGO_VERSION}/argo-linux-arm64.gz"
+          gunzip argo-linux-arm64.gz
+          chmod +x argo-linux-arm64
+          sudo mv argo-linux-arm64 /usr/local/bin/argo
+
+          # gh CLI
+          curl -sLO "https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_arm64.tar.gz"
+          tar -xzf "gh_${GH_CLI_VERSION}_linux_arm64.tar.gz"
+          sudo mv "gh_${GH_CLI_VERSION}_linux_arm64/bin/gh" /usr/local/bin/gh
+          sudo chmod +x /usr/local/bin/gh
+          rm -rf "gh_${GH_CLI_VERSION}_linux_arm64" "gh_${GH_CLI_VERSION}_linux_arm64.tar.gz"
+
+          # jq (ubuntu-latest에 포함되어 있으나 명시적으로 보장)
+          sudo apt-get update -q && sudo apt-get install -y -q jq curl
+
+          # yq (YAML patching용)
+          sudo curl -Lo /usr/local/bin/yq \
+            "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_arm64"
+          sudo chmod +x /usr/local/bin/yq
+
+      # ── Cluster setup ─────────────────────────────────────────────────────────
+      - name: Set up kind cluster and install Argo Workflows
+        run: |
+          bash tests/lib/setup-kind.sh \
+            --cluster-name "$CLUSTER_NAME"
+
+      # ── Build and load images (GHA cache, no push) ──────────────────────────
+      - name: Build claude-agent image
+        uses: ./.github/actions/build-image
+        with:
+          service: claude-agent
+          push: "false"
+
+      - name: Build mcp-server image
+        uses: ./.github/actions/build-image
+        with:
+          service: mcp-server
+          push: "false"
+
+      - name: Build gate image
+        uses: ./.github/actions/build-image
+        with:
+          service: gate
+          push: "false"
+
+      - name: Build planner image
+        uses: ./.github/actions/build-image
+        with:
+          service: planner
+          push: "false"
+
+      - name: Build export-handler image
+        uses: ./.github/actions/build-image
+        with:
+          service: export-handler
+          push: "false"
+
+      - name: Load images into kind cluster
+        run: |
+          bash tests/lib/setup-kind.sh \
+            --cluster-name "$CLUSTER_NAME" \
+            --images "ghcr.io/dlddu/pure-agent/claude-agent:latest,ghcr.io/dlddu/pure-agent/mcp-server:latest,ghcr.io/dlddu/pure-agent/gate:latest,ghcr.io/dlddu/pure-agent/planner:latest,ghcr.io/dlddu/pure-agent/export-handler:latest"
+
+      # ── Kubernetes namespace and secrets ──────────────────────────────────────
+      - name: Create namespace and secrets for pure-agent
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+          GITHUB_TOKEN_SECRET: ${{ secrets.GH_PAT }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          GATEKEEPER_URL: ${{ secrets.GATEKEEPER_URL }}
+          GATEKEEPER_API_KEY: ${{ secrets.GATEKEEPER_API_KEY }}
+          GATEKEEPER_USER_ID: ${{ secrets.GATEKEEPER_USER_ID }}
+        run: |
+          set -euo pipefail
+          kubectl --context "kind-${CLUSTER_NAME}" create namespace "$PURE_AGENT_NAMESPACE" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+          # mcp-server-secrets
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create secret generic mcp-server-secrets \
+              --from-literal=LINEAR_API_KEY="$LINEAR_API_KEY" \
+              --from-literal=LINEAR_TEAM_ID="$LINEAR_TEAM_ID" \
+              --from-literal=GATEKEEPER_URL="$GATEKEEPER_URL" \
+              --from-literal=GATEKEEPER_API_KEY="$GATEKEEPER_API_KEY" \
+              --from-literal=GATEKEEPER_USER_ID="$GATEKEEPER_USER_ID" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+          # export-handler-secrets
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create secret generic export-handler-secrets \
+              --from-literal=LINEAR_API_KEY="$LINEAR_API_KEY" \
+              --from-literal=GITHUB_TOKEN="$GITHUB_TOKEN_SECRET" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+          # agent-secrets
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create secret generic agent-secrets \
+              --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$CLAUDE_CODE_OAUTH_TOKEN" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+          # planner-secrets
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create secret generic planner-secrets \
+              --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$CLAUDE_CODE_OAUTH_TOKEN" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+          # gate-secrets
+          kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
+            create secret generic gate-secrets \
+              --from-literal=AWS_S3_BUCKET_NAME="e2e-test-bucket" \
+              --dry-run=client -o yaml | kubectl apply -f -
+
+      # ── Apply RBAC, ConfigMap, NetworkPolicy ──────────────────────────────────
+      - name: Apply K8s resources (RBAC, ConfigMap, NetworkPolicy)
+        run: |
+          set -euo pipefail
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            apply -n "$PURE_AGENT_NAMESPACE" -f k8s/rbac.yaml
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            apply -n "$PURE_AGENT_NAMESPACE" -f k8s/configmap.yaml
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            apply -n "$PURE_AGENT_NAMESPACE" -f k8s/network-policy.yaml
+
+
+      # ── Apply WorkflowTemplate ────────────────────────────────────────────────
+      - name: Apply Argo WorkflowTemplate
+        run: |
+          set -euo pipefail
+
+          # Patch for kind cluster compatibility (operate on a copy)
+          cp k8s/workflow-template.yaml /tmp/workflow-template-patched.yaml
+
+          # Replace efs storageClassName with standard (supported by kind)
+          sed -i 's/storageClassName: efs/storageClassName: standard/' \
+            /tmp/workflow-template-patched.yaml
+
+          # Change ReadWriteMany to ReadWriteOnce (kind local-path only supports RWO)
+          sed -i 's/ReadWriteMany/ReadWriteOnce/' \
+            /tmp/workflow-template-patched.yaml
+
+          # Remove nodeSelector and tolerations (node labels not present in kind)
+          yq -i 'del(.spec.templates[].nodeSelector)' \
+            /tmp/workflow-template-patched.yaml
+          yq -i 'del(.spec.templates[].tolerations)' \
+            /tmp/workflow-template-patched.yaml
+
+          # Set imagePullPolicy to IfNotPresent so kind uses locally loaded images
+          # Only patch templates that already have a container field (skip DAG/steps templates)
+          yq -i '(.spec.templates[] | select(has("container")) | .container.imagePullPolicy) = "IfNotPresent"' \
+            /tmp/workflow-template-patched.yaml
+
+          # gate에 LocalStack S3 접속용 환경변수 주입 (gate-secrets에서 읽음)
+          yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "AWS_ENDPOINT_URL", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ENDPOINT_URL", "optional": true}}}, {"name": "AWS_ACCESS_KEY_ID", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ACCESS_KEY_ID", "optional": true}}}, {"name": "AWS_SECRET_ACCESS_KEY", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_SECRET_ACCESS_KEY", "optional": true}}}]' \
+            /tmp/workflow-template-patched.yaml
+
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            apply -n "$PURE_AGENT_NAMESPACE" -f /tmp/workflow-template-patched.yaml
+
+      # ── Run E2E scenarios ─────────────────────────────────────────────────────
+      - name: Run E2E scenarios (run-e2e.sh)
+        env:
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+          LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
+          GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+          GITHUB_TEST_REPO: ${{ vars.E2E_TEST_REPO }}
+          KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"
+        run: |
+          bash tests/run-e2e.sh \
+            --scenario "${{ github.event.inputs.scenario || 'all' }}" \
+            --namespace "$PURE_AGENT_NAMESPACE"
+
+      # ── Teardown ──────────────────────────────────────────────────────────────
+      - name: Tear down kind cluster
+        if: always()
+        run: |
+          kind delete cluster --name "$CLUSTER_NAME" || true
