@@ -28,6 +28,7 @@ metadata:
 spec:
   entrypoint: main
   serviceAccountName: argo-workflow-sa
+  activeDeadlineSeconds: 7200
 
   arguments:
     parameters:
