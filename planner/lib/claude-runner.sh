@@ -41,6 +41,18 @@ run_claude() {
   [ -f "$CLAUDE_OUTPUT" ] && output_size=$(wc -c < "$CLAUDE_OUTPUT")
   log "Claude CLI exit=$CLAUDE_EXIT_CODE, output=${output_size} bytes"
 
+  # Extract session ID from first line of stream-json output
+  if [ -f "$CLAUDE_OUTPUT" ] && [ "$output_size" -gt 0 ]; then
+    local session_id
+    session_id=$(head -1 "$CLAUDE_OUTPUT" | jq -r '.session_id // empty' 2>/dev/null) || true
+    if [ -n "$session_id" ]; then
+      echo "$session_id" > /tmp/session_id.txt
+      log "Session ID: $session_id"
+    else
+      warn "No session ID found in Claude output"
+    fi
+  fi
+
   return 0
 }
 
