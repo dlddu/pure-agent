@@ -24,7 +24,7 @@ export class SessionService implements ISessionService {
     this.workDir = options.workDir;
     this.readFile = options.readFile;
     this.stat = options.stat;
-    this.delayMs = options.delayMs ?? 5_000;
+    this.delayMs = options.delayMs ?? 10_000;
   }
 
   async readSessionId(): Promise<SessionInfo | undefined> {
