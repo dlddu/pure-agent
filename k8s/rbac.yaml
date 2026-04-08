@@ -39,3 +39,61 @@ roleRef:
   kind: Role
   name: argo-workflow-role
   apiGroup: rbac.authorization.k8s.io
+---
+# =============================================================================
+# infra-agent: dedicated ServiceAccount with cluster-wide read-only access.
+# Only applied to pods running the infra-agent image (selected by the planner
+# when raw_environment_id == "infra"). See k8s/workflow-template.yaml.
+# =============================================================================
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: infra-agent-sa
+  namespace: pure-agent
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: infra-agent-cluster-read
+rules:
+  - apiGroups: [""]
+    resources: [pods, pods/log]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [events]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [nodes]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [namespaces]
+    verbs: [get, list, watch]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: infra-agent-cluster-read-binding
+subjects:
+  - kind: ServiceAccount
+    name: infra-agent-sa
+    namespace: pure-agent
+roleRef:
+  kind: ClusterRole
+  name: infra-agent-cluster-read
+  apiGroup: rbac.authorization.k8s.io
+---
+# infra-agent pods reuse the agent-job template, so they also need the
+# namespace-scoped workflow permissions (workdir PVC, agent-secrets, etc.).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: infra-agent-workflow-binding
+  namespace: pure-agent
+subjects:
+  - kind: ServiceAccount
+    name: infra-agent-sa
+    namespace: pure-agent
+roleRef:
+  kind: Role
+  name: argo-workflow-role
+  apiGroup: rbac.authorization.k8s.io

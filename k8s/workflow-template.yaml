@@ -210,6 +210,11 @@ spec:
                   value: "{{inputs.parameters.mcp_host}}"
                 - name: agent_image
                   value: "{{steps.planner.outputs.parameters.agent_image}}"
+                # Grant cluster-wide read-only RBAC only when the planner
+                # selected the infra environment; all other agents fall
+                # back to the namespace-scoped argo-workflow-sa.
+                - name: service_account
+                  value: "{{= steps.planner.outputs.parameters.raw_environment_id == 'infra' ? 'infra-agent-sa' : 'argo-workflow-sa' }}"
         - - name: gate
             template: gate
             arguments:
@@ -302,6 +307,7 @@ spec:
     # Agent Job
     # =============================
     - name: agent-job
+      serviceAccountName: "{{inputs.parameters.service_account}}"
       metadata:
         labels:
           pure-agent/role: agent
@@ -312,6 +318,8 @@ spec:
           - name: llm_gateway_host
           - name: mcp_host
           - name: agent_image
+          - name: service_account
+            default: argo-workflow-sa
       outputs:
         parameters:
           - name: result
