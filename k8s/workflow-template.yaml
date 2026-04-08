@@ -344,9 +344,9 @@ spec:
         command: ["/home/claude/entrypoint.sh"]
         resources:
           requests:
-            memory: 1700Mi
+            memory: 1600Mi
           limits:
-            memory: 1700Mi
+            memory: 1600Mi
         env:
           - name: PROMPT
             value: "{{inputs.parameters.prompt}}"
