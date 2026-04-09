@@ -66,9 +66,7 @@ def _collect_uploads(
         filename = os.path.basename(transcript_file)
         session_id = os.path.splitext(filename)[0]
 
-        uploads.append(
-            UploadEntry(key=_key(f"{session_id}.jsonl"), file_path=transcript_file)
-        )
+        uploads.append(UploadEntry(key=_key(f"{session_id}.jsonl"), file_path=transcript_file))
 
         subagent_dir = os.path.join(transcript_dir, session_id, "subagents")
         if os.path.isdir(subagent_dir):

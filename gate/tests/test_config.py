@@ -128,9 +128,7 @@ class TestTranscriptUploadConfig:
 
     def test_from_env_reads_assume_role_arn(self, monkeypatch):
         monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-        monkeypatch.setenv(
-            "AWS_ASSUME_ROLE_ARN", "arn:aws:iam::123456789012:role/GateUploader"
-        )
+        monkeypatch.setenv("AWS_ASSUME_ROLE_ARN", "arn:aws:iam::123456789012:role/GateUploader")
         cfg = TranscriptUploadConfig.from_env()
         assert cfg is not None
         assert cfg.assume_role_arn == "arn:aws:iam::123456789012:role/GateUploader"
