@@ -3,8 +3,10 @@
 Port of export-handler/src/services/transcript-upload.ts.
 
 Directory structure:
-  <transcript_dir>/<sessionId>.jsonl             -> s3://<bucket>/<sessionId>.jsonl
-  <transcript_dir>/<sessionId>/subagents/*.jsonl  -> s3://<bucket>/<sessionId>/<filename>.jsonl
+  <transcript_dir>/<sessionId>.jsonl             -> s3://<bucket>/<prefix>/<sessionId>.jsonl
+  <transcript_dir>/<sessionId>/subagents/*.jsonl -> s3://<bucket>/<prefix>/<sessionId>/<filename>.jsonl
+
+The "<prefix>/" segment is omitted when no prefix is configured.
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from gate.config import TranscriptUploadConfig
 logger = logging.getLogger("gate")
 
 TRANSCRIPT_UPLOAD_CONCURRENCY = 5
+ASSUME_ROLE_SESSION_NAME = "gate-transcript-upload"
 
 
 class S3Uploader(Protocol):
@@ -47,14 +50,23 @@ def _find_transcript_files(transcript_dir: str) -> list[str]:
     ]
 
 
-def _collect_uploads(transcript_dir: str, transcript_files: list[str]) -> list[UploadEntry]:
-    """Build the full list of uploads: main transcripts + subagent transcripts."""
+def _collect_uploads(
+    transcript_dir: str, transcript_files: list[str], prefix: str = ""
+) -> list[UploadEntry]:
+    """Build the full list of uploads: main transcripts + subagent transcripts.
+
+    If ``prefix`` is non-empty it is prepended to every S3 key (with a ``/`` separator).
+    """
+
+    def _key(suffix: str) -> str:
+        return f"{prefix}/{suffix}" if prefix else suffix
+
     uploads: list[UploadEntry] = []
     for transcript_file in transcript_files:
         filename = os.path.basename(transcript_file)
         session_id = os.path.splitext(filename)[0]
 
-        uploads.append(UploadEntry(key=f"{session_id}.jsonl", file_path=transcript_file))
+        uploads.append(UploadEntry(key=_key(f"{session_id}.jsonl"), file_path=transcript_file))
 
         subagent_dir = os.path.join(transcript_dir, session_id, "subagents")
         if os.path.isdir(subagent_dir):
@@ -62,7 +74,7 @@ def _collect_uploads(transcript_dir: str, transcript_files: list[str]) -> list[U
                 if sub_file.endswith(".jsonl"):
                     uploads.append(
                         UploadEntry(
-                            key=f"{session_id}/{sub_file}",
+                            key=_key(f"{session_id}/{sub_file}"),
                             file_path=os.path.join(subagent_dir, sub_file),
                         )
                     )
@@ -79,6 +91,39 @@ def _upload_single(uploader: S3Uploader, bucket_name: str, entry: UploadEntry) -
     )
 
 
+def _assume_role_credentials(config: TranscriptUploadConfig) -> dict[str, str]:
+    """Call STS AssumeRole and return temporary credentials as boto3 client kwargs."""
+    import boto3
+
+    sts_kwargs: dict[str, str] = {"region_name": config.region}
+    if config.endpoint_url:
+        sts_kwargs["endpoint_url"] = config.endpoint_url
+    sts = boto3.client("sts", **sts_kwargs)
+    logger.info("Assuming role for transcript upload: %s", config.assume_role_arn)
+    response = sts.assume_role(
+        RoleArn=config.assume_role_arn,
+        RoleSessionName=ASSUME_ROLE_SESSION_NAME,
+    )
+    creds = response["Credentials"]
+    return {
+        "aws_access_key_id": creds["AccessKeyId"],
+        "aws_secret_access_key": creds["SecretAccessKey"],
+        "aws_session_token": creds["SessionToken"],
+    }
+
+
+def _create_s3_client(config: TranscriptUploadConfig) -> S3Uploader:
+    """Build a boto3 S3 client, optionally using STS AssumeRole credentials."""
+    import boto3
+
+    client_kwargs: dict[str, str] = {"region_name": config.region}
+    if config.endpoint_url:
+        client_kwargs["endpoint_url"] = config.endpoint_url
+    if config.assume_role_arn:
+        client_kwargs.update(_assume_role_credentials(config))
+    return boto3.client("s3", **client_kwargs)
+
+
 def upload_transcripts(
     transcript_dir: str,
     config: TranscriptUploadConfig,
@@ -89,18 +134,14 @@ def upload_transcripts(
     Args:
         transcript_dir: Path to the .transcripts directory.
         config: AWS bucket/region configuration.
-        uploader: Injectable S3 client for testing. If None, creates a real boto3 client.
+        uploader: Injectable S3 client for testing. If None, creates a real boto3 client
+            (optionally using STS AssumeRole when ``config.assume_role_arn`` is set).
 
     Returns:
         Number of files uploaded.
     """
     if uploader is None:
-        import boto3
-
-        client_kwargs: dict[str, str] = {"region_name": config.region}
-        if config.endpoint_url:
-            client_kwargs["endpoint_url"] = config.endpoint_url
-        uploader = boto3.client("s3", **client_kwargs)
+        uploader = _create_s3_client(config)
 
     transcript_files = _find_transcript_files(transcript_dir)
     logger.info(
@@ -113,7 +154,7 @@ def upload_transcripts(
         logger.info("No transcript files found. Skipping upload.")
         return 0
 
-    uploads = _collect_uploads(transcript_dir, transcript_files)
+    uploads = _collect_uploads(transcript_dir, transcript_files, config.prefix)
 
     with ThreadPoolExecutor(
         max_workers=min(TRANSCRIPT_UPLOAD_CONCURRENCY, len(uploads))
@@ -125,5 +166,10 @@ def upload_transcripts(
         for future in as_completed(futures):
             future.result()
 
-    logger.info("Uploaded %d transcript file(s) to s3://%s/", len(uploads), config.bucket_name)
+    logger.info(
+        "Uploaded %d transcript file(s) to s3://%s/%s",
+        len(uploads),
+        config.bucket_name,
+        f"{config.prefix}/" if config.prefix else "",
+    )
     return len(uploads)
