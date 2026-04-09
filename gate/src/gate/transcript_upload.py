@@ -22,6 +22,7 @@ from gate.config import TranscriptUploadConfig
 logger = logging.getLogger("gate")
 
 TRANSCRIPT_UPLOAD_CONCURRENCY = 5
+ASSUME_ROLE_SESSION_NAME = "gate-transcript-upload"
 
 
 class S3Uploader(Protocol):
@@ -92,6 +93,39 @@ def _upload_single(uploader: S3Uploader, bucket_name: str, entry: UploadEntry) -
     )
 
 
+def _assume_role_credentials(config: TranscriptUploadConfig) -> dict[str, str]:
+    """Call STS AssumeRole and return temporary credentials as boto3 client kwargs."""
+    import boto3
+
+    sts_kwargs: dict[str, str] = {"region_name": config.region}
+    if config.endpoint_url:
+        sts_kwargs["endpoint_url"] = config.endpoint_url
+    sts = boto3.client("sts", **sts_kwargs)
+    logger.info("Assuming role for transcript upload: %s", config.assume_role_arn)
+    response = sts.assume_role(
+        RoleArn=config.assume_role_arn,
+        RoleSessionName=ASSUME_ROLE_SESSION_NAME,
+    )
+    creds = response["Credentials"]
+    return {
+        "aws_access_key_id": creds["AccessKeyId"],
+        "aws_secret_access_key": creds["SecretAccessKey"],
+        "aws_session_token": creds["SessionToken"],
+    }
+
+
+def _create_s3_client(config: TranscriptUploadConfig) -> S3Uploader:
+    """Build a boto3 S3 client, optionally using STS AssumeRole credentials."""
+    import boto3
+
+    client_kwargs: dict[str, str] = {"region_name": config.region}
+    if config.endpoint_url:
+        client_kwargs["endpoint_url"] = config.endpoint_url
+    if config.assume_role_arn:
+        client_kwargs.update(_assume_role_credentials(config))
+    return boto3.client("s3", **client_kwargs)
+
+
 def upload_transcripts(
     transcript_dir: str,
     config: TranscriptUploadConfig,
@@ -102,18 +136,14 @@ def upload_transcripts(
     Args:
         transcript_dir: Path to the .transcripts directory.
         config: AWS bucket/region configuration.
-        uploader: Injectable S3 client for testing. If None, creates a real boto3 client.
+        uploader: Injectable S3 client for testing. If None, creates a real boto3 client
+            (optionally using STS AssumeRole when ``config.assume_role_arn`` is set).
 
     Returns:
         Number of files uploaded.
     """
     if uploader is None:
-        import boto3
-
-        client_kwargs: dict[str, str] = {"region_name": config.region}
-        if config.endpoint_url:
-            client_kwargs["endpoint_url"] = config.endpoint_url
-        uploader = boto3.client("s3", **client_kwargs)
+        uploader = _create_s3_client(config)
 
     transcript_files = _find_transcript_files(transcript_dir)
     logger.info(

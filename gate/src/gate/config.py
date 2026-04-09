@@ -34,6 +34,7 @@ class TranscriptUploadConfig:
     region: str
     endpoint_url: str | None = None
     prefix: str = ""
+    assume_role_arn: str | None = None
 
     @classmethod
     def from_env(cls) -> TranscriptUploadConfig | None:
@@ -44,9 +45,11 @@ class TranscriptUploadConfig:
         region = os.environ.get("AWS_REGION", "ap-northeast-2")
         endpoint_url = os.environ.get("AWS_ENDPOINT_URL") or None
         prefix = os.environ.get("AWS_S3_PREFIX", "").strip("/")
+        assume_role_arn = os.environ.get("AWS_ASSUME_ROLE_ARN") or None
         return cls(
             bucket_name=bucket,
             region=region,
             endpoint_url=endpoint_url,
             prefix=prefix,
+            assume_role_arn=assume_role_arn,
         )

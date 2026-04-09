@@ -119,6 +119,29 @@ class TestTranscriptUploadConfig:
         assert cfg is not None
         assert cfg.prefix == "foo/bar/baz"
 
+    def test_from_env_assume_role_arn_defaults_to_none(self, monkeypatch):
+        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
+        monkeypatch.delenv("AWS_ASSUME_ROLE_ARN", raising=False)
+        cfg = TranscriptUploadConfig.from_env()
+        assert cfg is not None
+        assert cfg.assume_role_arn is None
+
+    def test_from_env_reads_assume_role_arn(self, monkeypatch):
+        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
+        monkeypatch.setenv(
+            "AWS_ASSUME_ROLE_ARN", "arn:aws:iam::123456789012:role/GateUploader"
+        )
+        cfg = TranscriptUploadConfig.from_env()
+        assert cfg is not None
+        assert cfg.assume_role_arn == "arn:aws:iam::123456789012:role/GateUploader"
+
+    def test_from_env_assume_role_arn_empty_string_becomes_none(self, monkeypatch):
+        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
+        monkeypatch.setenv("AWS_ASSUME_ROLE_ARN", "")
+        cfg = TranscriptUploadConfig.from_env()
+        assert cfg is not None
+        assert cfg.assume_role_arn is None
+
     def test_frozen(self):
         cfg = TranscriptUploadConfig(bucket_name="b", region="r")
         with pytest.raises(AttributeError):
