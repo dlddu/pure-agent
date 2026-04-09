@@ -3,8 +3,10 @@
 Port of export-handler/src/services/transcript-upload.ts.
 
 Directory structure:
-  <transcript_dir>/<sessionId>.jsonl             -> s3://<bucket>/<sessionId>.jsonl
-  <transcript_dir>/<sessionId>/subagents/*.jsonl  -> s3://<bucket>/<sessionId>/<filename>.jsonl
+  <transcript_dir>/<sessionId>.jsonl             -> s3://<bucket>/<prefix>/<sessionId>.jsonl
+  <transcript_dir>/<sessionId>/subagents/*.jsonl -> s3://<bucket>/<prefix>/<sessionId>/<filename>.jsonl
+
+The "<prefix>/" segment is omitted when no prefix is configured.
 """
 
 from __future__ import annotations
@@ -47,14 +49,25 @@ def _find_transcript_files(transcript_dir: str) -> list[str]:
     ]
 
 
-def _collect_uploads(transcript_dir: str, transcript_files: list[str]) -> list[UploadEntry]:
-    """Build the full list of uploads: main transcripts + subagent transcripts."""
+def _collect_uploads(
+    transcript_dir: str, transcript_files: list[str], prefix: str = ""
+) -> list[UploadEntry]:
+    """Build the full list of uploads: main transcripts + subagent transcripts.
+
+    If ``prefix`` is non-empty it is prepended to every S3 key (with a ``/`` separator).
+    """
+
+    def _key(suffix: str) -> str:
+        return f"{prefix}/{suffix}" if prefix else suffix
+
     uploads: list[UploadEntry] = []
     for transcript_file in transcript_files:
         filename = os.path.basename(transcript_file)
         session_id = os.path.splitext(filename)[0]
 
-        uploads.append(UploadEntry(key=f"{session_id}.jsonl", file_path=transcript_file))
+        uploads.append(
+            UploadEntry(key=_key(f"{session_id}.jsonl"), file_path=transcript_file)
+        )
 
         subagent_dir = os.path.join(transcript_dir, session_id, "subagents")
         if os.path.isdir(subagent_dir):
@@ -62,7 +75,7 @@ def _collect_uploads(transcript_dir: str, transcript_files: list[str]) -> list[U
                 if sub_file.endswith(".jsonl"):
                     uploads.append(
                         UploadEntry(
-                            key=f"{session_id}/{sub_file}",
+                            key=_key(f"{session_id}/{sub_file}"),
                             file_path=os.path.join(subagent_dir, sub_file),
                         )
                     )
@@ -113,7 +126,7 @@ def upload_transcripts(
         logger.info("No transcript files found. Skipping upload.")
         return 0
 
-    uploads = _collect_uploads(transcript_dir, transcript_files)
+    uploads = _collect_uploads(transcript_dir, transcript_files, config.prefix)
 
     with ThreadPoolExecutor(
         max_workers=min(TRANSCRIPT_UPLOAD_CONCURRENCY, len(uploads))
@@ -125,5 +138,10 @@ def upload_transcripts(
         for future in as_completed(futures):
             future.result()
 
-    logger.info("Uploaded %d transcript file(s) to s3://%s/", len(uploads), config.bucket_name)
+    logger.info(
+        "Uploaded %d transcript file(s) to s3://%s/%s",
+        len(uploads),
+        config.bucket_name,
+        f"{config.prefix}/" if config.prefix else "",
+    )
     return len(uploads)

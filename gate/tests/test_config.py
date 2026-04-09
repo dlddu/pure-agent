@@ -84,6 +84,41 @@ class TestTranscriptUploadConfig:
         assert cfg is not None
         assert cfg.endpoint_url is None
 
+    def test_from_env_prefix_defaults_to_empty(self, monkeypatch):
+        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
+        monkeypatch.delenv("AWS_S3_PREFIX", raising=False)
+        cfg = TranscriptUploadConfig.from_env()
+        assert cfg is not None
+        assert cfg.prefix == ""
+
+    def test_from_env_prefix_plain(self, monkeypatch):
+        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
+        monkeypatch.setenv("AWS_S3_PREFIX", "transcripts")
+        cfg = TranscriptUploadConfig.from_env()
+        assert cfg is not None
+        assert cfg.prefix == "transcripts"
+
+    def test_from_env_prefix_strips_trailing_slash(self, monkeypatch):
+        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
+        monkeypatch.setenv("AWS_S3_PREFIX", "transcripts/")
+        cfg = TranscriptUploadConfig.from_env()
+        assert cfg is not None
+        assert cfg.prefix == "transcripts"
+
+    def test_from_env_prefix_strips_leading_and_trailing_slashes(self, monkeypatch):
+        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
+        monkeypatch.setenv("AWS_S3_PREFIX", "/transcripts/")
+        cfg = TranscriptUploadConfig.from_env()
+        assert cfg is not None
+        assert cfg.prefix == "transcripts"
+
+    def test_from_env_prefix_preserves_interior_slashes(self, monkeypatch):
+        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
+        monkeypatch.setenv("AWS_S3_PREFIX", "foo/bar/baz")
+        cfg = TranscriptUploadConfig.from_env()
+        assert cfg is not None
+        assert cfg.prefix == "foo/bar/baz"
+
     def test_frozen(self):
         cfg = TranscriptUploadConfig(bucket_name="b", region="r")
         with pytest.raises(AttributeError):

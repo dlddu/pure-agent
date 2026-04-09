@@ -98,6 +98,23 @@ class TestCollectUploads:
         keys = {u.key for u in uploads}
         assert keys == {"abc123.jsonl", "abc123/sub1.jsonl"}
 
+    def test_prefix_prepended_to_main_and_subagent_keys(self, tmp_path):
+        transcript_file = str(tmp_path / "abc123.jsonl")
+        Path(transcript_file).write_text("")
+        subagent_dir = tmp_path / "abc123" / "subagents"
+        subagent_dir.mkdir(parents=True)
+        (subagent_dir / "sub1.jsonl").write_text("")
+
+        uploads = _collect_uploads(str(tmp_path), [transcript_file], "env/prod")
+        keys = {u.key for u in uploads}
+        assert keys == {"env/prod/abc123.jsonl", "env/prod/abc123/sub1.jsonl"}
+
+    def test_empty_prefix_leaves_keys_unchanged(self, tmp_path):
+        transcript_file = str(tmp_path / "abc123.jsonl")
+        Path(transcript_file).write_text("")
+        uploads = _collect_uploads(str(tmp_path), [transcript_file], "")
+        assert [u.key for u in uploads] == ["abc123.jsonl"]
+
 
 # ── upload_transcripts ──────────────────────────────────
 
@@ -156,6 +173,20 @@ class TestUploadTranscripts:
             Body=b"data",
             ContentType="application/jsonl",
         )
+
+    def test_uploads_with_prefix(self, tmp_path, mock_s3):
+        config = TranscriptUploadConfig(
+            bucket_name="my-bucket", region="ap-northeast-2", prefix="env/prod"
+        )
+        (tmp_path / "abc123.jsonl").write_text("data")
+        sub_dir = tmp_path / "abc123" / "subagents"
+        sub_dir.mkdir(parents=True)
+        (sub_dir / "sub1.jsonl").write_text("sub")
+
+        count = upload_transcripts(str(tmp_path), config, mock_s3)
+        assert count == 2
+        keys = {call.kwargs["Key"] for call in mock_s3.put_object.call_args_list}
+        assert keys == {"env/prod/abc123.jsonl", "env/prod/abc123/sub1.jsonl"}
 
     def test_creates_client_with_endpoint_url(self, tmp_path, monkeypatch):
         """When endpoint_url is set, boto3 client receives it (for LocalStack)."""
