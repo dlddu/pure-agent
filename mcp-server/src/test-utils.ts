@@ -2,7 +2,12 @@ import { vi } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer, type McpServerDeps } from "./server.js";
-import type { ILinearService, ISessionService, IGatekeeperService } from "./services/types.js";
+import type {
+  ILinearService,
+  ISessionService,
+  IGatekeeperService,
+  IExchangeRatesService,
+} from "./services/types.js";
 import type { McpToolContext, McpToolExtra } from "./tools/types.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,6 +71,17 @@ export function createMockGatekeeperService(
   } as IGatekeeperService;
 }
 
+export function createMockExchangeRatesService(
+  overrides?: Partial<Record<keyof IExchangeRatesService, ReturnType<typeof vi.fn>>>,
+): IExchangeRatesService {
+  return {
+    getRates: vi.fn().mockResolvedValue([
+      { date: "2024-01-15", base: "USD", quote: "KRW", rate: 1320.5 },
+    ]),
+    ...overrides,
+  } as IExchangeRatesService;
+}
+
 export function createMockLogger() {
   return {
     info: vi.fn(),
@@ -101,6 +117,7 @@ export function createMockContext(overrides?: {
   linear?: Partial<Record<keyof ILinearService, ReturnType<typeof vi.fn>>>;
   session?: Partial<Record<keyof ISessionService, ReturnType<typeof vi.fn>>>;
   gatekeeper?: Partial<Record<keyof IGatekeeperService, ReturnType<typeof vi.fn>>>;
+  exchangeRates?: Partial<Record<keyof IExchangeRatesService, ReturnType<typeof vi.fn>>>;
   workDir?: string;
 }): McpToolContext {
   return {
@@ -108,6 +125,7 @@ export function createMockContext(overrides?: {
       linear: createMockLinearService(overrides?.linear),
       session: createMockSessionService(overrides?.session),
       gatekeeper: createMockGatekeeperService(overrides?.gatekeeper),
+      exchangeRates: createMockExchangeRatesService(overrides?.exchangeRates),
     },
     fs: createMockFs(),
     exec: createMockExec(),

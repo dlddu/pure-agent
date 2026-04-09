@@ -101,3 +101,30 @@ export interface IGatekeeperService {
     context: string,
   ): Promise<ApprovalResult>;
 }
+
+export interface ExchangeRateRow {
+  date: string;
+  [key: string]: unknown;
+}
+
+export interface GetRatesInput {
+  dateFrom: string;
+  dateTo: string;
+}
+
+export interface IExchangeRatesService {
+  getRates(input: GetRatesInput): Promise<ExchangeRateRow[]>;
+}
+
+export interface S3ClientLike {
+  send(cmd: unknown): Promise<{ Body?: unknown }>;
+}
+
+export interface ExchangeRatesServiceOptions {
+  s3Client: S3ClientLike;
+  bucket: string;
+  prefix?: string;
+  readParquet: (bytes: Uint8Array) => Promise<Record<string, unknown>[]>;
+  logger?: import("../logger.js").Logger;
+  maxMonths?: number;
+}

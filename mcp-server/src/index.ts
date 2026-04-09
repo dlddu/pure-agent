@@ -3,11 +3,14 @@ import { writeFile, readFile, access, stat } from "node:fs/promises";
 import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
 import { LinearClient } from "@linear/sdk";
+import { S3Client } from "@aws-sdk/client-s3";
+import { parquetReadObjects } from "hyparquet";
 import { createMcpServer } from "./server.js";
 import { createHttpTransport } from "./transport.js";
 import { LinearService } from "./services/linear.js";
 import { SessionService } from "./services/session.js";
 import { GatekeeperService } from "./services/gatekeeper.js";
+import { ExchangeRatesService } from "./services/exchange-rates.js";
 import { createDefaultTools } from "./tools/registry.js";
 import { sessionCommentHook } from "./hooks/post-tool-hooks.js";
 import { createLogger } from "./logger.js";
@@ -44,8 +47,32 @@ async function main() {
     fetch: globalThis.fetch,
   });
 
+  const s3Client = new S3Client({
+    region: config.AWS_REGION,
+    ...(config.AWS_ENDPOINT_URL && {
+      endpoint: config.AWS_ENDPOINT_URL,
+      forcePathStyle: true,
+    }),
+  });
+
+  const exchangeRatesService = new ExchangeRatesService({
+    s3Client,
+    bucket: config.AWS_S3_BUCKET_NAME ?? "",
+    readParquet: async (bytes) => {
+      const file = new ArrayBuffer(bytes.byteLength);
+      new Uint8Array(file).set(bytes);
+      return (await parquetReadObjects({ file })) as Record<string, unknown>[];
+    },
+    logger: createLogger("exchange-rates"),
+  });
+
   const toolContext: McpToolContext = {
-    services: { linear: linearService, session: sessionService, gatekeeper: gatekeeperService },
+    services: {
+      linear: linearService,
+      session: sessionService,
+      gatekeeper: gatekeeperService,
+      exchangeRates: exchangeRatesService,
+    },
     fs: { writeFile, readFile, access },
     exec: {
       execFile: async (file, args, options) => {

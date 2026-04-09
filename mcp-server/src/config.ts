@@ -16,6 +16,9 @@ const ConfigSchema = z
     GATEKEEPER_USER_ID: z.string().optional(),
     GATEKEEPER_POLL_INTERVAL_MS: z.coerce.number().default(3000),
     GATEKEEPER_TIMEOUT_MS: z.coerce.number().default(600000),
+    AWS_S3_BUCKET_NAME: z.string().optional(),
+    AWS_REGION: z.string().default("ap-northeast-2"),
+    AWS_ENDPOINT_URL: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     const hasUrl = data.GATEKEEPER_URL !== undefined && data.GATEKEEPER_URL !== "";

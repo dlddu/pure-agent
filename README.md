@@ -121,7 +121,7 @@ Agent 작업 결과를 외부로 내보내는 파이프라인. Agent가 `set_exp
 
 | Secret 이름 | 키 | 사용 컨테이너 |
 |---|---|---|
-| `mcp-server-secrets` | `LINEAR_API_KEY`, `LINEAR_TEAM_ID` | MCP Server |
+| `mcp-server-secrets` | `LINEAR_API_KEY`, `LINEAR_TEAM_ID`, `AWS_S3_BUCKET_NAME` (`get_exchange_rates` 사용 시) | MCP Server |
 | `agent-secrets` | `CLAUDE_CODE_OAUTH_TOKEN` | Claude Agent |
 | `export-handler-secrets` | `LINEAR_API_KEY`, `GITHUB_TOKEN`, `AWS_S3_BUCKET_NAME` | Export Handler |
 
