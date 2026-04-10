@@ -127,4 +127,6 @@ export interface ExchangeRatesServiceOptions {
   readParquet: (bytes: Uint8Array) => Promise<Record<string, unknown>[]>;
   logger?: import("../logger.js").Logger;
   maxMonths?: number;
+  /** When set, STS AssumeRole is called before each S3 request to obtain temporary credentials. */
+  createAssumedClient?: () => Promise<S3ClientLike>;
 }

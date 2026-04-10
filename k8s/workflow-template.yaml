@@ -145,6 +145,12 @@ spec:
               secretKeyRef:
                 name: mcp-server-secrets
                 key: AWS_S3_BUCKET_NAME
+          - name: AWS_ASSUME_ROLE_ARN
+            valueFrom:
+              secretKeyRef:
+                name: mcp-server-secrets
+                key: AWS_ASSUME_ROLE_ARN
+                optional: true
           - name: AWS_REGION
             value: "ap-northeast-2"
         volumeMounts:

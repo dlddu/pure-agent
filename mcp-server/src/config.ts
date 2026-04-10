@@ -19,6 +19,7 @@ const ConfigSchema = z
     AWS_S3_BUCKET_NAME: z.string().optional(),
     AWS_REGION: z.string().default("ap-northeast-2"),
     AWS_ENDPOINT_URL: z.string().optional(),
+    AWS_ASSUME_ROLE_ARN: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     const hasUrl = data.GATEKEEPER_URL !== undefined && data.GATEKEEPER_URL !== "";

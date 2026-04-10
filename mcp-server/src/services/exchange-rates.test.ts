@@ -264,4 +264,36 @@ describe("ExchangeRatesService.getRates", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].date).toBe("2024-01-15");
   });
+
+  it("uses createAssumedClient when provided instead of default s3Client", async () => {
+    const responses = new Map([
+      [
+        "gold/exchange_rates/year=2024/month=01/data.parquet",
+        { body: bodyFromString("jan") },
+      ],
+    ]);
+    const { client: assumedClient, calls } = makeS3Mock(responses);
+    const defaultClient: S3ClientLike = {
+      send: vi.fn().mockRejectedValue(new Error("should not be called")),
+    };
+    const readParquet = vi
+      .fn()
+      .mockResolvedValue([{ date: "2024-01-15", rate: 1300 }]);
+
+    const service = new ExchangeRatesService({
+      s3Client: defaultClient,
+      bucket,
+      readParquet,
+      createAssumedClient: vi.fn().mockResolvedValue(assumedClient),
+    });
+
+    const rows = await service.getRates({
+      dateFrom: "2024-01-01",
+      dateTo: "2024-01-31",
+    });
+
+    expect(rows).toHaveLength(1);
+    expect(calls).toHaveLength(1);
+    expect(defaultClient.send).not.toHaveBeenCalled();
+  });
 });

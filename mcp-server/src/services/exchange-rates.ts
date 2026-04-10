@@ -116,6 +116,7 @@ export class ExchangeRatesService implements IExchangeRatesService {
   private readParquet: (bytes: Uint8Array) => Promise<Record<string, unknown>[]>;
   private logger: Logger;
   private maxMonths: number;
+  private createAssumedClient?: () => Promise<S3ClientLike>;
 
   constructor(options: ExchangeRatesServiceOptions) {
     this.s3Client = options.s3Client;
@@ -124,6 +125,15 @@ export class ExchangeRatesService implements IExchangeRatesService {
     this.readParquet = options.readParquet;
     this.logger = options.logger ?? noopLogger;
     this.maxMonths = options.maxMonths ?? DEFAULT_MAX_MONTHS;
+    this.createAssumedClient = options.createAssumedClient;
+  }
+
+  private async resolveClient(): Promise<S3ClientLike> {
+    if (this.createAssumedClient) {
+      this.logger.info("Assuming role for S3 access");
+      return this.createAssumedClient();
+    }
+    return this.s3Client;
   }
 
   async getRates({ dateFrom, dateTo }: GetRatesInput): Promise<ExchangeRateRow[]> {
@@ -149,13 +159,14 @@ export class ExchangeRatesService implements IExchangeRatesService {
       partitionCount: partitions.length,
     });
 
+    const client = await this.resolveClient();
     const allRows: ExchangeRateRow[] = [];
 
     for (const { year, month } of partitions) {
       const key = buildPartitionKey(this.prefix, year, month);
       let bytes: Uint8Array;
       try {
-        const response = await this.s3Client.send(
+        const response = await client.send(
           new GetObjectCommand({ Bucket: this.bucket, Key: key }),
         );
         bytes = await streamToUint8Array(response.Body);
