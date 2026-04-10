@@ -2,6 +2,7 @@ import "dotenv/config";
 import { writeFile, readFile, access, stat } from "node:fs/promises";
 import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
+import { setTimeout as delay } from "node:timers/promises";
 import { LinearClient } from "@linear/sdk";
 import { createMcpServer } from "./server.js";
 import { createHttpTransport } from "./transport.js";
@@ -46,7 +47,19 @@ async function main() {
 
   const toolContext: McpToolContext = {
     services: { linear: linearService, session: sessionService, gatekeeper: gatekeeperService },
-    fs: { writeFile, readFile, access },
+    fs: {
+      readFile: async (path: string, encoding: BufferEncoding) => {
+        log.info("Waiting 10s before reading file", { path });
+        await delay(10_000);
+        return readFile(path, encoding);
+      },
+      writeFile: async (path: string, data: string, encoding: BufferEncoding) => {
+        await writeFile(path, data, encoding);
+        log.info("Waiting 10s after writing file", { path });
+        await delay(10_000);
+      },
+      access,
+    },
     exec: {
       execFile: async (file, args, options) => {
         const { stdout, stderr } = await execFileAsync(file, args, options);
