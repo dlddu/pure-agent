@@ -34,7 +34,19 @@ async function main() {
 
   log.info("Initializing MCP server...");
 
-  const sessionService = new SessionService({ workDir: config.WORK_DIR, readFile, stat });
+  const delayedReadFile = async (path: string, encoding: BufferEncoding) => {
+    log.info("Waiting 10s before reading file", { path });
+    await delay(10_000);
+    return readFile(path, encoding);
+  };
+
+  const delayedWriteFile = async (path: string, data: string, encoding: BufferEncoding) => {
+    await writeFile(path, data, encoding);
+    log.info("Waiting 10s after writing file", { path });
+    await delay(10_000);
+  };
+
+  const sessionService = new SessionService({ workDir: config.WORK_DIR, readFile: delayedReadFile, stat });
 
   const gatekeeperService = new GatekeeperService({
     gatekeeperUrl: config.GATEKEEPER_URL ?? "",
@@ -48,16 +60,8 @@ async function main() {
   const toolContext: McpToolContext = {
     services: { linear: linearService, session: sessionService, gatekeeper: gatekeeperService },
     fs: {
-      readFile: async (path: string, encoding: BufferEncoding) => {
-        log.info("Waiting 10s before reading file", { path });
-        await delay(10_000);
-        return readFile(path, encoding);
-      },
-      writeFile: async (path: string, data: string, encoding: BufferEncoding) => {
-        await writeFile(path, data, encoding);
-        log.info("Waiting 10s after writing file", { path });
-        await delay(10_000);
-      },
+      readFile: delayedReadFile,
+      writeFile: delayedWriteFile,
       access,
     },
     exec: {

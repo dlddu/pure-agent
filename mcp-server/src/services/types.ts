@@ -64,8 +64,6 @@ export interface SessionServiceOptions {
   workDir: string;
   readFile: (path: string, encoding: BufferEncoding) => Promise<string>;
   stat: (path: string) => Promise<{ mtimeMs: number }>;
-  /** Delay in ms before reading output files. Defaults to 10000. */
-  delayMs?: number;
 }
 
 export type SessionSource = "planner" | "agent";

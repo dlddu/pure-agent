@@ -13,7 +13,6 @@ export class SessionService implements ISessionService {
   private workDir: string;
   private readFile: (path: string, encoding: BufferEncoding) => Promise<string>;
   private stat: (path: string) => Promise<{ mtimeMs: number }>;
-  private delayMs: number;
 
   private static OUTPUT_FILES: readonly OutputFileEntry[] = [
     { filename: "last_agent_output.json", source: "agent" },
@@ -24,14 +23,9 @@ export class SessionService implements ISessionService {
     this.workDir = options.workDir;
     this.readFile = options.readFile;
     this.stat = options.stat;
-    this.delayMs = options.delayMs ?? 10_000;
   }
 
   async readSessionId(): Promise<SessionInfo | undefined> {
-    if (this.delayMs > 0) {
-      log.info("Waiting before reading session ID", { delayMs: this.delayMs });
-      await new Promise((resolve) => setTimeout(resolve, this.delayMs));
-    }
     const best = await this.mostRecentOutputFile();
     if (!best) {
       log.warn("No output files found", { workDir: this.workDir });
