@@ -4,7 +4,6 @@ import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
 import { LinearClient } from "@linear/sdk";
 import { S3Client } from "@aws-sdk/client-s3";
-import { STSClient, AssumeRoleCommand } from "@aws-sdk/client-sts";
 import { parquetReadObjects } from "hyparquet";
 import { createMcpServer } from "./server.js";
 import { createHttpTransport } from "./transport.js";
@@ -12,6 +11,7 @@ import { LinearService } from "./services/linear.js";
 import { SessionService } from "./services/session.js";
 import { GatekeeperService } from "./services/gatekeeper.js";
 import { ExchangeRatesService } from "./services/exchange-rates.js";
+import { createAssumeRoleS3Factory } from "./services/aws-utils.js";
 import { createDefaultTools } from "./tools/registry.js";
 import { sessionCommentHook } from "./hooks/post-tool-hooks.js";
 import { createLogger } from "./logger.js";
@@ -48,38 +48,13 @@ async function main() {
     fetch: globalThis.fetch,
   });
 
-  const s3ClientOptions = {
+  const s3Client = new S3Client({
     region: config.AWS_REGION,
     ...(config.AWS_ENDPOINT_URL && {
       endpoint: config.AWS_ENDPOINT_URL,
       forcePathStyle: true,
     }),
-  };
-  const s3Client = new S3Client(s3ClientOptions);
-
-  const assumeRoleArn = config.AWS_ASSUME_ROLE_ARN;
-  const createAssumedClient = assumeRoleArn
-    ? async () => {
-        const sts = new STSClient({ region: config.AWS_REGION });
-        const { Credentials } = await sts.send(
-          new AssumeRoleCommand({
-            RoleArn: assumeRoleArn,
-            RoleSessionName: "mcp-exchange-rates",
-          }),
-        );
-        if (!Credentials?.AccessKeyId || !Credentials.SecretAccessKey) {
-          throw new Error("STS AssumeRole returned no credentials");
-        }
-        return new S3Client({
-          ...s3ClientOptions,
-          credentials: {
-            accessKeyId: Credentials.AccessKeyId,
-            secretAccessKey: Credentials.SecretAccessKey,
-            sessionToken: Credentials.SessionToken,
-          },
-        });
-      }
-    : undefined;
+  });
 
   const exchangeRatesService = new ExchangeRatesService({
     s3Client,
@@ -90,7 +65,14 @@ async function main() {
       return (await parquetReadObjects({ file })) as Record<string, unknown>[];
     },
     logger: createLogger("exchange-rates"),
-    createAssumedClient,
+    createAssumedClient: config.EXCHANGE_RATES_ROLE_ARN
+      ? createAssumeRoleS3Factory({
+          region: config.AWS_REGION,
+          roleArn: config.EXCHANGE_RATES_ROLE_ARN,
+          sessionName: "mcp-exchange-rates",
+          endpointUrl: config.AWS_ENDPOINT_URL,
+        })
+      : undefined,
   });
 
   const toolContext: McpToolContext = {
