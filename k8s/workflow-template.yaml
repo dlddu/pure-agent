@@ -267,10 +267,6 @@ spec:
             valueFrom:
               path: /tmp/session_id.txt
               default: ""
-          - name: planner_debug
-            valueFrom:
-              path: /tmp/planner_debug.log
-              default: "(no debug log)"
       container:
         image: ghcr.io/dlddu/pure-agent/planner:latest
         command: ["/bin/sh", "-c"]

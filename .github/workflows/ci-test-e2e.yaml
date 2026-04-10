@@ -223,6 +223,10 @@ jobs:
           yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "AWS_ENDPOINT_URL", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ENDPOINT_URL", "optional": true}}}, {"name": "AWS_ACCESS_KEY_ID", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ACCESS_KEY_ID", "optional": true}}}, {"name": "AWS_SECRET_ACCESS_KEY", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_SECRET_ACCESS_KEY", "optional": true}}}]' \
             /tmp/workflow-template-patched.yaml
 
+          # Re-add planner_debug output (test-only: captures planner stderr for CI debugging)
+          yq -i '(.spec.templates[] | select(.name == "planner") | .outputs.parameters) += [{"name": "planner_debug", "valueFrom": {"path": "/tmp/planner_debug.log", "default": "(no debug log)"}}]' \
+            /tmp/workflow-template-patched.yaml
+
           kubectl --context "kind-${CLUSTER_NAME}" \
             apply -n "$PURE_AGENT_NAMESPACE" -f /tmp/workflow-template-patched.yaml
 

@@ -12,7 +12,7 @@
 # ─────────────────────────────────  ──────────────────────────
 # /tmp/agent_image.txt               k8s/workflow-template.yaml
 # /tmp/raw_environment_id.txt        k8s/workflow-template.yaml
-# /tmp/planner_debug.log             k8s/workflow-template.yaml (stderr)
+# /tmp/planner_debug.log             CI test workflows (stderr, test-only patch)
 # $WORK_DIR/last_planner_output.json mcp-server session.ts
 # ═══════════════════════════════════════════════════════════════
 

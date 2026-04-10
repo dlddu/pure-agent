@@ -260,6 +260,10 @@ jobs:
           yq -i '(.spec.templates[] | select(.name == "planner") | .container.args) = ["ENV_ID=$(echo \"$PROMPT\" | grep -oE \"env=[^ ]+\" | cut -d= -f2); ENV_ID=${ENV_ID:-default}; echo \"[mock-planner] environment_id=$ENV_ID\" >&2; case \"$ENV_ID\" in python-analysis) IMG=ghcr.io/dlddu/pure-agent/python-agent:latest ;; infra) IMG=ghcr.io/dlddu/pure-agent/infra-agent:latest ;; *) IMG=ghcr.io/dlddu/pure-agent/claude-agent:latest ;; esac; echo \"$IMG\" > /tmp/agent_image.txt; echo \"$ENV_ID\" > /tmp/raw_environment_id.txt; echo \"[mock-planner] selected: $IMG\" >&2"]' \
             /tmp/workflow-template-integration.yaml
 
+          # Re-add planner_debug output (test-only: captures mock-planner stderr for CI debugging)
+          yq -i '(.spec.templates[] | select(.name == "planner") | .outputs.parameters) += [{"name": "planner_debug", "valueFrom": {"path": "/tmp/planner_debug.log", "default": "(no debug log)"}}]' \
+            /tmp/workflow-template-integration.yaml
+
           # ── gate 패치: 실제 이미지 + mock 결정 로직 ───────────────────
           # 실제 gate 이미지를 사용하여 S3 transcript upload를 실행하되,
           # continue/stop 결정은 mock 로직으로 덮어씁니다.
