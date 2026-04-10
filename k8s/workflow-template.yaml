@@ -140,6 +140,13 @@ spec:
               secretKeyRef:
                 name: mcp-server-secrets
                 key: GATEKEEPER_USER_ID
+          - name: AWS_S3_BUCKET_NAME
+            valueFrom:
+              secretKeyRef:
+                name: mcp-server-secrets
+                key: AWS_S3_BUCKET_NAME
+          - name: AWS_REGION
+            value: "ap-northeast-2"
         volumeMounts:
           - name: workdir
             mountPath: /work
