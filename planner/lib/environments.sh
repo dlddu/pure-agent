@@ -25,7 +25,7 @@ resolve_image() {
 _environment_descriptions() {
   cat << 'EOF'
 - id: "default" | 기본 환경. Claude Code CLI, git, curl, jq 포함. 일반적인 코딩 작업에 적합. | capabilities: [claude-code, git, shell]
-- id: "python-analysis" | Python 분석 환경. pandas, numpy, matplotlib 등 데이터 분석 도구 포함. | capabilities: [python, pip, data-analysis, git, shell]
+- id: "python-analysis" | Python 분석 환경. pandas, numpy, matplotlib, pyarrow 등 데이터 분석 도구 포함. Parquet 파일 읽기/쓰기 지원. | capabilities: [python, pip, data-analysis, parquet, git, shell]
 - id: "infra" | 인프라 환경. kubectl, helm, AWS CLI 등 인프라 관리 도구 포함. | capabilities: [kubectl, helm, aws-cli, git, shell]
 EOF
 }

@@ -31,6 +31,7 @@ This environment includes pre-installed Python data analysis tools:
 - **scikit-learn** — Machine learning
 - **jupyter** — Notebook support
 - **openpyxl** — Excel file I/O
+- **pyarrow** — Parquet file I/O and Apache Arrow integration
 
 ### Usage Tips
 
@@ -44,6 +45,10 @@ This environment includes pre-installed Python data analysis tools:
   ```python
   for chunk in pd.read_csv("/work/data.csv", chunksize=10000):
       process(chunk)
+  ```
+- Read Parquet files directly with pandas:
+  ```python
+  df = pd.read_parquet("/work/data.parquet")
   ```
 - Write analysis results to `/work/` for the Export Handler to pick up.
 
