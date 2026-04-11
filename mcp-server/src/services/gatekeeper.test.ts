@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { GatekeeperService } from "./gatekeeper.js";
+import { createMockIo } from "../test-utils.js";
 import type { ApprovalResult, GatekeeperServiceOptions } from "./types.js";
 
 describe("GatekeeperService", () => {
@@ -8,13 +9,15 @@ describe("GatekeeperService", () => {
 
   beforeEach(() => {
     mockFetch = vi.fn();
+    const io = createMockIo();
+    io.fetch = mockFetch as typeof globalThis.fetch;
     defaultOptions = {
       gatekeeperUrl: "https://gatekeeper.example.com",
       apiKey: "gk_api_test123",
       userId: "user-test123",
       pollIntervalMs: 100,
       timeoutMs: 5000,
-      fetch: mockFetch as typeof globalThis.fetch,
+      io,
     };
   });
 

@@ -1,4 +1,5 @@
 import type { LinearClient } from "@linear/sdk";
+import type { IoLayer } from "../io.js";
 
 export type Priority = "urgent" | "high" | "medium" | "low" | "none";
 
@@ -62,10 +63,7 @@ export interface ILinearService {
 
 export interface SessionServiceOptions {
   workDir: string;
-  readFile: (path: string, encoding: BufferEncoding) => Promise<string>;
-  stat: (path: string) => Promise<{ mtimeMs: number }>;
-  /** Delay in ms before reading output files. Defaults to 10000. */
-  delayMs?: number;
+  io: IoLayer;
 }
 
 export type SessionSource = "planner" | "agent";
@@ -86,7 +84,7 @@ export interface GatekeeperServiceOptions {
   pollIntervalMs?: number;
   timeoutMs?: number;
   requesterName?: string;
-  fetch: typeof globalThis.fetch;
+  io: IoLayer;
   logger?: import("../logger.js").Logger;
 }
 

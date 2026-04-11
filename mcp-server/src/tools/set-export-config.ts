@@ -90,7 +90,7 @@ export const setExportConfigTool = defineTool({
   schema: SetExportConfigInputSchema,
   handler: async (args, context) => {
     const exportConfigPath = join(context.workDir, EXPORT_CONFIG_FILENAME);
-    await context.fs.writeFile(exportConfigPath, JSON.stringify(args, null, 2), "utf-8");
+    await context.io.fs.writeFile(exportConfigPath, JSON.stringify(args, null, 2), "utf-8");
 
     return mcpSuccess({
       success: true,

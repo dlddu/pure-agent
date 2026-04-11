@@ -2,6 +2,7 @@ import "dotenv/config";
 import { writeFile, readFile, access, stat } from "node:fs/promises";
 import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
+import { setTimeout as delay } from "node:timers/promises";
 import { LinearClient } from "@linear/sdk";
 import { createMcpServer } from "./server.js";
 import { createHttpTransport } from "./transport.js";
@@ -12,6 +13,7 @@ import { createDefaultTools } from "./tools/registry.js";
 import { sessionCommentHook } from "./hooks/post-tool-hooks.js";
 import { createLogger } from "./logger.js";
 import { parseConfig } from "./config.js";
+import type { IoLayer } from "./io.js";
 import type { McpToolContext } from "./tools/types.js";
 
 const execFileAsync = promisify(execFileCb);
@@ -33,7 +35,32 @@ async function main() {
 
   log.info("Initializing MCP server...");
 
-  const sessionService = new SessionService({ workDir: config.WORK_DIR, readFile, stat });
+  // Single io layer shared by services and tool context
+  const io: IoLayer = {
+    fs: {
+      readFile: async (path, encoding) => {
+        log.info("Waiting 10s before reading file", { path });
+        await delay(10_000);
+        return readFile(path, encoding);
+      },
+      writeFile: async (path, data, encoding) => {
+        await writeFile(path, data, encoding);
+        log.info("Waiting 10s after writing file", { path });
+        await delay(10_000);
+      },
+      access,
+      stat,
+    },
+    exec: {
+      execFile: async (file, args, options) => {
+        const { stdout, stderr } = await execFileAsync(file, args, options);
+        return { stdout, stderr };
+      },
+    },
+    fetch: globalThis.fetch,
+  };
+
+  const sessionService = new SessionService({ workDir: config.WORK_DIR, io });
 
   const gatekeeperService = new GatekeeperService({
     gatekeeperUrl: config.GATEKEEPER_URL ?? "",
@@ -41,21 +68,14 @@ async function main() {
     userId: config.GATEKEEPER_USER_ID ?? "",
     pollIntervalMs: config.GATEKEEPER_POLL_INTERVAL_MS,
     timeoutMs: config.GATEKEEPER_TIMEOUT_MS,
-    fetch: globalThis.fetch,
+    io,
   });
 
   const toolContext: McpToolContext = {
     services: { linear: linearService, session: sessionService, gatekeeper: gatekeeperService },
-    fs: { writeFile, readFile, access },
-    exec: {
-      execFile: async (file, args, options) => {
-        const { stdout, stderr } = await execFileAsync(file, args, options);
-        return { stdout, stderr };
-      },
-    },
+    io,
     workDir: config.WORK_DIR,
     logger: createLogger("tools"),
-    fetch: globalThis.fetch,
   };
 
   const tools = createDefaultTools();

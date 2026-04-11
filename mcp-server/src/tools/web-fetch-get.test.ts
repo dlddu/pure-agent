@@ -12,11 +12,10 @@ describe("webFetchGetTool", () => {
   beforeEach(() => {
     context = createMockContext();
 
-    // context.fetch is not yet part of McpToolContext — cast to any to attach the mock.
-    // When web-fetch.ts is implemented, McpToolContext should gain a `fetch` property.
+    // Attach a fresh fetch mock to the io layer.
     mockFetch = vi.fn();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (context as any).fetch = mockFetch;
+    (context.io as any).fetch = mockFetch;
 
     mockRequestApproval = context.services.gatekeeper.requestApproval as ReturnType<typeof vi.fn>;
     mockReadSessionId = context.services.session.readSessionId as ReturnType<typeof vi.fn>;

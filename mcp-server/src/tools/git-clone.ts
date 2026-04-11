@@ -47,7 +47,7 @@ export const gitCloneTool = defineTool({
     const clonePath = join(workDir, dirName);
 
     try {
-      await context.fs.access(clonePath);
+      await context.io.fs.access(clonePath);
       return mcpError(`Directory already exists: ${dirName}`);
     } catch {
       // Path does not exist — proceed
@@ -60,7 +60,7 @@ export const gitCloneTool = defineTool({
     gitArgs.push(args.url, dirName);
 
     context.logger.info(`Cloning ${args.url} into ${clonePath}`);
-    await context.exec.execFile("git", gitArgs, { cwd: workDir, timeout: CLONE_TIMEOUT_MS, maxBuffer: 10 * 1024 * 1024 });
+    await context.io.exec.execFile("git", gitArgs, { cwd: workDir, timeout: CLONE_TIMEOUT_MS, maxBuffer: 10 * 1024 * 1024 });
 
     return mcpSuccess({
       success: true,

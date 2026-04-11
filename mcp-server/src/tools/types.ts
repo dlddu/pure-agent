@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { ILinearService, ISessionService, IGatekeeperService } from "../services/types.js";
+import type { IoLayer } from "../io.js";
 import type { Logger } from "../logger.js";
 
 export type McpToolMeta = {
@@ -24,21 +25,9 @@ export interface McpToolContext {
     session: ISessionService;
     gatekeeper: IGatekeeperService;
   };
-  fs: {
-    writeFile(path: string, data: string, encoding: BufferEncoding): Promise<void>;
-    readFile(path: string, encoding: BufferEncoding): Promise<string>;
-    access(path: string): Promise<void>;
-  };
-  exec: {
-    execFile(
-      file: string,
-      args: string[],
-      options: { cwd: string; timeout: number; maxBuffer: number },
-    ): Promise<{ stdout: string; stderr: string }>;
-  };
+  io: IoLayer;
   workDir: string;
   logger: Logger;
-  fetch: typeof globalThis.fetch;
 }
 
 export interface McpTool {
