@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ExchangeRatesService, enumerateDates } from "./exchange-rates.js";
+import { ExchangeRatesService, enumerateMonths } from "./exchange-rates.js";
 import { STSClient, AssumeRoleCommand } from "@aws-sdk/client-sts";
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
 
@@ -30,25 +30,33 @@ function makeCredsResponse() {
   };
 }
 
-describe("enumerateDates", () => {
-  it("returns a single date for equal start and end", () => {
-    expect(enumerateDates("2026-04-11", "2026-04-11")).toEqual(["2026-04-11"]);
-  });
-
-  it("enumerates inclusive ranges", () => {
-    expect(enumerateDates("2026-04-10", "2026-04-12")).toEqual([
-      "2026-04-10",
-      "2026-04-11",
-      "2026-04-12",
+describe("enumerateMonths", () => {
+  it("returns a single month for dates within the same month", () => {
+    expect(enumerateMonths("2026-04-01", "2026-04-30")).toEqual([
+      { year: "2026", month: "04" },
     ]);
   });
 
-  it("crosses month boundaries", () => {
-    expect(enumerateDates("2026-03-30", "2026-04-02")).toEqual([
-      "2026-03-30",
-      "2026-03-31",
-      "2026-04-01",
-      "2026-04-02",
+  it("returns a single month when start equals end", () => {
+    expect(enumerateMonths("2026-04-11", "2026-04-11")).toEqual([
+      { year: "2026", month: "04" },
+    ]);
+  });
+
+  it("crosses month boundaries inclusively", () => {
+    expect(enumerateMonths("2026-03-30", "2026-05-02")).toEqual([
+      { year: "2026", month: "03" },
+      { year: "2026", month: "04" },
+      { year: "2026", month: "05" },
+    ]);
+  });
+
+  it("crosses year boundaries", () => {
+    expect(enumerateMonths("1999-11-15", "2000-02-01")).toEqual([
+      { year: "1999", month: "11" },
+      { year: "1999", month: "12" },
+      { year: "2000", month: "01" },
+      { year: "2000", month: "02" },
     ]);
   });
 });
@@ -93,7 +101,7 @@ describe("ExchangeRatesService", () => {
   });
 
   describe("listByDateRange", () => {
-    it("assumes role, calls ListObjectsV2 per date, and aggregates keys", async () => {
+    it("assumes role, calls ListObjectsV2 once per month, and aggregates keys", async () => {
       const svc = new ExchangeRatesService({
         bucket: "my-bucket",
         region: "ap-northeast-2",
@@ -103,30 +111,47 @@ describe("ExchangeRatesService", () => {
       stsSendMock.mockResolvedValue(makeCredsResponse());
       s3SendMock
         .mockResolvedValueOnce({
-          Contents: [{ Key: "gold/exchange_rates/date=2026-04-10/a.parquet" }],
+          Contents: [{ Key: "gold/exchange_rates/year=2026/month=03/data.parquet" }],
           IsTruncated: false,
         })
         .mockResolvedValueOnce({
-          Contents: [
-            { Key: "gold/exchange_rates/date=2026-04-11/a.parquet" },
-            { Key: "gold/exchange_rates/date=2026-04-11/b.parquet" },
-          ],
+          Contents: [{ Key: "gold/exchange_rates/year=2026/month=04/data.parquet" }],
           IsTruncated: false,
         });
 
-      const keys = await svc.listByDateRange("2026-04-10", "2026-04-11");
+      // Range spanning two months — should make two ListObjectsV2 calls, one per month.
+      const keys = await svc.listByDateRange("2026-03-15", "2026-04-11");
 
       expect(stsSendMock).toHaveBeenCalledTimes(1);
       expect(s3SendMock).toHaveBeenCalledTimes(2);
       expect(keys).toEqual([
-        "gold/exchange_rates/date=2026-04-10/a.parquet",
-        "gold/exchange_rates/date=2026-04-11/a.parquet",
-        "gold/exchange_rates/date=2026-04-11/b.parquet",
+        "gold/exchange_rates/year=2026/month=03/data.parquet",
+        "gold/exchange_rates/year=2026/month=04/data.parquet",
       ]);
 
       const firstCall = s3SendMock.mock.calls[0][0];
       expect(firstCall.input.Bucket).toBe("my-bucket");
-      expect(firstCall.input.Prefix).toBe("gold/exchange_rates/date=2026-04-10/");
+      expect(firstCall.input.Prefix).toBe("gold/exchange_rates/year=2026/month=03/");
+      const secondCall = s3SendMock.mock.calls[1][0];
+      expect(secondCall.input.Prefix).toBe("gold/exchange_rates/year=2026/month=04/");
+    });
+
+    it("makes only one ListObjectsV2 call for dates within the same month", async () => {
+      const svc = new ExchangeRatesService({
+        bucket: "my-bucket",
+        region: "ap-northeast-2",
+        roleArn: "arn:aws:iam::123:role/exchange-rates",
+      });
+
+      stsSendMock.mockResolvedValue(makeCredsResponse());
+      s3SendMock.mockResolvedValueOnce({
+        Contents: [{ Key: "gold/exchange_rates/year=2026/month=04/data.parquet" }],
+        IsTruncated: false,
+      });
+
+      const keys = await svc.listByDateRange("2026-04-01", "2026-04-30");
+      expect(s3SendMock).toHaveBeenCalledTimes(1);
+      expect(keys).toEqual(["gold/exchange_rates/year=2026/month=04/data.parquet"]);
     });
 
     it("follows pagination via NextContinuationToken", async () => {
@@ -139,32 +164,33 @@ describe("ExchangeRatesService", () => {
       stsSendMock.mockResolvedValue(makeCredsResponse());
       s3SendMock
         .mockResolvedValueOnce({
-          Contents: [{ Key: "gold/exchange_rates/date=2026-04-11/a.parquet" }],
+          Contents: [{ Key: "gold/exchange_rates/year=2026/month=04/a.parquet" }],
           IsTruncated: true,
           NextContinuationToken: "token-1",
         })
         .mockResolvedValueOnce({
-          Contents: [{ Key: "gold/exchange_rates/date=2026-04-11/b.parquet" }],
+          Contents: [{ Key: "gold/exchange_rates/year=2026/month=04/b.parquet" }],
           IsTruncated: false,
         });
 
       const keys = await svc.listByDateRange("2026-04-11", "2026-04-11");
       expect(keys).toEqual([
-        "gold/exchange_rates/date=2026-04-11/a.parquet",
-        "gold/exchange_rates/date=2026-04-11/b.parquet",
+        "gold/exchange_rates/year=2026/month=04/a.parquet",
+        "gold/exchange_rates/year=2026/month=04/b.parquet",
       ]);
       expect(s3SendMock).toHaveBeenCalledTimes(2);
       const secondCall = s3SendMock.mock.calls[1][0];
       expect(secondCall.input.ContinuationToken).toBe("token-1");
     });
 
-    it("rejects date ranges larger than the allowed maximum", async () => {
+    it("rejects date ranges larger than the allowed month maximum", async () => {
       const svc = new ExchangeRatesService({
         bucket: "my-bucket",
         region: "ap-northeast-2",
         roleArn: "arn:aws:iam::123:role/exchange-rates",
       });
-      await expect(svc.listByDateRange("2024-01-01", "2026-04-11")).rejects.toThrow(
+      // 2010-01 .. 2026-04 is 196 months, exceeding MAX_RANGE_MONTHS (120).
+      await expect(svc.listByDateRange("2010-01-01", "2026-04-11")).rejects.toThrow(
         /Date range too large/,
       );
     });
@@ -184,12 +210,12 @@ describe("ExchangeRatesService", () => {
         Body: { transformToByteArray: async () => bytes },
       });
 
-      const result = await svc.getObject("gold/exchange_rates/date=2026-04-11/a.parquet");
+      const result = await svc.getObject("gold/exchange_rates/year=2026/month=04/data.parquet");
       expect(result).toEqual(bytes);
 
       const call = s3SendMock.mock.calls[0][0];
       expect(call.input.Bucket).toBe("my-bucket");
-      expect(call.input.Key).toBe("gold/exchange_rates/date=2026-04-11/a.parquet");
+      expect(call.input.Key).toBe("gold/exchange_rates/year=2026/month=04/data.parquet");
     });
   });
 });

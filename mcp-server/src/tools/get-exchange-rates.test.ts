@@ -75,8 +75,8 @@ describe("getExchangeRatesTool", () => {
   describe("single date success", () => {
     beforeEach(() => {
       mockList.mockResolvedValue([
-        "gold/exchange_rates/date=2026-04-11/part-0000.parquet",
-        "gold/exchange_rates/date=2026-04-11/part-0001.parquet",
+        "gold/exchange_rates/year=2026/month=04/data.parquet",
+        "gold/exchange_rates/year=2026/month=04/metadata.json",
       ]);
       mockGet
         .mockResolvedValueOnce(new Uint8Array([1, 2, 3]))
@@ -93,17 +93,17 @@ describe("getExchangeRatesTool", () => {
       expect(mockMkdir).toHaveBeenCalledWith("/work/exchange_rates/2026-04-11", { recursive: true });
     });
 
-    it("writes each downloaded object to the local directory", async () => {
+    it("writes each downloaded object directly under the date directory (no month nesting)", async () => {
       await getExchangeRatesTool.handler({ date: "2026-04-11" }, context);
       expect(mockWriteBinary).toHaveBeenCalledTimes(2);
       expect(mockWriteBinary).toHaveBeenNthCalledWith(
         1,
-        "/work/exchange_rates/2026-04-11/part-0000.parquet",
+        "/work/exchange_rates/2026-04-11/data.parquet",
         expect.any(Uint8Array),
       );
       expect(mockWriteBinary).toHaveBeenNthCalledWith(
         2,
-        "/work/exchange_rates/2026-04-11/part-0001.parquet",
+        "/work/exchange_rates/2026-04-11/metadata.json",
         expect.any(Uint8Array),
       );
     });
@@ -118,13 +118,13 @@ describe("getExchangeRatesTool", () => {
       expect(parsed.count).toBe(2);
       expect(parsed.files).toEqual([
         {
-          s3_key: "gold/exchange_rates/date=2026-04-11/part-0000.parquet",
-          local_path: "/work/exchange_rates/2026-04-11/part-0000.parquet",
+          s3_key: "gold/exchange_rates/year=2026/month=04/data.parquet",
+          local_path: "/work/exchange_rates/2026-04-11/data.parquet",
           size_bytes: 3,
         },
         {
-          s3_key: "gold/exchange_rates/date=2026-04-11/part-0001.parquet",
-          local_path: "/work/exchange_rates/2026-04-11/part-0001.parquet",
+          s3_key: "gold/exchange_rates/year=2026/month=04/metadata.json",
+          local_path: "/work/exchange_rates/2026-04-11/metadata.json",
           size_bytes: 4,
         },
       ]);
@@ -134,37 +134,37 @@ describe("getExchangeRatesTool", () => {
   describe("date range success", () => {
     beforeEach(() => {
       mockList.mockResolvedValue([
-        "gold/exchange_rates/date=2026-04-10/part-0000.parquet",
-        "gold/exchange_rates/date=2026-04-11/part-0000.parquet",
+        "gold/exchange_rates/year=2026/month=03/data.parquet",
+        "gold/exchange_rates/year=2026/month=04/data.parquet",
       ]);
       mockGet
         .mockResolvedValueOnce(new Uint8Array([1]))
         .mockResolvedValueOnce(new Uint8Array([2]));
     });
 
-    it("uses <start>_<end> as directory name and nests by partition date", async () => {
+    it("uses <start>_<end> as directory name and nests files by year-month partition", async () => {
       const result = await getExchangeRatesTool.handler(
-        { start_date: "2026-04-10", end_date: "2026-04-11" },
+        { start_date: "2026-03-15", end_date: "2026-04-11" },
         context,
       );
       const parsed = parseResponseText(result);
 
       expect(parsed.success).toBe(true);
-      expect(parsed.directory).toBe("/work/exchange_rates/2026-04-10_2026-04-11");
-      expect(parsed.query).toEqual({ start_date: "2026-04-10", end_date: "2026-04-11" });
+      expect(parsed.directory).toBe("/work/exchange_rates/2026-03-15_2026-04-11");
+      expect(parsed.query).toEqual({ start_date: "2026-03-15", end_date: "2026-04-11" });
 
-      expect(mockMkdir).toHaveBeenCalledWith("/work/exchange_rates/2026-04-10_2026-04-11", { recursive: true });
-      expect(mockMkdir).toHaveBeenCalledWith("/work/exchange_rates/2026-04-10_2026-04-11/2026-04-10", { recursive: true });
-      expect(mockMkdir).toHaveBeenCalledWith("/work/exchange_rates/2026-04-10_2026-04-11/2026-04-11", { recursive: true });
+      expect(mockMkdir).toHaveBeenCalledWith("/work/exchange_rates/2026-03-15_2026-04-11", { recursive: true });
+      expect(mockMkdir).toHaveBeenCalledWith("/work/exchange_rates/2026-03-15_2026-04-11/2026-03", { recursive: true });
+      expect(mockMkdir).toHaveBeenCalledWith("/work/exchange_rates/2026-03-15_2026-04-11/2026-04", { recursive: true });
 
       expect(mockWriteBinary).toHaveBeenNthCalledWith(
         1,
-        "/work/exchange_rates/2026-04-10_2026-04-11/2026-04-10/part-0000.parquet",
+        "/work/exchange_rates/2026-03-15_2026-04-11/2026-03/data.parquet",
         expect.any(Uint8Array),
       );
       expect(mockWriteBinary).toHaveBeenNthCalledWith(
         2,
-        "/work/exchange_rates/2026-04-10_2026-04-11/2026-04-11/part-0000.parquet",
+        "/work/exchange_rates/2026-03-15_2026-04-11/2026-04/data.parquet",
         expect.any(Uint8Array),
       );
     });

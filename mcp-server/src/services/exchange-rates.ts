@@ -7,7 +7,7 @@ import type {
 
 const EXCHANGE_RATES_PREFIX = "gold/exchange_rates";
 const ASSUME_ROLE_SESSION_NAME = "mcp-exchange-rates";
-const MAX_RANGE_DAYS = 366;
+const MAX_RANGE_MONTHS = 120;
 // Refresh credentials when they are within this many ms of expiring.
 const CREDENTIAL_REFRESH_MARGIN_MS = 5 * 60 * 1000;
 
@@ -41,15 +41,15 @@ export class ExchangeRatesService implements IExchangeRatesService {
     if (startDate > endDate) {
       throw new Error("start_date must be <= end_date");
     }
-    const dates = enumerateDates(startDate, endDate);
-    if (dates.length > MAX_RANGE_DAYS) {
-      throw new Error(`Date range too large: ${dates.length} days (max ${MAX_RANGE_DAYS})`);
+    const months = enumerateMonths(startDate, endDate);
+    if (months.length > MAX_RANGE_MONTHS) {
+      throw new Error(`Date range too large: ${months.length} months (max ${MAX_RANGE_MONTHS})`);
     }
 
     const s3 = await this.getS3Client();
     const keys: string[] = [];
-    for (const date of dates) {
-      const prefix = `${EXCHANGE_RATES_PREFIX}/date=${date}/`;
+    for (const { year, month } of months) {
+      const prefix = `${EXCHANGE_RATES_PREFIX}/year=${year}/month=${month}/`;
       let continuationToken: string | undefined;
       do {
         const res = await s3.send(
@@ -134,27 +134,33 @@ export class ExchangeRatesService implements IExchangeRatesService {
   }
 }
 
-/** Return all YYYY-MM-DD date strings from startDate to endDate, inclusive. */
-export function enumerateDates(startDate: string, endDate: string): string[] {
-  const start = parseDate(startDate);
-  const end = parseDate(endDate);
-  const result: string[] = [];
-  const cursor = new Date(start.getTime());
-  while (cursor.getTime() <= end.getTime()) {
-    result.push(formatDate(cursor));
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
+export interface YearMonth {
+  /** Zero-padded 4-digit year, e.g. "2026". */
+  year: string;
+  /** Zero-padded 2-digit month, e.g. "04". */
+  month: string;
+}
+
+/**
+ * Return every unique {year, month} pair spanned by the inclusive date range
+ * [startDate, endDate]. Both endpoints are YYYY-MM-DD strings.
+ */
+export function enumerateMonths(startDate: string, endDate: string): YearMonth[] {
+  const [sy, sm] = startDate.split("-").map(Number);
+  const [ey, em] = endDate.split("-").map(Number);
+  const result: YearMonth[] = [];
+  let y = sy;
+  let m = sm;
+  while (y < ey || (y === ey && m <= em)) {
+    result.push({
+      year: y.toString().padStart(4, "0"),
+      month: m.toString().padStart(2, "0"),
+    });
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
   }
   return result;
-}
-
-function parseDate(s: string): Date {
-  const [y, m, d] = s.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d));
-}
-
-function formatDate(d: Date): string {
-  const y = d.getUTCFullYear().toString().padStart(4, "0");
-  const m = (d.getUTCMonth() + 1).toString().padStart(2, "0");
-  const day = d.getUTCDate().toString().padStart(2, "0");
-  return `${y}-${m}-${day}`;
 }

@@ -3,7 +3,7 @@ import { basename, join } from "node:path";
 import { defineTool, mcpSuccess, mcpError } from "./tool-utils.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const DATE_PARTITION_RE = /date=(\d{4}-\d{2}-\d{2})\//;
+const MONTH_PARTITION_RE = /year=(\d{4})\/month=(\d{2})\//;
 
 const GetExchangeRatesInputSchema = z
   .object({
@@ -62,7 +62,7 @@ const GetExchangeRatesInputSchema = z
 export const getExchangeRatesTool = defineTool({
   name: "get_exchange_rates",
   description:
-    "S3 gold 레이어(gold/exchange_rates/date=YYYY-MM-DD/)에서 환율 데이터 파일을 다운로드하여 로컬 파일 경로로 반환합니다. 단일 날짜(date) 또는 시작/종료 범위(start_date, end_date)로 조회할 수 있습니다.",
+    "S3 gold 레이어(gold/exchange_rates/year=YYYY/month=MM/)에서 환율 데이터 파일을 다운로드하여 로컬 파일 경로로 반환합니다. 단일 날짜(date) 또는 시작/종료 범위(start_date, end_date)로 조회할 수 있으며, 입력 날짜가 속한 월 단위 파티션의 파일을 가져옵니다.",
   schema: GetExchangeRatesInputSchema,
   handler: async (args, context) => {
     const startDate = args.date ?? args.start_date!;
@@ -93,11 +93,13 @@ export const getExchangeRatesTool = defineTool({
       const bytes = await context.services.exchangeRates.getObject(key);
       const fileName = basename(key);
 
+      // For range queries, mirror the year/month partition under localDir so
+      // files from different months never collide.
       let targetDir = localDir;
       if (isRange) {
-        const match = DATE_PARTITION_RE.exec(key);
+        const match = MONTH_PARTITION_RE.exec(key);
         if (match) {
-          targetDir = join(localDir, match[1]);
+          targetDir = join(localDir, `${match[1]}-${match[2]}`);
           await context.io.fs.mkdir(targetDir, { recursive: true });
         }
       }
