@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { writeFile, readFile, access, stat } from "node:fs/promises";
+import { writeFile, readFile, access, stat, mkdir } from "node:fs/promises";
 import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
@@ -9,6 +9,7 @@ import { createHttpTransport } from "./transport.js";
 import { LinearService } from "./services/linear.js";
 import { SessionService } from "./services/session.js";
 import { GatekeeperService } from "./services/gatekeeper.js";
+import { ExchangeRatesService } from "./services/exchange-rates.js";
 import { createDefaultTools } from "./tools/registry.js";
 import { sessionCommentHook } from "./hooks/post-tool-hooks.js";
 import { createLogger } from "./logger.js";
@@ -48,6 +49,12 @@ async function main() {
         log.info("Waiting 10s after writing file", { path });
         await delay(10_000);
       },
+      writeBinaryFile: async (path, data) => {
+        await writeFile(path, data);
+      },
+      mkdir: async (path, options) => {
+        await mkdir(path, options);
+      },
       access,
       stat,
     },
@@ -71,8 +78,19 @@ async function main() {
     io,
   });
 
+  const exchangeRatesService = new ExchangeRatesService({
+    bucket: config.AWS_S3_BUCKET,
+    region: config.AWS_REGION,
+    roleArn: config.EXCHANGE_RATES_ROLE_ARN,
+  });
+
   const toolContext: McpToolContext = {
-    services: { linear: linearService, session: sessionService, gatekeeper: gatekeeperService },
+    services: {
+      linear: linearService,
+      session: sessionService,
+      gatekeeper: gatekeeperService,
+      exchangeRates: exchangeRatesService,
+    },
     io,
     workDir: config.WORK_DIR,
     logger: createLogger("tools"),

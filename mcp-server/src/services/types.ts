@@ -99,3 +99,16 @@ export interface IGatekeeperService {
     context: string,
   ): Promise<ApprovalResult>;
 }
+
+export interface ExchangeRatesServiceOptions {
+  bucket?: string;
+  region?: string;
+  roleArn?: string;
+}
+
+export interface IExchangeRatesService {
+  /** Returns all S3 object keys under gold/exchange_rates/date=YYYY-MM-DD/ for each day in [startDate, endDate]. */
+  listByDateRange(startDate: string, endDate: string): Promise<string[]>;
+  /** Downloads a single S3 object as bytes. */
+  getObject(key: string): Promise<Uint8Array>;
+}

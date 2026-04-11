@@ -2,7 +2,7 @@ import { vi } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer, type McpServerDeps } from "./server.js";
-import type { ILinearService, ISessionService, IGatekeeperService } from "./services/types.js";
+import type { ILinearService, ISessionService, IGatekeeperService, IExchangeRatesService } from "./services/types.js";
 import type { IoLayer } from "./io.js";
 import type { McpToolContext, McpToolExtra } from "./tools/types.js";
 
@@ -67,6 +67,16 @@ export function createMockGatekeeperService(
   } as IGatekeeperService;
 }
 
+export function createMockExchangeRatesService(
+  overrides?: Partial<Record<keyof IExchangeRatesService, ReturnType<typeof vi.fn>>>,
+): IExchangeRatesService {
+  return {
+    listByDateRange: vi.fn().mockResolvedValue([]),
+    getObject: vi.fn().mockResolvedValue(new Uint8Array()),
+    ...overrides,
+  } as IExchangeRatesService;
+}
+
 export function createMockLogger() {
   return {
     info: vi.fn(),
@@ -79,6 +89,8 @@ export function createMockLogger() {
 export function createMockFs() {
   return {
     writeFile: vi.fn().mockResolvedValue(undefined),
+    writeBinaryFile: vi.fn().mockResolvedValue(undefined),
+    mkdir: vi.fn().mockResolvedValue(undefined),
     readFile: vi.fn().mockResolvedValue(""),
     access: vi.fn().mockRejectedValue(new Error("ENOENT")),
   };
@@ -113,6 +125,7 @@ export function createMockContext(overrides?: {
   linear?: Partial<Record<keyof ILinearService, ReturnType<typeof vi.fn>>>;
   session?: Partial<Record<keyof ISessionService, ReturnType<typeof vi.fn>>>;
   gatekeeper?: Partial<Record<keyof IGatekeeperService, ReturnType<typeof vi.fn>>>;
+  exchangeRates?: Partial<Record<keyof IExchangeRatesService, ReturnType<typeof vi.fn>>>;
   workDir?: string;
 }): McpToolContext {
   return {
@@ -120,6 +133,7 @@ export function createMockContext(overrides?: {
       linear: createMockLinearService(overrides?.linear),
       session: createMockSessionService(overrides?.session),
       gatekeeper: createMockGatekeeperService(overrides?.gatekeeper),
+      exchangeRates: createMockExchangeRatesService(overrides?.exchangeRates),
     },
     io: createMockIo(),
     workDir: overrides?.workDir ?? "/work",

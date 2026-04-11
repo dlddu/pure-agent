@@ -16,6 +16,11 @@ const ConfigSchema = z
     GATEKEEPER_USER_ID: z.string().optional(),
     GATEKEEPER_POLL_INTERVAL_MS: z.coerce.number().default(3000),
     GATEKEEPER_TIMEOUT_MS: z.coerce.number().default(600000),
+    // Shared S3 configuration (reusable by future S3-backed tools)
+    AWS_S3_BUCKET: z.string().optional(),
+    AWS_REGION: z.string().optional(),
+    // Exchange rates tool — dedicated IAM role to assume
+    EXCHANGE_RATES_ROLE_ARN: z.string().optional(),
   })
   .superRefine((data, ctx) => {
     const hasUrl = data.GATEKEEPER_URL !== undefined && data.GATEKEEPER_URL !== "";

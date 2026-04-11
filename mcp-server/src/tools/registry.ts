@@ -6,6 +6,7 @@ import { getIssueTool } from "./get-issue.js";
 import { getIssueCommentsTool } from "./get-issue-comments.js";
 import { gitCloneTool } from "./git-clone.js";
 import { webFetchGetTool } from "./web-fetch-get.js";
+import { getExchangeRatesTool } from "./get-exchange-rates.js";
 
 export function createDefaultTools(): McpTool[] {
   return [
@@ -16,5 +17,6 @@ export function createDefaultTools(): McpTool[] {
     getIssueCommentsTool,
     gitCloneTool,
     webFetchGetTool,
+    getExchangeRatesTool,
   ];
 }

@@ -58,10 +58,10 @@ describe("Integration: MCP Protocol End-to-End", () => {
   });
 
   describe("tools/list", () => {
-    it("returns all 7 tool definitions with schemas", async () => {
+    it("returns all 8 tool definitions with schemas", async () => {
       const result = await client.listTools();
 
-      expect(result.tools).toHaveLength(7);
+      expect(result.tools).toHaveLength(8);
 
       const toolNames = result.tools.map((t) => t.name);
       expect(toolNames).toContain("request_feature");
@@ -71,6 +71,7 @@ describe("Integration: MCP Protocol End-to-End", () => {
       expect(toolNames).toContain("get_issue_comments");
       expect(toolNames).toContain("git_clone");
       expect(toolNames).toContain("web_fetch_get");
+      expect(toolNames).toContain("get_exchange_rates");
 
       for (const tool of result.tools) {
         expect(tool.inputSchema).toBeDefined();
