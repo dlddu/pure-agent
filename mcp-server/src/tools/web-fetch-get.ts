@@ -41,7 +41,7 @@ export const webFetchGetTool = defineTool({
     }
 
     log.info("Gatekeeper approved, executing fetch", { url, method });
-    const response = await context.fetch(url, { method });
+    const response = await context.io.fetch(url, { method });
 
     let responseBody = await response.text();
     const truncated = responseBody.length > MAX_BODY_SIZE;

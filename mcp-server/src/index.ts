@@ -13,6 +13,7 @@ import { createDefaultTools } from "./tools/registry.js";
 import { sessionCommentHook } from "./hooks/post-tool-hooks.js";
 import { createLogger } from "./logger.js";
 import { parseConfig } from "./config.js";
+import type { IoLayer } from "./io.js";
 import type { McpToolContext } from "./tools/types.js";
 
 const execFileAsync = promisify(execFileCb);
@@ -34,35 +35,21 @@ async function main() {
 
   log.info("Initializing MCP server...");
 
-  const delayedReadFile = async (path: string, encoding: BufferEncoding) => {
-    log.info("Waiting 10s before reading file", { path });
-    await delay(10_000);
-    return readFile(path, encoding);
-  };
-
-  const delayedWriteFile = async (path: string, data: string, encoding: BufferEncoding) => {
-    await writeFile(path, data, encoding);
-    log.info("Waiting 10s after writing file", { path });
-    await delay(10_000);
-  };
-
-  const sessionService = new SessionService({ workDir: config.WORK_DIR, readFile: delayedReadFile, stat });
-
-  const gatekeeperService = new GatekeeperService({
-    gatekeeperUrl: config.GATEKEEPER_URL ?? "",
-    apiKey: config.GATEKEEPER_API_KEY ?? "",
-    userId: config.GATEKEEPER_USER_ID ?? "",
-    pollIntervalMs: config.GATEKEEPER_POLL_INTERVAL_MS,
-    timeoutMs: config.GATEKEEPER_TIMEOUT_MS,
-    fetch: globalThis.fetch,
-  });
-
-  const toolContext: McpToolContext = {
-    services: { linear: linearService, session: sessionService, gatekeeper: gatekeeperService },
+  // Single io layer shared by services and tool context
+  const io: IoLayer = {
     fs: {
-      readFile: delayedReadFile,
-      writeFile: delayedWriteFile,
+      readFile: async (path, encoding) => {
+        log.info("Waiting 10s before reading file", { path });
+        await delay(10_000);
+        return readFile(path, encoding);
+      },
+      writeFile: async (path, data, encoding) => {
+        await writeFile(path, data, encoding);
+        log.info("Waiting 10s after writing file", { path });
+        await delay(10_000);
+      },
       access,
+      stat,
     },
     exec: {
       execFile: async (file, args, options) => {
@@ -70,9 +57,25 @@ async function main() {
         return { stdout, stderr };
       },
     },
+    fetch: globalThis.fetch,
+  };
+
+  const sessionService = new SessionService({ workDir: config.WORK_DIR, io });
+
+  const gatekeeperService = new GatekeeperService({
+    gatekeeperUrl: config.GATEKEEPER_URL ?? "",
+    apiKey: config.GATEKEEPER_API_KEY ?? "",
+    userId: config.GATEKEEPER_USER_ID ?? "",
+    pollIntervalMs: config.GATEKEEPER_POLL_INTERVAL_MS,
+    timeoutMs: config.GATEKEEPER_TIMEOUT_MS,
+    io,
+  });
+
+  const toolContext: McpToolContext = {
+    services: { linear: linearService, session: sessionService, gatekeeper: gatekeeperService },
+    io,
     workDir: config.WORK_DIR,
     logger: createLogger("tools"),
-    fetch: globalThis.fetch,
   };
 
   const tools = createDefaultTools();

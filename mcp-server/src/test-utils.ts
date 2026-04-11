@@ -3,6 +3,7 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createMcpServer, type McpServerDeps } from "./server.js";
 import type { ILinearService, ISessionService, IGatekeeperService } from "./services/types.js";
+import type { IoLayer } from "./io.js";
 import type { McpToolContext, McpToolExtra } from "./tools/types.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -89,6 +90,17 @@ export function createMockExec() {
   };
 }
 
+export function createMockIo(): IoLayer {
+  return {
+    fs: {
+      ...createMockFs(),
+      stat: vi.fn().mockResolvedValue({ mtimeMs: 0 }),
+    },
+    exec: createMockExec(),
+    fetch: vi.fn() as unknown as typeof globalThis.fetch,
+  };
+}
+
 export function createMockExtra(overrides?: Partial<McpToolExtra>): McpToolExtra {
   return {
     requestId: "test-req-1",
@@ -109,11 +121,9 @@ export function createMockContext(overrides?: {
       session: createMockSessionService(overrides?.session),
       gatekeeper: createMockGatekeeperService(overrides?.gatekeeper),
     },
-    fs: createMockFs(),
-    exec: createMockExec(),
+    io: createMockIo(),
     workDir: overrides?.workDir ?? "/work",
     logger: createMockLogger(),
-    fetch: vi.fn() as unknown as typeof globalThis.fetch,
   };
 }
 

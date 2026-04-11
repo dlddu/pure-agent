@@ -10,8 +10,8 @@ describe("gitCloneTool", () => {
 
   beforeEach(() => {
     context = createMockContext();
-    mockExecFile = context.exec.execFile as ReturnType<typeof vi.fn>;
-    mockAccess = context.fs.access as ReturnType<typeof vi.fn>;
+    mockExecFile = context.io.exec.execFile as ReturnType<typeof vi.fn>;
+    mockAccess = context.io.fs.access as ReturnType<typeof vi.fn>;
     mockExecFile.mockResolvedValue({ stdout: "", stderr: "Cloning into 'repo'...\n" });
   });
 

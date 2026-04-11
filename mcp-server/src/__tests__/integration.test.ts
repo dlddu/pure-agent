@@ -13,7 +13,7 @@ describe("Integration: MCP Protocol End-to-End", () => {
   let mockWriteFile: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    mockWriteFile = context.fs.writeFile as ReturnType<typeof vi.fn>;
+    mockWriteFile = context.io.fs.writeFile as ReturnType<typeof vi.fn>;
     linear.createComment.mockResolvedValue({ commentId: "int-comment-new" });
     linear.createFeatureRequest.mockResolvedValue({
       issueId: "int-issue-1",
@@ -220,7 +220,7 @@ describe("Integration: MCP Protocol End-to-End", () => {
         text: vi.fn().mockResolvedValue('{"message":"hello"}'),
       });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (context as any).fetch = mockFetch;
+      (context.io as any).fetch = mockFetch;
 
       const result = await client.callTool({
         name: "web_fetch_get",

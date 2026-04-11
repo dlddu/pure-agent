@@ -3,6 +3,7 @@ import type {
   ApprovalResult,
   IGatekeeperService,
 } from "./types.js";
+import type { IoLayer } from "../io.js";
 import type { Logger } from "../logger.js";
 
 const noopLogger: Logger = {
@@ -23,7 +24,7 @@ export class GatekeeperService implements IGatekeeperService {
   private pollIntervalMs: number;
   private timeoutMs: number;
   private requesterName: string;
-  private fetch: typeof globalThis.fetch;
+  private io: IoLayer;
   private logger: Logger;
 
   constructor(options: GatekeeperServiceOptions) {
@@ -33,14 +34,14 @@ export class GatekeeperService implements IGatekeeperService {
     this.pollIntervalMs = options.pollIntervalMs ?? 3000;
     this.timeoutMs = options.timeoutMs ?? 600000;
     this.requesterName = options.requesterName ?? "pure-agent";
-    this.fetch = options.fetch;
+    this.io = options.io;
     this.logger = options.logger ?? noopLogger;
   }
 
   async requestApproval(externalId: string, context: string): Promise<ApprovalResult> {
     this.logger.info("Requesting approval from gatekeeper", { externalId });
 
-    const postResponse = await this.fetch(`${this.gatekeeperUrl}/api/requests`, {
+    const postResponse = await this.io.fetch(`${this.gatekeeperUrl}/api/requests`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -75,7 +76,7 @@ export class GatekeeperService implements IGatekeeperService {
     const startTime = Date.now();
 
     while (true) {
-      const getResponse = await this.fetch(
+      const getResponse = await this.io.fetch(
         `${this.gatekeeperUrl}/api/requests/${requestId}`,
         {
           method: "GET",

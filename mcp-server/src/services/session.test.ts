@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { SessionService } from "./session.js";
+import { createMockIo } from "../test-utils.js";
 
 describe("SessionService", () => {
   let service: SessionService;
@@ -7,9 +8,10 @@ describe("SessionService", () => {
   let mockStat: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    mockReadFile = vi.fn();
-    mockStat = vi.fn();
-    service = new SessionService({ workDir: "/work", readFile: mockReadFile, stat: mockStat });
+    const io = createMockIo();
+    mockReadFile = io.fs.readFile as ReturnType<typeof vi.fn>;
+    mockStat = io.fs.stat as ReturnType<typeof vi.fn>;
+    service = new SessionService({ workDir: "/work", io });
   });
 
   describe("readSessionId", () => {

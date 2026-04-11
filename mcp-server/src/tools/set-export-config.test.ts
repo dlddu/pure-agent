@@ -9,7 +9,7 @@ let mockWriteFile: ReturnType<typeof vi.fn>;
 describe("setExportConfigTool", () => {
   beforeEach(() => {
     context = createMockContext({ workDir: "/test/work" });
-    mockWriteFile = context.fs.writeFile as ReturnType<typeof vi.fn>;
+    mockWriteFile = context.io.fs.writeFile as ReturnType<typeof vi.fn>;
   });
 
   const validArgs = {
