@@ -79,7 +79,7 @@ async function main() {
   });
 
   const exchangeRatesService = new ExchangeRatesService({
-    bucket: config.AWS_S3_BUCKET,
+    bucket: config.AWS_S3_BUCKET_NAME,
     region: config.AWS_REGION,
     roleArn: config.EXCHANGE_RATES_ROLE_ARN,
   });
