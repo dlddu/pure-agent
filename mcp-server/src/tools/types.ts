@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { ILinearService, ISessionService, IGatekeeperService } from "../services/types.js";
+import type { ILinearService, ISessionService, IGatekeeperService, IExchangeRatesService } from "../services/types.js";
 import type { IoLayer } from "../io.js";
 import type { Logger } from "../logger.js";
 
@@ -24,6 +24,7 @@ export interface McpToolContext {
     linear: ILinearService;
     session: ISessionService;
     gatekeeper: IGatekeeperService;
+    exchangeRates: IExchangeRatesService;
   };
   io: IoLayer;
   workDir: string;

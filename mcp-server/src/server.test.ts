@@ -24,10 +24,10 @@ describe("createMcpServer", () => {
   });
 
   describe("listTools", () => {
-    it("returns all 7 tools", async () => {
+    it("returns all 8 tools", async () => {
       const result = await client.listTools();
 
-      expect(result.tools).toHaveLength(7);
+      expect(result.tools).toHaveLength(8);
       const names = result.tools.map((t) => t.name);
       expect(names).toContain("request_feature");
       expect(names).toContain("get_export_actions");
@@ -36,6 +36,7 @@ describe("createMcpServer", () => {
       expect(names).toContain("get_issue_comments");
       expect(names).toContain("git_clone");
       expect(names).toContain("web_fetch_get");
+      expect(names).toContain("get_exchange_rates");
     });
 
     it("each tool has name and inputSchema", async () => {
