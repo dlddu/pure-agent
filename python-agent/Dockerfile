@@ -39,7 +39,8 @@ RUN pip install --no-cache-dir \
     scipy \
     scikit-learn \
     jupyter \
-    openpyxl
+    openpyxl \
+    pyarrow
 
 # Install Claude Code
 ARG CLAUDE_CODE_CHANNEL=stable

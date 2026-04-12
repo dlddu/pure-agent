@@ -31,6 +31,7 @@ This environment includes pre-installed Python data analysis tools:
 - **scikit-learn** — Machine learning
 - **jupyter** — Notebook support
 - **openpyxl** — Excel file I/O
+- **pyarrow** — Parquet file I/O and columnar data
 
 ### Usage Tips
 
