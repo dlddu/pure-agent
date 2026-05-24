@@ -7,9 +7,7 @@ name = "gate"
 version = "0.1.0"
 description = "Workflow gate: continue/stop decision for pure-agent"
 requires-python = ">=3.12"
-dependencies = [
-    "boto3>=1.35.0",
-]
+dependencies = []
 
 [project.scripts]
 gate = "gate.cli:run"

@@ -102,6 +102,26 @@ function buildQueryResponse(operationName: string | null): unknown {
   };
 }
 
+// ── Transcript upload-url mock ──────────────────────────────────────────────
+// Stands in for the transcript viewer's upload-url endpoint. It hands back a
+// direct PUT URL to the LocalStack S3 service so the gate's two-step upload
+// lands real objects in the test bucket. LocalStack accepts unsigned PUTs, so
+// no presigning is required.
+
+// Mirrors the file names the real viewer accepts.
+const TRANSCRIPT_FILE_NAME_RE = /^(subagents\/)?[A-Za-z0-9._-]+\.jsonl$/;
+
+function localstackS3Endpoint(): string {
+  return (
+    process.env["LOCALSTACK_S3_ENDPOINT"] ??
+    "http://localstack.pure-agent.svc.cluster.local:4566"
+  );
+}
+
+function transcriptBucket(): string {
+  return process.env["S3_BUCKET"] ?? "pure-agent-e2e-transcripts";
+}
+
 // ── App factory ───────────────────────────────────────────────────────────────
 
 export function createApp(): express.Application {
@@ -165,6 +185,35 @@ export function createApp(): express.Application {
       model: "claude-haiku-4-5-20251001",
       stop_reason: "end_turn",
       usage: { input_tokens: 10, output_tokens: 10 },
+    });
+  });
+
+  // POST /api/transcripts/upload-url/:sessionId — transcript viewer upload-url mock
+  app.post("/api/transcripts/upload-url/:sessionId", (req: Request, res: Response) => {
+    const { sessionId } = req.params as { sessionId: string };
+    const fileName = req.query["file_name"];
+
+    if (typeof fileName !== "string" || !TRANSCRIPT_FILE_NAME_RE.test(fileName)) {
+      res.status(400).json({ error: "Invalid or missing file_name" });
+      return;
+    }
+
+    const key = `${sessionId}/${fileName}`;
+    const url = `${localstackS3Endpoint()}/${transcriptBucket()}/${key}`;
+
+    calls.push({
+      type: "mutation",
+      operationName: "transcript_upload_url",
+      body: { sessionId, fileName },
+      timestamp: new Date().toISOString(),
+    });
+
+    res.status(200).json({
+      url,
+      method: "PUT",
+      key,
+      session_id: sessionId,
+      expires_in: 3600,
     });
   });
 

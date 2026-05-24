@@ -186,6 +186,92 @@ describe("mock-api", () => {
     });
   });
 
+  // ── POST /api/transcripts/upload-url/:sessionId ──────────────────────────
+
+  describe("POST /api/transcripts/upload-url/:sessionId", () => {
+    it("returns a PUT URL into the LocalStack bucket for a main transcript", async () => {
+      // Act
+      const res = await request(app)
+        .post("/api/transcripts/upload-url/abc123")
+        .query({ file_name: "abc123.jsonl" });
+
+      // Assert
+      expect(res.status).toBe(200);
+      expect(res.body.method).toBe("PUT");
+      expect(res.body.session_id).toBe("abc123");
+      expect(res.body.key).toBe("abc123/abc123.jsonl");
+      expect(res.body.url).toContain("/abc123/abc123.jsonl");
+      expect(res.body.url).toContain("pure-agent-e2e-transcripts");
+    });
+
+    it("keeps the subagents/ prefix in the key for subagent transcripts", async () => {
+      // Act
+      const res = await request(app)
+        .post("/api/transcripts/upload-url/abc123")
+        .query({ file_name: "subagents/sub1.jsonl" });
+
+      // Assert
+      expect(res.status).toBe(200);
+      expect(res.body.key).toBe("abc123/subagents/sub1.jsonl");
+      expect(res.body.url).toContain("/abc123/subagents/sub1.jsonl");
+    });
+
+    it("honors LOCALSTACK_S3_ENDPOINT and S3_BUCKET env overrides", async () => {
+      // Arrange
+      const prevEndpoint = process.env["LOCALSTACK_S3_ENDPOINT"];
+      const prevBucket = process.env["S3_BUCKET"];
+      process.env["LOCALSTACK_S3_ENDPOINT"] = "http://ls.test:4566";
+      process.env["S3_BUCKET"] = "custom-bucket";
+
+      try {
+        // Act
+        const res = await request(app)
+          .post("/api/transcripts/upload-url/sess")
+          .query({ file_name: "sess.jsonl" });
+
+        // Assert
+        expect(res.status).toBe(200);
+        expect(res.body.url).toBe("http://ls.test:4566/custom-bucket/sess/sess.jsonl");
+      } finally {
+        if (prevEndpoint === undefined) delete process.env["LOCALSTACK_S3_ENDPOINT"];
+        else process.env["LOCALSTACK_S3_ENDPOINT"] = prevEndpoint;
+        if (prevBucket === undefined) delete process.env["S3_BUCKET"];
+        else process.env["S3_BUCKET"] = prevBucket;
+      }
+    });
+
+    it("records the upload-url request in assertions", async () => {
+      // Act
+      await request(app)
+        .post("/api/transcripts/upload-url/abc123")
+        .query({ file_name: "abc123.jsonl" });
+
+      // Assert
+      const recorded = getCalls();
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0].operationName).toBe("transcript_upload_url");
+    });
+
+    it("returns 400 when file_name is missing", async () => {
+      // Act
+      const res = await request(app).post("/api/transcripts/upload-url/abc123");
+
+      // Assert
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain("file_name");
+    });
+
+    it("returns 400 for a file_name outside the accepted format", async () => {
+      // Act
+      const res = await request(app)
+        .post("/api/transcripts/upload-url/abc123")
+        .query({ file_name: "../escape.txt" });
+
+      // Assert
+      expect(res.status).toBe(400);
+    });
+  });
+
   // ── GET /assertions ───────────────────────────────────────────────────────
 
   describe("GET /assertions", () => {

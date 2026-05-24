@@ -371,9 +371,9 @@ class TestRun:
 
 
 class TestTranscriptUploadIntegration:
-    def test_upload_skipped_when_no_aws_config(self, work_env, monkeypatch, caplog):
-        """When AWS_S3_BUCKET_NAME is not set, upload is skipped gracefully."""
-        monkeypatch.delenv("AWS_S3_BUCKET_NAME", raising=False)
+    def test_upload_skipped_when_no_upload_config(self, work_env, monkeypatch, caplog):
+        """When TRANSCRIPT_UPLOAD_API_URL is not set, upload is skipped gracefully."""
+        monkeypatch.delenv("TRANSCRIPT_UPLOAD_API_URL", raising=False)
         with caplog.at_level(logging.INFO, logger="gate"):
             out = run_gate(monkeypatch, work_env, depth=0, max_depth=5)
         assert out.strip() == "true"
@@ -381,7 +381,7 @@ class TestTranscriptUploadIntegration:
 
     def test_upload_called_after_routing_decision(self, work_env, monkeypatch, caplog):
         """Transcript upload runs after routing decision is written."""
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "test-bucket")
+        monkeypatch.setenv("TRANSCRIPT_UPLOAD_API_URL", "http://viewer.test")
         from unittest.mock import MagicMock
 
         import gate.transcript_upload as tu
@@ -397,7 +397,7 @@ class TestTranscriptUploadIntegration:
 
     def test_upload_failure_does_not_affect_routing(self, work_env, monkeypatch, caplog):
         """Transcript upload failure is logged but does not change the routing output."""
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "test-bucket")
+        monkeypatch.setenv("TRANSCRIPT_UPLOAD_API_URL", "http://viewer.test")
         from unittest.mock import MagicMock
 
         import gate.transcript_upload as tu

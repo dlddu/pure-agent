@@ -42,6 +42,7 @@ env:
   ARGO_VERSION: "v3.6.4"
   YQ_VERSION: "v4.43.1"
   GH_CLI_VERSION: "2.67.0"
+  MOCK_API_IMAGE: "ghcr.io/dlddu/pure-agent/tests/mock-api:latest"
 
 jobs:
   e2e-full:
@@ -124,11 +125,18 @@ jobs:
           service: export-handler
           push: "false"
 
+      # mock-api stands in for the transcript viewer's upload-url endpoint.
+      - name: Build mock-api image
+        uses: ./.github/actions/build-image
+        with:
+          service: tests/mock-api
+          push: "false"
+
       - name: Load images into kind cluster
         run: |
           bash tests/lib/setup-kind.sh \
             --cluster-name "$CLUSTER_NAME" \
-            --images "ghcr.io/dlddu/pure-agent/claude-agent:latest,ghcr.io/dlddu/pure-agent/mcp-server:latest,ghcr.io/dlddu/pure-agent/gate:latest,ghcr.io/dlddu/pure-agent/planner:latest,ghcr.io/dlddu/pure-agent/export-handler:latest"
+            --images "ghcr.io/dlddu/pure-agent/claude-agent:latest,ghcr.io/dlddu/pure-agent/mcp-server:latest,ghcr.io/dlddu/pure-agent/gate:latest,ghcr.io/dlddu/pure-agent/planner:latest,ghcr.io/dlddu/pure-agent/export-handler:latest,${MOCK_API_IMAGE}"
 
       # ── Kubernetes namespace and secrets ──────────────────────────────────────
       - name: Create namespace and secrets for pure-agent
@@ -174,10 +182,10 @@ jobs:
               --from-literal=CLAUDE_CODE_OAUTH_TOKEN="$CLAUDE_CODE_OAUTH_TOKEN" \
               --dry-run=client -o yaml | kubectl apply -f -
 
-          # gate-secrets
+          # gate-secrets (transcript upload via mock-api upload-url endpoint)
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
             create secret generic gate-secrets \
-              --from-literal=AWS_S3_BUCKET_NAME="e2e-test-bucket" \
+              --from-literal=TRANSCRIPT_UPLOAD_API_URL="http://mock-api.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4000" \
               --dry-run=client -o yaml | kubectl apply -f -
 
       # ── Apply RBAC, ConfigMap, NetworkPolicy ──────────────────────────────────
@@ -191,6 +199,56 @@ jobs:
           kubectl --context "kind-${CLUSTER_NAME}" \
             apply -n "$PURE_AGENT_NAMESPACE" -f k8s/network-policy.yaml
 
+      # ── Deploy mock-api (transcript viewer upload-url stand-in) ───────────────
+      - name: Deploy mock-api Deployment and Service
+        run: |
+          set -euo pipefail
+          cat <<EOF | kubectl --context "kind-${CLUSTER_NAME}" apply -n "$PURE_AGENT_NAMESPACE" -f -
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: mock-api
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: mock-api
+            template:
+              metadata:
+                labels:
+                  app: mock-api
+              spec:
+                containers:
+                  - name: mock-api
+                    image: ${MOCK_API_IMAGE}
+                    imagePullPolicy: IfNotPresent
+                    ports:
+                      - containerPort: 4000
+                    env:
+                      - name: PORT
+                        value: "4000"
+                      # Where the upload-url handler points the gate's PUT.
+                      # Must match localstack.sh (Service DNS + default bucket).
+                      - name: LOCALSTACK_S3_ENDPOINT
+                        value: "http://localstack.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4566"
+                      - name: S3_BUCKET
+                        value: "pure-agent-e2e-transcripts"
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: mock-api
+          spec:
+            selector:
+              app: mock-api
+            ports:
+              - port: 4000
+                targetPort: 4000
+          EOF
+
+          kubectl --context "kind-${CLUSTER_NAME}" \
+            -n "$PURE_AGENT_NAMESPACE" \
+            rollout status deployment/mock-api --timeout=60s
 
       # ── Apply WorkflowTemplate ────────────────────────────────────────────────
       - name: Apply Argo WorkflowTemplate
@@ -219,9 +277,8 @@ jobs:
           yq -i '(.spec.templates[] | select(has("container")) | .container.imagePullPolicy) = "IfNotPresent"' \
             /tmp/workflow-template-patched.yaml
 
-          # gate에 LocalStack S3 접속용 환경변수 주입 (gate-secrets에서 읽음)
-          yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "AWS_ENDPOINT_URL", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ENDPOINT_URL", "optional": true}}}, {"name": "AWS_ACCESS_KEY_ID", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ACCESS_KEY_ID", "optional": true}}}, {"name": "AWS_SECRET_ACCESS_KEY", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_SECRET_ACCESS_KEY", "optional": true}}}]' \
-            /tmp/workflow-template-patched.yaml
+          # TRANSCRIPT_UPLOAD_API_URL is injected via the base template's
+          # gate-secrets reference, so no extra env patch is needed here.
 
           # Re-add planner_debug output (test-only: captures planner stderr for CI debugging)
           yq -i '(.spec.templates[] | select(.name == "planner") | .outputs.parameters) += [{"name": "planner_debug", "valueFrom": {"path": "/tmp/planner_debug.log", "default": "(no debug log)"}}]' \

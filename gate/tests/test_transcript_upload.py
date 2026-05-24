@@ -1,12 +1,14 @@
-"""Tests for gate.transcript_upload -- S3 transcript upload logic."""
+"""Tests for gate.transcript_upload -- viewer upload API logic."""
 
+import json
 from pathlib import Path
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from gate.config import TranscriptUploadConfig
 from gate.transcript_upload import (
+    ViewerUploader,
     _collect_uploads,
     _find_transcript_files,
     upload_transcripts,
@@ -15,11 +17,11 @@ from gate.transcript_upload import (
 
 @pytest.fixture
 def upload_config() -> TranscriptUploadConfig:
-    return TranscriptUploadConfig(bucket_name="my-bucket", region="ap-northeast-2")
+    return TranscriptUploadConfig(api_base_url="http://viewer.test")
 
 
 @pytest.fixture
-def mock_s3() -> MagicMock:
+def mock_uploader() -> MagicMock:
     return MagicMock()
 
 
@@ -66,7 +68,8 @@ class TestCollectUploads:
         Path(transcript_file).write_text("")
         uploads = _collect_uploads(str(tmp_path), [transcript_file])
         assert len(uploads) == 1
-        assert uploads[0].key == "abc123.jsonl"
+        assert uploads[0].session_id == "abc123"
+        assert uploads[0].file_name == "abc123.jsonl"
 
     def test_main_plus_subagents(self, tmp_path):
         transcript_file = str(tmp_path / "abc123.jsonl")
@@ -77,8 +80,12 @@ class TestCollectUploads:
         (subagent_dir / "sub2.jsonl").write_text("")
 
         uploads = _collect_uploads(str(tmp_path), [transcript_file])
-        keys = {u.key for u in uploads}
-        assert keys == {"abc123.jsonl", "abc123/sub1.jsonl", "abc123/sub2.jsonl"}
+        names = {(u.session_id, u.file_name) for u in uploads}
+        assert names == {
+            ("abc123", "abc123.jsonl"),
+            ("abc123", "subagents/sub1.jsonl"),
+            ("abc123", "subagents/sub2.jsonl"),
+        }
 
     def test_no_subagent_dir(self, tmp_path):
         transcript_file = str(tmp_path / "abc123.jsonl")
@@ -95,248 +102,242 @@ class TestCollectUploads:
         (subagent_dir / "notes.txt").write_text("")
 
         uploads = _collect_uploads(str(tmp_path), [transcript_file])
-        keys = {u.key for u in uploads}
-        assert keys == {"abc123.jsonl", "abc123/sub1.jsonl"}
+        names = {(u.session_id, u.file_name) for u in uploads}
+        assert names == {("abc123", "abc123.jsonl"), ("abc123", "subagents/sub1.jsonl")}
 
-    def test_prefix_prepended_to_main_and_subagent_keys(self, tmp_path):
+    def test_subagent_file_name_carries_subagents_prefix(self, tmp_path):
         transcript_file = str(tmp_path / "abc123.jsonl")
         Path(transcript_file).write_text("")
         subagent_dir = tmp_path / "abc123" / "subagents"
         subagent_dir.mkdir(parents=True)
         (subagent_dir / "sub1.jsonl").write_text("")
 
-        uploads = _collect_uploads(str(tmp_path), [transcript_file], "env/prod")
-        keys = {u.key for u in uploads}
-        assert keys == {"env/prod/abc123.jsonl", "env/prod/abc123/sub1.jsonl"}
-
-    def test_empty_prefix_leaves_keys_unchanged(self, tmp_path):
-        transcript_file = str(tmp_path / "abc123.jsonl")
-        Path(transcript_file).write_text("")
-        uploads = _collect_uploads(str(tmp_path), [transcript_file], "")
-        assert [u.key for u in uploads] == ["abc123.jsonl"]
+        uploads = _collect_uploads(str(tmp_path), [transcript_file])
+        sub = next(u for u in uploads if u.file_name != "abc123.jsonl")
+        assert sub.session_id == "abc123"
+        assert sub.file_name == "subagents/sub1.jsonl"
 
 
 # ── upload_transcripts ──────────────────────────────────
 
 
 class TestUploadTranscripts:
-    def test_returns_zero_when_no_transcript_dir(self, tmp_path, upload_config, mock_s3):
-        count = upload_transcripts(str(tmp_path / "nonexistent"), upload_config, mock_s3)
+    def test_returns_zero_when_no_transcript_dir(self, tmp_path, upload_config, mock_uploader):
+        count = upload_transcripts(str(tmp_path / "nonexistent"), upload_config, mock_uploader)
         assert count == 0
-        mock_s3.put_object.assert_not_called()
+        mock_uploader.upload.assert_not_called()
 
-    def test_returns_zero_when_no_jsonl_files(self, tmp_path, upload_config, mock_s3):
-        count = upload_transcripts(str(tmp_path), upload_config, mock_s3)
+    def test_returns_zero_when_no_jsonl_files(self, tmp_path, upload_config, mock_uploader):
+        count = upload_transcripts(str(tmp_path), upload_config, mock_uploader)
         assert count == 0
 
-    def test_uploads_single_file(self, tmp_path, upload_config, mock_s3):
+    def test_uploads_single_file(self, tmp_path, upload_config, mock_uploader):
         (tmp_path / "abc123.jsonl").write_text("transcript data")
-        count = upload_transcripts(str(tmp_path), upload_config, mock_s3)
+        count = upload_transcripts(str(tmp_path), upload_config, mock_uploader)
         assert count == 1
-        mock_s3.put_object.assert_called_once_with(
-            Bucket="my-bucket",
-            Key="abc123.jsonl",
-            Body=b"transcript data",
-            ContentType="application/jsonl",
+        mock_uploader.upload.assert_called_once_with(
+            session_id="abc123",
+            file_name="abc123.jsonl",
+            body=b"transcript data",
         )
 
-    def test_uploads_with_subagents(self, tmp_path, upload_config, mock_s3):
+    def test_uploads_with_subagents(self, tmp_path, upload_config, mock_uploader):
         (tmp_path / "abc123.jsonl").write_text("main")
         sub_dir = tmp_path / "abc123" / "subagents"
         sub_dir.mkdir(parents=True)
         (sub_dir / "sub1.jsonl").write_text("sub1")
         (sub_dir / "sub2.jsonl").write_text("sub2")
 
-        count = upload_transcripts(str(tmp_path), upload_config, mock_s3)
+        count = upload_transcripts(str(tmp_path), upload_config, mock_uploader)
         assert count == 3
-        assert mock_s3.put_object.call_count == 3
+        assert mock_uploader.upload.call_count == 3
 
-    def test_uploads_multiple_sessions(self, tmp_path, upload_config, mock_s3):
+    def test_uploads_multiple_sessions(self, tmp_path, upload_config, mock_uploader):
         (tmp_path / "session1.jsonl").write_text("s1")
         (tmp_path / "session2.jsonl").write_text("s2")
-        count = upload_transcripts(str(tmp_path), upload_config, mock_s3)
+        count = upload_transcripts(str(tmp_path), upload_config, mock_uploader)
         assert count == 2
 
-    def test_s3_error_propagates(self, tmp_path, upload_config, mock_s3):
-        (tmp_path / "abc123.jsonl").write_text("data")
-        mock_s3.put_object.side_effect = Exception("Access Denied")
-        with pytest.raises(Exception, match="Access Denied"):
-            upload_transcripts(str(tmp_path), upload_config, mock_s3)
-
-    def test_uploads_only_main_when_subagents_dir_missing(self, tmp_path, upload_config, mock_s3):
-        (tmp_path / "abc123.jsonl").write_text("data")
-        count = upload_transcripts(str(tmp_path), upload_config, mock_s3)
-        assert count == 1
-        mock_s3.put_object.assert_called_once_with(
-            Bucket="my-bucket",
-            Key="abc123.jsonl",
-            Body=b"data",
-            ContentType="application/jsonl",
-        )
-
-    def test_uploads_with_prefix(self, tmp_path, mock_s3):
-        config = TranscriptUploadConfig(
-            bucket_name="my-bucket", region="ap-northeast-2", prefix="env/prod"
-        )
-        (tmp_path / "abc123.jsonl").write_text("data")
+    def test_subagent_uploaded_with_prefixed_file_name(
+        self, tmp_path, upload_config, mock_uploader
+    ):
+        (tmp_path / "abc123.jsonl").write_text("main")
         sub_dir = tmp_path / "abc123" / "subagents"
         sub_dir.mkdir(parents=True)
         (sub_dir / "sub1.jsonl").write_text("sub")
 
-        count = upload_transcripts(str(tmp_path), config, mock_s3)
+        count = upload_transcripts(str(tmp_path), upload_config, mock_uploader)
         assert count == 2
-        keys = {call.kwargs["Key"] for call in mock_s3.put_object.call_args_list}
-        assert keys == {"env/prod/abc123.jsonl", "env/prod/abc123/sub1.jsonl"}
-
-    def test_creates_client_with_endpoint_url(self, tmp_path, monkeypatch):
-        """When endpoint_url is set, boto3 client receives it (for LocalStack)."""
-        config = TranscriptUploadConfig(
-            bucket_name="test-bucket",
-            region="us-east-1",
-            endpoint_url="http://localhost:4566",
-        )
-        (tmp_path / "session.jsonl").write_text("data")
-
-        from unittest.mock import patch
-
-        import boto3
-
-        with patch.object(boto3, "client", wraps=boto3.client) as spy_client:
-            mock_client = MagicMock()
-            spy_client.return_value = mock_client
-            upload_transcripts(str(tmp_path), config)
-            spy_client.assert_called_once_with(
-                "s3", region_name="us-east-1", endpoint_url="http://localhost:4566"
-            )
-
-    def test_creates_client_without_endpoint_url_when_none(self, tmp_path, monkeypatch):
-        """When endpoint_url is None, boto3 client is created without it."""
-        config = TranscriptUploadConfig(
-            bucket_name="test-bucket",
-            region="us-east-1",
-            endpoint_url=None,
-        )
-        (tmp_path / "session.jsonl").write_text("data")
-
-        from unittest.mock import patch
-
-        import boto3
-
-        with patch.object(boto3, "client", wraps=boto3.client) as spy_client:
-            mock_client = MagicMock()
-            spy_client.return_value = mock_client
-            upload_transcripts(str(tmp_path), config)
-            spy_client.assert_called_once_with("s3", region_name="us-east-1")
-
-    def test_assume_role_uses_sts_credentials_for_s3_client(self, tmp_path):
-        """When assume_role_arn is set, STS AssumeRole is called and creds flow into S3 client."""
-        config = TranscriptUploadConfig(
-            bucket_name="test-bucket",
-            region="us-east-1",
-            assume_role_arn="arn:aws:iam::123456789012:role/GateUploader",
-        )
-        (tmp_path / "session.jsonl").write_text("data")
-
-        from unittest.mock import patch
-
-        import boto3
-
-        sts_client = MagicMock()
-        sts_client.assume_role.return_value = {
-            "Credentials": {
-                "AccessKeyId": "AKIAFAKE",
-                "SecretAccessKey": "secret",
-                "SessionToken": "token",
-                "Expiration": "2030-01-01T00:00:00Z",
-            }
+        names = {
+            (c.kwargs["session_id"], c.kwargs["file_name"])
+            for c in mock_uploader.upload.call_args_list
         }
-        s3_client = MagicMock()
+        assert names == {("abc123", "abc123.jsonl"), ("abc123", "subagents/sub1.jsonl")}
 
-        def fake_client(service: str, **kwargs):
-            if service == "sts":
-                return sts_client
-            if service == "s3":
-                return s3_client
-            raise AssertionError(f"unexpected service {service}")
+    def test_best_effort_one_failure_does_not_abort_batch(self, tmp_path, upload_config):
+        (tmp_path / "s1.jsonl").write_text("a")
+        (tmp_path / "s2.jsonl").write_text("b")
+        (tmp_path / "s3.jsonl").write_text("c")
 
-        with patch.object(boto3, "client", side_effect=fake_client) as spy_client:
-            upload_transcripts(str(tmp_path), config)
+        uploader = MagicMock()
 
-        sts_client.assume_role.assert_called_once_with(
-            RoleArn="arn:aws:iam::123456789012:role/GateUploader",
-            RoleSessionName="gate-transcript-upload",
+        def fake_upload(*, session_id, file_name, body):
+            if session_id == "s2":
+                raise RuntimeError("upload failed")
+
+        uploader.upload.side_effect = fake_upload
+
+        count = upload_transcripts(str(tmp_path), upload_config, uploader)
+        assert count == 2
+        assert uploader.upload.call_count == 3
+
+    def test_uploads_only_main_when_subagents_dir_missing(
+        self, tmp_path, upload_config, mock_uploader
+    ):
+        (tmp_path / "abc123.jsonl").write_text("data")
+        count = upload_transcripts(str(tmp_path), upload_config, mock_uploader)
+        assert count == 1
+        mock_uploader.upload.assert_called_once_with(
+            session_id="abc123",
+            file_name="abc123.jsonl",
+            body=b"data",
         )
-        # STS client created with region
-        assert spy_client.call_args_list[0].args == ("sts",)
-        assert spy_client.call_args_list[0].kwargs == {"region_name": "us-east-1"}
-        # S3 client created with temporary credentials
-        assert spy_client.call_args_list[1].args == ("s3",)
-        assert spy_client.call_args_list[1].kwargs == {
-            "region_name": "us-east-1",
-            "aws_access_key_id": "AKIAFAKE",
-            "aws_secret_access_key": "secret",
-            "aws_session_token": "token",
-        }
-        s3_client.put_object.assert_called_once()
 
-    def test_assume_role_skipped_when_arn_not_set(self, tmp_path):
-        """Without assume_role_arn, STS is never called."""
-        config = TranscriptUploadConfig(
-            bucket_name="test-bucket",
-            region="us-east-1",
+    def test_default_uploader_is_viewer_uploader(self, tmp_path, upload_config):
+        """When no uploader is injected, a ViewerUploader drives the 2-step exchange."""
+        (tmp_path / "abc123.jsonl").write_text("data")
+
+        captured = []
+
+        def fake_urlopen(req, timeout=None):
+            captured.append(req)
+            if req.method == "POST":
+                return _FakeResponse(
+                    json.dumps(
+                        {"url": "http://s3.test/bucket/abc123.jsonl", "method": "PUT"}
+                    ).encode()
+                )
+            return _FakeResponse(b"")
+
+        with patch("gate.transcript_upload.urlopen", side_effect=fake_urlopen):
+            count = upload_transcripts(str(tmp_path), upload_config)
+
+        assert count == 1
+        assert [r.method for r in captured] == ["POST", "PUT"]
+
+
+# ── ViewerUploader ──────────────────────────────────────
+
+
+class _FakeResponse:
+    """Minimal urlopen() response stand-in usable as a context manager."""
+
+    def __init__(self, data: bytes = b"") -> None:
+        self._data = data
+
+    def read(self) -> bytes:
+        return self._data
+
+    def __enter__(self) -> "_FakeResponse":
+        return self
+
+    def __exit__(self, *_exc) -> bool:
+        return False
+
+
+class TestViewerUploader:
+    def test_requests_upload_url_then_puts_body(self):
+        captured = []
+
+        def fake_urlopen(req, timeout=None):
+            captured.append(req)
+            if req.method == "POST":
+                return _FakeResponse(
+                    json.dumps(
+                        {
+                            "url": "http://s3.test/bucket/abc123/abc123.jsonl",
+                            "method": "PUT",
+                            "key": "abc123/abc123.jsonl",
+                            "session_id": "abc123",
+                            "expires_in": 3600,
+                        }
+                    ).encode()
+                )
+            return _FakeResponse(b"")
+
+        uploader = ViewerUploader("http://viewer.test")
+        with patch("gate.transcript_upload.urlopen", side_effect=fake_urlopen):
+            uploader.upload(session_id="abc123", file_name="abc123.jsonl", body=b"payload")
+
+        assert len(captured) == 2
+        post_req, put_req = captured
+
+        assert post_req.method == "POST"
+        assert post_req.full_url == (
+            "http://viewer.test/api/transcripts/upload-url/abc123?file_name=abc123.jsonl"
         )
-        (tmp_path / "session.jsonl").write_text("data")
 
-        from unittest.mock import patch
+        assert put_req.method == "PUT"
+        assert put_req.full_url == "http://s3.test/bucket/abc123/abc123.jsonl"
+        assert put_req.data == b"payload"
+        assert put_req.get_header("Content-type") == "application/jsonl"
 
-        import boto3
+    def test_strips_trailing_slash_from_base_url(self):
+        captured = []
 
-        with patch.object(boto3, "client") as spy_client:
-            spy_client.return_value = MagicMock()
-            upload_transcripts(str(tmp_path), config)
+        def fake_urlopen(req, timeout=None):
+            captured.append(req)
+            if req.method == "POST":
+                return _FakeResponse(
+                    json.dumps({"url": "http://s3.test/x", "method": "PUT"}).encode()
+                )
+            return _FakeResponse(b"")
 
-        services_called = [call.args[0] for call in spy_client.call_args_list]
-        assert services_called == ["s3"]
+        uploader = ViewerUploader("http://viewer.test/")
+        with patch("gate.transcript_upload.urlopen", side_effect=fake_urlopen):
+            uploader.upload(session_id="sess", file_name="sess.jsonl", body=b"x")
 
-    def test_assume_role_passes_endpoint_url_to_sts(self, tmp_path):
-        """endpoint_url is forwarded to the STS client too (useful for LocalStack)."""
-        config = TranscriptUploadConfig(
-            bucket_name="test-bucket",
-            region="us-east-1",
-            endpoint_url="http://localhost:4566",
-            assume_role_arn="arn:aws:iam::123456789012:role/GateUploader",
+        assert captured[0].full_url == (
+            "http://viewer.test/api/transcripts/upload-url/sess?file_name=sess.jsonl"
         )
-        (tmp_path / "session.jsonl").write_text("data")
 
-        from unittest.mock import patch
+    def test_subagent_file_name_is_url_encoded_in_query(self):
+        captured = []
 
-        import boto3
+        def fake_urlopen(req, timeout=None):
+            captured.append(req)
+            if req.method == "POST":
+                return _FakeResponse(
+                    json.dumps({"url": "http://s3.test/x", "method": "PUT"}).encode()
+                )
+            return _FakeResponse(b"")
 
-        sts_client = MagicMock()
-        sts_client.assume_role.return_value = {
-            "Credentials": {
-                "AccessKeyId": "AKIAFAKE",
-                "SecretAccessKey": "secret",
-                "SessionToken": "token",
-                "Expiration": "2030-01-01T00:00:00Z",
-            }
-        }
-        s3_client = MagicMock()
+        uploader = ViewerUploader("http://viewer.test")
+        with patch("gate.transcript_upload.urlopen", side_effect=fake_urlopen):
+            uploader.upload(session_id="abc123", file_name="subagents/sub1.jsonl", body=b"x")
 
-        def fake_client(service: str, **kwargs):
-            return sts_client if service == "sts" else s3_client
+        assert captured[0].full_url == (
+            "http://viewer.test/api/transcripts/upload-url/abc123?file_name=subagents%2Fsub1.jsonl"
+        )
 
-        with patch.object(boto3, "client", side_effect=fake_client) as spy_client:
-            upload_transcripts(str(tmp_path), config)
+    def test_defaults_to_put_when_method_absent_in_response(self):
+        captured = []
 
-        assert spy_client.call_args_list[0].kwargs == {
-            "region_name": "us-east-1",
-            "endpoint_url": "http://localhost:4566",
-        }
-        assert spy_client.call_args_list[1].kwargs == {
-            "region_name": "us-east-1",
-            "endpoint_url": "http://localhost:4566",
-            "aws_access_key_id": "AKIAFAKE",
-            "aws_secret_access_key": "secret",
-            "aws_session_token": "token",
-        }
+        def fake_urlopen(req, timeout=None):
+            captured.append(req)
+            if req.method == "POST":
+                return _FakeResponse(json.dumps({"url": "http://s3.test/x"}).encode())
+            return _FakeResponse(b"")
+
+        uploader = ViewerUploader("http://viewer.test")
+        with patch("gate.transcript_upload.urlopen", side_effect=fake_urlopen):
+            uploader.upload(session_id="abc123", file_name="abc123.jsonl", body=b"x")
+
+        assert captured[1].method == "PUT"
+
+    def test_rejects_invalid_file_name_without_calling_api(self):
+        uploader = ViewerUploader("http://viewer.test")
+        with patch("gate.transcript_upload.urlopen") as mock_urlopen:
+            with pytest.raises(ValueError, match="Invalid transcript file name"):
+                uploader.upload(session_id="abc123", file_name="../escape.txt", body=b"x")
+            mock_urlopen.assert_not_called()

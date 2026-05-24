@@ -148,7 +148,7 @@ jobs:
 
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
             create secret generic gate-secrets \
-              --from-literal=AWS_S3_BUCKET_NAME="mock-bucket" \
+              --from-literal=TRANSCRIPT_UPLOAD_API_URL="http://mock-api.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4000" \
               --dry-run=client -o yaml | kubectl apply -f -
 
       # ── Deploy mock-api as a Service in the cluster ───────────────────────
@@ -179,6 +179,12 @@ jobs:
                     env:
                       - name: PORT
                         value: "4000"
+                      # Where the upload-url handler points the gate's PUT.
+                      # Must match localstack.sh (Service DNS + default bucket).
+                      - name: LOCALSTACK_S3_ENDPOINT
+                        value: "http://localstack.${PURE_AGENT_NAMESPACE}.svc.cluster.local:4566"
+                      - name: S3_BUCKET
+                        value: "pure-agent-e2e-transcripts"
           ---
           apiVersion: v1
           kind: Service
@@ -275,13 +281,12 @@ jobs:
           yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "GATE_DEPTH", "value": "{{inputs.parameters.depth}}"}, {"name": "GATE_MAX_DEPTH", "value": "{{inputs.parameters.max_depth}}"}]' \
             /tmp/workflow-template-integration.yaml
 
-          # gate args: 실제 gate CLI 실행 (S3 upload) → mock 결정 로직으로 output 덮어쓰기
+          # gate args: 실제 gate CLI 실행 (transcript upload) → mock 결정 로직으로 output 덮어쓰기
           yq -i '(.spec.templates[] | select(.name == "gate") | .container.args) = ["gate --export-config \"$EXPORT_CONFIG_JSON\" --depth \"$GATE_DEPTH\" --max-depth \"$GATE_MAX_DEPTH\" --output /tmp/continue.txt 2>&1 || true; echo \"[mock-gate-override] depth=$GATE_DEPTH max_depth=$GATE_MAX_DEPTH\" >&2; D=\"$GATE_DEPTH\"; M=\"$GATE_MAX_DEPTH\"; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > /tmp/continue.txt; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > /tmp/continue.txt; else echo false > /tmp/continue.txt; fi; fi"]' \
             /tmp/workflow-template-integration.yaml
 
-          # gate에 LocalStack S3 접속용 환경변수 주입 (gate-secrets에서 읽음)
-          yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "AWS_ENDPOINT_URL", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ENDPOINT_URL", "optional": true}}}, {"name": "AWS_ACCESS_KEY_ID", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_ACCESS_KEY_ID", "optional": true}}}, {"name": "AWS_SECRET_ACCESS_KEY", "valueFrom": {"secretKeyRef": {"name": "gate-secrets", "key": "AWS_SECRET_ACCESS_KEY", "optional": true}}}]' \
-            /tmp/workflow-template-integration.yaml
+          # TRANSCRIPT_UPLOAD_API_URL is injected via the base template's
+          # gate-secrets reference, so no extra env patch is needed here.
 
           # ── mock-export-handler 패치 ────────────────────────────────────
           # 실제 export-handler 이미지는 kind에 로드되지 않으며 mock secrets로 동작하지 않음.
