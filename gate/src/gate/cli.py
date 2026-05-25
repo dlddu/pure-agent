@@ -45,15 +45,15 @@ def main() -> None:
 
     logic.write_output("true" if continuing else "false", args.output)
 
-    # Upload transcripts to S3 (independent of routing decision)
+    # Upload transcripts via the viewer API (independent of routing decision)
     _upload_transcripts(config)
 
 
 def _upload_transcripts(config: GateConfig) -> None:
-    """Upload transcripts to S3 if AWS config is available. Failures are logged, not raised."""
+    """Upload transcripts if the viewer API is configured. Failures are logged, not raised."""
     upload_config = TranscriptUploadConfig.from_env()
     if upload_config is None:
-        logger.info("Transcript upload skipped: AWS_S3_BUCKET_NAME not configured")
+        logger.info("Transcript upload skipped: TRANSCRIPT_UPLOAD_API_URL not configured")
         return
 
     try:

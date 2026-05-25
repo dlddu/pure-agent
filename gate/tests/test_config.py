@@ -40,107 +40,27 @@ class TestGateConfig:
 
 
 class TestTranscriptUploadConfig:
-    def test_from_env_returns_none_when_bucket_not_set(self, monkeypatch):
-        monkeypatch.delenv("AWS_S3_BUCKET_NAME", raising=False)
+    def test_from_env_returns_none_when_url_not_set(self, monkeypatch):
+        monkeypatch.delenv("TRANSCRIPT_UPLOAD_API_URL", raising=False)
         assert TranscriptUploadConfig.from_env() is None
 
-    def test_from_env_returns_none_when_bucket_empty(self, monkeypatch):
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "")
+    def test_from_env_returns_none_when_url_empty(self, monkeypatch):
+        monkeypatch.setenv("TRANSCRIPT_UPLOAD_API_URL", "")
         assert TranscriptUploadConfig.from_env() is None
 
-    def test_from_env_returns_config_when_bucket_set(self, monkeypatch):
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-        monkeypatch.setenv("AWS_REGION", "us-west-2")
+    def test_from_env_returns_config_when_url_set(self, monkeypatch):
+        monkeypatch.setenv("TRANSCRIPT_UPLOAD_API_URL", "http://viewer.svc:3000")
         cfg = TranscriptUploadConfig.from_env()
         assert cfg is not None
-        assert cfg.bucket_name == "my-bucket"
-        assert cfg.region == "us-west-2"
+        assert cfg.api_base_url == "http://viewer.svc:3000"
 
-    def test_from_env_uses_default_region(self, monkeypatch):
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-        monkeypatch.delenv("AWS_REGION", raising=False)
+    def test_from_env_default_timeout(self, monkeypatch):
+        monkeypatch.setenv("TRANSCRIPT_UPLOAD_API_URL", "http://viewer.svc:3000")
         cfg = TranscriptUploadConfig.from_env()
         assert cfg is not None
-        assert cfg.region == "ap-northeast-2"
-
-    def test_from_env_reads_endpoint_url(self, monkeypatch):
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-        monkeypatch.setenv("AWS_ENDPOINT_URL", "http://localhost:4566")
-        cfg = TranscriptUploadConfig.from_env()
-        assert cfg is not None
-        assert cfg.endpoint_url == "http://localhost:4566"
-
-    def test_from_env_endpoint_url_defaults_to_none(self, monkeypatch):
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-        monkeypatch.delenv("AWS_ENDPOINT_URL", raising=False)
-        cfg = TranscriptUploadConfig.from_env()
-        assert cfg is not None
-        assert cfg.endpoint_url is None
-
-    def test_from_env_endpoint_url_empty_string_becomes_none(self, monkeypatch):
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-        monkeypatch.setenv("AWS_ENDPOINT_URL", "")
-        cfg = TranscriptUploadConfig.from_env()
-        assert cfg is not None
-        assert cfg.endpoint_url is None
-
-    def test_from_env_prefix_defaults_to_empty(self, monkeypatch):
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-        monkeypatch.delenv("AWS_S3_PREFIX", raising=False)
-        cfg = TranscriptUploadConfig.from_env()
-        assert cfg is not None
-        assert cfg.prefix == ""
-
-    def test_from_env_prefix_plain(self, monkeypatch):
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-        monkeypatch.setenv("AWS_S3_PREFIX", "transcripts")
-        cfg = TranscriptUploadConfig.from_env()
-        assert cfg is not None
-        assert cfg.prefix == "transcripts"
-
-    def test_from_env_prefix_strips_trailing_slash(self, monkeypatch):
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-        monkeypatch.setenv("AWS_S3_PREFIX", "transcripts/")
-        cfg = TranscriptUploadConfig.from_env()
-        assert cfg is not None
-        assert cfg.prefix == "transcripts"
-
-    def test_from_env_prefix_strips_leading_and_trailing_slashes(self, monkeypatch):
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-        monkeypatch.setenv("AWS_S3_PREFIX", "/transcripts/")
-        cfg = TranscriptUploadConfig.from_env()
-        assert cfg is not None
-        assert cfg.prefix == "transcripts"
-
-    def test_from_env_prefix_preserves_interior_slashes(self, monkeypatch):
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-        monkeypatch.setenv("AWS_S3_PREFIX", "foo/bar/baz")
-        cfg = TranscriptUploadConfig.from_env()
-        assert cfg is not None
-        assert cfg.prefix == "foo/bar/baz"
-
-    def test_from_env_assume_role_arn_defaults_to_none(self, monkeypatch):
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-        monkeypatch.delenv("AWS_ASSUME_ROLE_ARN", raising=False)
-        cfg = TranscriptUploadConfig.from_env()
-        assert cfg is not None
-        assert cfg.assume_role_arn is None
-
-    def test_from_env_reads_assume_role_arn(self, monkeypatch):
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-        monkeypatch.setenv("AWS_ASSUME_ROLE_ARN", "arn:aws:iam::123456789012:role/GateUploader")
-        cfg = TranscriptUploadConfig.from_env()
-        assert cfg is not None
-        assert cfg.assume_role_arn == "arn:aws:iam::123456789012:role/GateUploader"
-
-    def test_from_env_assume_role_arn_empty_string_becomes_none(self, monkeypatch):
-        monkeypatch.setenv("AWS_S3_BUCKET_NAME", "my-bucket")
-        monkeypatch.setenv("AWS_ASSUME_ROLE_ARN", "")
-        cfg = TranscriptUploadConfig.from_env()
-        assert cfg is not None
-        assert cfg.assume_role_arn is None
+        assert cfg.timeout == 30.0
 
     def test_frozen(self):
-        cfg = TranscriptUploadConfig(bucket_name="b", region="r")
+        cfg = TranscriptUploadConfig(api_base_url="http://viewer.svc:3000")
         with pytest.raises(AttributeError):
-            cfg.bucket_name = "changed"
+            cfg.api_base_url = "changed"

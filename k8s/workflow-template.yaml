@@ -405,25 +405,12 @@ spec:
         env:
           - name: EXPORT_CONFIG_JSON
             value: "{{inputs.parameters.export_config}}"
-          - name: AWS_S3_BUCKET_NAME
+          - name: TRANSCRIPT_UPLOAD_API_URL
             valueFrom:
               secretKeyRef:
                 name: gate-secrets
-                key: AWS_S3_BUCKET_NAME
-          - name: AWS_ASSUME_ROLE_ARN
-            valueFrom:
-              secretKeyRef:
-                name: gate-secrets
-                key: AWS_ASSUME_ROLE_ARN
+                key: TRANSCRIPT_UPLOAD_API_URL
                 optional: true
-          - name: AWS_S3_PREFIX
-            valueFrom:
-              secretKeyRef:
-                name: gate-secrets
-                key: AWS_S3_PREFIX
-                optional: true
-          - name: AWS_REGION
-            value: "ap-northeast-2"
         volumeMounts:
           - name: workdir
             mountPath: /work

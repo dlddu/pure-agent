@@ -68,21 +68,19 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# ── S3 secret management ────────────────────────────────────────────────────
+# ── Gate upload secret management ────────────────────────────────────────────
 # Creates or patches the gate-secrets Secret so the gate container in the
-# Argo Workflow can upload transcripts to the LocalStack S3 endpoint.
-_ensure_gate_s3_secret() {
-  log "Ensuring gate-secrets with LocalStack S3 config"
+# Argo Workflow uploads transcripts through the mock-api upload-url endpoint
+# (which hands back a PUT URL into the LocalStack S3 bucket).
+_ensure_gate_upload_secret() {
+  log "Ensuring gate-secrets with transcript upload API URL"
   kubectl create secret generic gate-secrets \
-    --from-literal=AWS_S3_BUCKET_NAME="$S3_TEST_BUCKET" \
-    --from-literal=AWS_ENDPOINT_URL="$S3_ENDPOINT_URL" \
-    --from-literal=AWS_ACCESS_KEY_ID="test" \
-    --from-literal=AWS_SECRET_ACCESS_KEY="test" \
+    --from-literal=TRANSCRIPT_UPLOAD_API_URL="$MOCK_API_URL" \
     -n "$NAMESPACE" \
     --context "$KUBE_CONTEXT" \
     --dry-run=client -o yaml \
     | kubectl apply -f - -n "$NAMESPACE" --context "$KUBE_CONTEXT" >&2
-  log "gate-secrets configured for LocalStack"
+  log "gate-secrets configured with TRANSCRIPT_UPLOAD_API_URL=$MOCK_API_URL"
 }
 
 # ── Prerequisites check ─────────────────────────────────────────────────────
@@ -353,8 +351,8 @@ main() {
   S3_ENDPOINT_URL=$(localstack_endpoint_url)
   export S3_TEST_BUCKET
 
-  # Create/update gate-secrets with LocalStack S3 configuration
-  _ensure_gate_s3_secret
+  # Create/update gate-secrets with the transcript upload API URL (mock-api)
+  _ensure_gate_upload_secret
 
   trap 'teardown_localstack' EXIT
 
