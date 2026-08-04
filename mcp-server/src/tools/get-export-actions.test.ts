@@ -5,14 +5,14 @@ import { getExportActionsTool } from "./get-export-actions.js";
 const dummyContext = createMockContext();
 
 describe("getExportActionsTool", () => {
-  it("returns all 5 export action types", async () => {
+  it("returns all 4 export action types", async () => {
     const result = await getExportActionsTool.handler({}, dummyContext);
     const parsed = parseResponseText(result);
 
     expect(parsed.success).toBe(true);
-    expect(parsed.actions).toHaveLength(5);
+    expect(parsed.actions).toHaveLength(4);
     const types = parsed.actions.map((a: { type: string }) => a.type);
-    expect(types).toEqual(["none", "upload_workspace", "report", "create_pr", "continue"]);
+    expect(types).toEqual(["none", "upload_workspace", "report", "create_pr"]);
   });
 
   it("does not set isError on the response", async () => {
@@ -35,7 +35,5 @@ describe("getExportActionsTool", () => {
     const noneAction = parsed.actions.find((a: { type: string }) => a.type === "none");
     expect(noneAction.required_fields).toHaveLength(0);
 
-    const continueAction = parsed.actions.find((a: { type: string }) => a.type === "continue");
-    expect(continueAction.required_fields).toHaveLength(0);
   });
 });

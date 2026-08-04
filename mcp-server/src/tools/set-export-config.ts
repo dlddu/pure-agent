@@ -26,7 +26,7 @@ const SetExportConfigInputSchema = z.object({
   actions: z
     .array(z.enum(EXPORT_ACTION_TYPES))
     .min(1)
-    .describe("수행할 export action 타입 배열. 'none' 또는 'continue'는 단독으로만 사용 가능."),
+    .describe("수행할 export action 타입 배열. 'none'은 단독으로만 사용 가능."),
   report_content: z
     .string()
     .max(MAX_REPORT_CONTENT_LENGTH)
@@ -34,7 +34,7 @@ const SetExportConfigInputSchema = z.object({
     .describe("분석 리포트 마크다운 내용 (actions에 'report' 포함 시 필수)"),
   pr: PrConfigSchema.optional().describe("PR 설정 (actions에 'create_pr' 포함 시 필수)"),
 }).superRefine((data, ctx) => {
-  // Exclusive actions (none, continue) must be alone
+  // Exclusive actions (none) must be alone
   for (const action of data.actions) {
     if (EXCLUSIVE_ACTIONS.has(action) && data.actions.length > 1) {
       ctx.addIssue({

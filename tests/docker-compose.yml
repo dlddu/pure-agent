@@ -5,7 +5,7 @@
 # 서비스 구성:
 #   mock-api      — Linear GraphQL mock (포트 4000)
 #   mock-agent    — 시나리오 fixture를 /work에 복사하는 mock agent
-#   gate          — Python CLI (gate --depth --max-depth --export-config --output)
+#   gate          — Python CLI (transcript upload)
 #   export-handler — TypeScript (Node 22), LINEAR_API_URL=mock-api로 덮어씀
 #   mock-gh       — gh CLI mock, GH_CALLS_DIR에 호출 기록
 #
@@ -100,7 +100,7 @@ services:
     profiles:
       - runner   # docker compose run으로만 실행
 
-  # ── gate: Python CLI ──────────────────────────────────────────────────────
+  # ── gate: Python CLI (transcript upload) ──────────────────────────────────
   # run-unit.sh가 docker compose run으로 개별 실행합니다.
   gate:
     build:
@@ -110,8 +110,7 @@ services:
       - work:/work
     networks:
       - e2e
-    # 기본 커맨드는 run-unit.sh가 override합니다.
-    command: ["gate", "--help"]
+    command: ["gate"]
     profiles:
       - runner   # docker compose run으로만 실행
 

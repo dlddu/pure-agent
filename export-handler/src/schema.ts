@@ -28,7 +28,7 @@ export const ExportConfigSchema = z.object({
   report_content: z.string().max(MAX_REPORT_CONTENT_LENGTH).optional(),
   pr: PrConfigSchema.optional(),
 }).superRefine((data, ctx) => {
-  // Exclusive actions (none, continue) must be alone
+  // Exclusive actions (none) must be alone
   for (const action of data.actions) {
     if (EXCLUSIVE_ACTIONS.has(action) && data.actions.length > 1) {
       ctx.addIssue({

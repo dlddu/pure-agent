@@ -5,8 +5,6 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-# Filename constants (keep in sync with export-handler/src/constants.ts)
-EXPORT_CONFIG_FILENAME = "export_config.json"
 TRANSCRIPT_DIR_NAME = ".transcripts"
 
 
@@ -14,16 +12,12 @@ TRANSCRIPT_DIR_NAME = ".transcripts"
 class GateConfig:
     """Resolved file paths for the gate."""
 
-    export_config: str
     transcript_dir: str
 
     @classmethod
     def from_env(cls) -> GateConfig:
         work_dir = os.environ.get("WORK_DIR", "/work")
-        return cls(
-            export_config=os.path.join(work_dir, EXPORT_CONFIG_FILENAME),
-            transcript_dir=os.path.join(work_dir, TRANSCRIPT_DIR_NAME),
-        )
+        return cls(transcript_dir=os.path.join(work_dir, TRANSCRIPT_DIR_NAME))
 
 
 @dataclass(frozen=True, slots=True)

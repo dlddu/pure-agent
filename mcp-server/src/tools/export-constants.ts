@@ -1,11 +1,11 @@
 import { z } from "zod";
 
 // Export action types (keep in sync with export-handler)
-export const EXPORT_ACTION_TYPES = ["none", "upload_workspace", "report", "create_pr", "continue"] as const;
+export const EXPORT_ACTION_TYPES = ["none", "upload_workspace", "report", "create_pr"] as const;
 export const EXPORT_CONFIG_FILENAME = "export_config.json";
 
 /** Actions that must be the sole element when present in the actions array. */
-export const EXCLUSIVE_ACTIONS = new Set(["none", "continue"]);
+export const EXCLUSIVE_ACTIONS = new Set(["none"]);
 
 /** Actions that require a valid linear_issue_id. */
 export const ACTIONS_REQUIRING_ISSUE = new Set(["upload_workspace", "report"]);
@@ -76,11 +76,5 @@ export const EXPORT_ACTIONS = [
     description:
       "GitHub Pull Request를 생성합니다. 코드 변경 사항을 리뷰 및 머지하기 위해 사용합니다.",
     required_fields: ACTION_REQUIREMENTS.create_pr.required_fields,
-  },
-  {
-    type: "continue" as const,
-    description:
-      "현재 사이클을 종료하고 다음 사이클에서 에이전트 루프를 계속 진행합니다. 작업이 아직 완료되지 않았을 때 사용합니다.",
-    required_fields: [] as string[],
   },
 ];

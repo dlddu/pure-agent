@@ -44,56 +44,25 @@ _load() { _load_lib logging constants validate mcp-config prompt; }
 
 # ── build_prompt ─────────────────────────────────────────────
 
-@test "build_prompt: returns prompt when no previous output" {
+@test "build_prompt: returns the prompt as-is" {
   _load
   export PROMPT="Do the thing"
-  unset PREVIOUS_OUTPUT
   result="$(build_prompt 2>/dev/null)"
   [ "$result" = "Do the thing" ]
 }
 
-@test "build_prompt: logs first cycle message" {
+@test "build_prompt: logs prompt size" {
   _load
   export PROMPT="Do the thing"
-  unset PREVIOUS_OUTPUT
   run build_prompt
   [ "$status" -eq 0 ]
-  [[ "$output" == *"first cycle"* ]]
-}
-
-@test "build_prompt: includes previous output when present" {
-  _load
-  export PROMPT="Continue"
-  export PREVIOUS_OUTPUT="Previous result"
-  result="$(build_prompt 2>/dev/null)"
-  [[ "$result" == *"Previous output:"* ]]
-  [[ "$result" == *"Previous result"* ]]
-  [[ "$result" == *"Continue with:"* ]]
-  [[ "$result" == *"Continue"* ]]
-}
-
-@test "build_prompt: logs previous context size" {
-  _load
-  export PROMPT="Continue"
-  export PREVIOUS_OUTPUT="Previous result"
-  run build_prompt
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"previous context"* ]]
-}
-
-@test "build_prompt: handles empty PREVIOUS_OUTPUT as first cycle" {
-  _load
-  export PROMPT="Start"
-  export PREVIOUS_OUTPUT=""
-  result="$(build_prompt 2>/dev/null)"
-  [ "$result" = "Start" ]
+  [[ "$output" == *"Building prompt"* ]]
 }
 
 @test "build_prompt: preserves special characters in prompt" {
   _load
   export PROMPT='Line1
 Line2 "quoted"'
-  unset PREVIOUS_OUTPUT
   result="$(build_prompt 2>/dev/null)"
   [[ "$result" == *"Line1"* ]]
   [[ "$result" == *"Line2"* ]]

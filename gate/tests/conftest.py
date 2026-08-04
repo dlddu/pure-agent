@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-from gate import logic
 from gate.config import GateConfig
 
 # ── Fixtures ──────────────────────────────────────────────
@@ -17,101 +16,31 @@ from gate.config import GateConfig
 @pytest.fixture
 def config(tmp_path) -> GateConfig:
     """Create a GateConfig pointing at tmp_path."""
-    return GateConfig(
-        export_config=str(tmp_path / "export_config.json"),
-        transcript_dir=str(tmp_path / ".transcripts"),
-    )
+    return GateConfig(transcript_dir=str(tmp_path / ".transcripts"))
 
 
 @pytest.fixture
 def work_env(tmp_path, monkeypatch) -> Path:
     """Set WORK_DIR env var to tmp_path for integration tests."""
     monkeypatch.setenv("WORK_DIR", str(tmp_path))
+    monkeypatch.delenv("TRANSCRIPT_UPLOAD_API_URL", raising=False)
     return tmp_path
-
-
-@pytest.fixture
-def run_env(work_env, monkeypatch):
-    """Set up a normal run scenario: valid argv for depth=0, max_depth=5."""
-    output_path = str(work_env / "output.txt")
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            "gate",
-            "--depth",
-            "0",
-            "--max-depth",
-            "5",
-            "--export-config",
-            "{}",
-            "--output",
-            output_path,
-        ],
-    )
-    return output_path
-
-
-@pytest.fixture
-def crash_env(work_env, monkeypatch):
-    """Set up a crash scenario: should_continue raises, argv is configured."""
-    monkeypatch.setattr(logic, "should_continue", raise_runtime_error)
-    output_path = str(work_env / "output.txt")
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            "gate",
-            "--depth",
-            "0",
-            "--max-depth",
-            "5",
-            "--export-config",
-            "{}",
-            "--output",
-            output_path,
-        ],
-    )
-    return output_path
 
 
 # ── Helpers ───────────────────────────────────────────────
 
-OUTPUT_PLACEHOLDER = "OUTPUT"
 
-
-def run_gate(monkeypatch, work_env, depth, max_depth, export_config="{}"):
-    """Set sys.argv for gate and call main(), return output file content."""
-    from gate.cli import main
-
-    output_path = str(work_env / "output.txt")
-    monkeypatch.setattr(
-        sys,
-        "argv",
-        [
-            "gate",
-            "--depth",
-            str(depth),
-            "--max-depth",
-            str(max_depth),
-            "--export-config",
-            export_config,
-            "--output",
-            output_path,
-        ],
-    )
-    main()
-    return Path(output_path).read_text()
-
-
-def run_subprocess(work_env, *argv):
-    """Run gate as a subprocess with additional args."""
-    output_path = str(work_env / "output.txt")
+def run_subprocess(work_env, *argv, env_extra=None):
+    """Run gate as a subprocess."""
+    env = {**os.environ, "WORK_DIR": str(work_env)}
+    env.pop("TRANSCRIPT_UPLOAD_API_URL", None)
+    if env_extra:
+        env.update(env_extra)
     return subprocess.run(
-        [sys.executable, "-m", "gate", *argv, "--output", output_path],
+        [sys.executable, "-m", "gate", *argv],
         capture_output=True,
         text=True,
-        env={**os.environ, "WORK_DIR": str(work_env)},
+        env=env,
     )
 
 
@@ -125,8 +54,3 @@ def single_log(caplog, predicate, label="matching") -> logging.LogRecord:
     matches = [r for r in caplog.records if predicate(r)]
     assert len(matches) == 1, f"Expected 1 {label} log, got {len(matches)}"
     return matches[0]
-
-
-def decision_message(caplog) -> str:
-    """Extract the single decision log message from captured records."""
-    return single_log(caplog, lambda r: "decision=" in r.message, "decision").message

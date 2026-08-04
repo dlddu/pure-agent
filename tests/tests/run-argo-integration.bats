@@ -8,8 +8,8 @@ bats_require_minimum_version 1.5.0
 #
 # Covered functions:
 #   check_prerequisites
-#   prepare_cycle_fixtures (from lib/common.sh)
-#   verify_cycle
+#   prepare_run_fixtures (from lib/common.sh)
+#   verify_run
 
 source "$BATS_TEST_DIRNAME/test-helper.sh"
 
@@ -45,60 +45,30 @@ write_scenario_yaml() {
   cat > "$yaml_file" <<YAML
 name: ${name}
 level: [integration]
-cycles:
-  - export_config:
-      linear_issue_id: "mock-issue-id"
-      actions:
-        - "none"
-      session_id: "mock-session-0"
-    agent_result: "Cycle 0 done."
+run:
+  export_config:
+    linear_issue_id: "mock-issue-id"
+    actions:
+      - "none"
+    session_id: "mock-session-0"
+  agent_result: "Run done."
 assertions:
-  gate_decision: "stop"
   export_handler_exit: 0
 YAML
   echo "$yaml_file"
 }
 
-write_multi_cycle_scenario_yaml() {
+write_null_config_scenario_yaml() {
   local name="$1"
   local yaml_file="$SCENARIOS_DIR/${name}.yaml"
   cat > "$yaml_file" <<YAML
 name: ${name}
 level: [integration]
-cycles:
-  - export_config:
-      linear_issue_id: "mock-issue-id"
-      actions:
-        - "continue"
-      session_id: "mock-session-0"
-    agent_result: "Cycle 0 done, continuing..."
-  - export_config:
-      linear_issue_id: "mock-issue-id"
-      actions:
-        - "none"
-      session_id: "mock-session-1"
-    agent_result: "Cycle 1 done, stopping."
+run:
+  export_config: null
+  agent_result: "No export config produced"
 assertions:
-  gate_decisions:
-    - "continue"
-    - "stop"
-YAML
-  echo "$yaml_file"
-}
-
-write_depth_limit_scenario_yaml() {
-  local name="$1"
-  local max_depth="${2:-2}"
-  local yaml_file="$SCENARIOS_DIR/${name}.yaml"
-  cat > "$yaml_file" <<YAML
-name: ${name}
-level: [integration]
-max_depth: ${max_depth}
-cycles:
-  - export_config: null
-    agent_result: "Depth limit reached"
-assertions:
-  gate_decision: "stop"
+  export_handler_exit: 0
 YAML
   echo "$yaml_file"
 }
@@ -242,48 +212,48 @@ YAML
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# prepare_cycle_fixtures (from lib/common.sh)
+# prepare_run_fixtures (from lib/common.sh)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@test "prepare_cycle_fixtures: creates export_config.json from cycle YAML" {
+@test "prepare_run_fixtures: creates export_config.json from run YAML" {
   # Arrange
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
-  local out_dir="$BATS_TEST_TMPDIR/cycle-out"
+  local out_dir="$BATS_TEST_TMPDIR/run-out"
   mkdir -p "$out_dir"
 
-  # Act — cycle index 0 has export_config defined
-  run prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  # Act — run has export_config defined
+  run prepare_run_fixtures "$yaml_file" "$out_dir"
 
   # Assert
   [ "$status" -eq 0 ]
   [ -f "$out_dir/export_config.json" ]
 }
 
-@test "prepare_cycle_fixtures: export_config.json is valid JSON" {
+@test "prepare_run_fixtures: export_config.json is valid JSON" {
   # Arrange
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
-  local out_dir="$BATS_TEST_TMPDIR/cycle-out"
+  local out_dir="$BATS_TEST_TMPDIR/run-out"
   mkdir -p "$out_dir"
 
   # Act
-  prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  prepare_run_fixtures "$yaml_file" "$out_dir"
 
   # Assert — jq must parse without error
   run jq . "$out_dir/export_config.json"
   [ "$status" -eq 0 ]
 }
 
-@test "prepare_cycle_fixtures: export_config.json contains expected field values" {
+@test "prepare_run_fixtures: export_config.json contains expected field values" {
   # Arrange
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
-  local out_dir="$BATS_TEST_TMPDIR/cycle-out"
+  local out_dir="$BATS_TEST_TMPDIR/run-out"
   mkdir -p "$out_dir"
 
   # Act
-  prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  prepare_run_fixtures "$yaml_file" "$out_dir"
 
   # Assert — linear_issue_id must be preserved
   run jq -r '.linear_issue_id' "$out_dir/export_config.json"
@@ -291,52 +261,52 @@ YAML
   [ "$output" = "mock-issue-id" ]
 }
 
-@test "prepare_cycle_fixtures: creates agent_result.txt when cycle has agent_result" {
+@test "prepare_run_fixtures: creates agent_result.txt when run has agent_result" {
   # Arrange
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
-  local out_dir="$BATS_TEST_TMPDIR/cycle-out"
+  local out_dir="$BATS_TEST_TMPDIR/run-out"
   mkdir -p "$out_dir"
 
   # Act
-  run prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  run prepare_run_fixtures "$yaml_file" "$out_dir"
 
   # Assert
   [ "$status" -eq 0 ]
   [ -f "$out_dir/agent_result.txt" ]
 }
 
-@test "prepare_cycle_fixtures: agent_result.txt contains the expected text" {
+@test "prepare_run_fixtures: agent_result.txt contains the expected text" {
   # Arrange
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
-  local out_dir="$BATS_TEST_TMPDIR/cycle-out"
+  local out_dir="$BATS_TEST_TMPDIR/run-out"
   mkdir -p "$out_dir"
 
   # Act
-  prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  prepare_run_fixtures "$yaml_file" "$out_dir"
 
   # Assert
-  run grep -F "Cycle 0 done." "$out_dir/agent_result.txt"
+  run grep -F "Run done." "$out_dir/agent_result.txt"
   [ "$status" -eq 0 ]
 }
 
-@test "prepare_cycle_fixtures: does not create export_config.json when cycle export_config is null" {
-  # Arrange — depth-limit scenario has export_config: null
+@test "prepare_run_fixtures: does not create export_config.json when run export_config is null" {
+  # Arrange — scenario has export_config: null
   local yaml_file
-  yaml_file=$(write_depth_limit_scenario_yaml "depth-limit")
-  local out_dir="$BATS_TEST_TMPDIR/cycle-null-out"
+  yaml_file=$(write_null_config_scenario_yaml "null-config")
+  local out_dir="$BATS_TEST_TMPDIR/run-null-out"
   mkdir -p "$out_dir"
 
-  # Act — cycle 0 has null export_config
-  run prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  # Act — run has null export_config
+  run prepare_run_fixtures "$yaml_file" "$out_dir"
 
   # Assert — file must NOT be present
   [ "$status" -eq 0 ]
   [ ! -f "$out_dir/export_config.json" ]
 }
 
-@test "prepare_cycle_fixtures: creates the scenario_dir when it does not exist" {
+@test "prepare_run_fixtures: creates the scenario_dir when it does not exist" {
   # Arrange
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
@@ -344,63 +314,28 @@ YAML
   # Deliberately NOT creating out_dir
 
   # Act
-  run prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  run prepare_run_fixtures "$yaml_file" "$out_dir"
 
   # Assert — function should create the directory and succeed
   [ "$status" -eq 0 ]
   [ -d "$out_dir" ]
 }
 
-@test "prepare_cycle_fixtures: places correct fixtures for cycle index 1 in multi-cycle scenario" {
-  # Arrange — write multi-cycle scenario
-  local yaml_file
-  yaml_file=$(write_multi_cycle_scenario_yaml "continue-then-stop")
-  local out_dir="$BATS_TEST_TMPDIR/cycle1-out"
-  mkdir -p "$out_dir"
-
-  # Act — request cycle index 1
-  run prepare_cycle_fixtures "$yaml_file" 1 "$out_dir"
-
-  # Assert
-  [ "$status" -eq 0 ]
-  [ -f "$out_dir/export_config.json" ]
-  [ -f "$out_dir/agent_result.txt" ]
-  run grep -F "Cycle 1 done" "$out_dir/agent_result.txt"
-  [ "$status" -eq 0 ]
-}
-
-@test "prepare_cycle_fixtures: cycle 1 actions contain 'none' in continue-then-stop scenario" {
-  # Arrange
-  local yaml_file
-  yaml_file=$(write_multi_cycle_scenario_yaml "continue-then-stop")
-  local out_dir="$BATS_TEST_TMPDIR/cycle1-actions-out"
-  mkdir -p "$out_dir"
-
-  # Act
-  prepare_cycle_fixtures "$yaml_file" 1 "$out_dir"
-
-  # Assert — cycle 1 has actions: ["none"]
-  run jq -r '.actions[0]' "$out_dir/export_config.json"
-  [ "$status" -eq 0 ]
-  [ "$output" = "none" ]
-}
-
-@test "prepare_cycle_fixtures: removes stale agent_result.txt when cycle has no agent_result" {
-  # Arrange — create a stale file in the output dir, then use a cycle with no agent_result
+@test "prepare_run_fixtures: removes stale agent_result.txt when run has no agent_result" {
+  # Arrange — create a stale file in the output dir, then use a run with no agent_result
   local yaml_file="$SCENARIOS_DIR/no-agent-result.yaml"
   cat > "$yaml_file" <<YAML
 name: no-agent-result
 level: [integration]
-max_depth: 2
-cycles:
-  - export_config: null
+run:
+  export_config: null
 YAML
   local out_dir="$BATS_TEST_TMPDIR/stale-out"
   mkdir -p "$out_dir"
   echo "stale content" > "$out_dir/agent_result.txt"
 
-  # Act — no-agent-result cycle 0 has no agent_result field at all
-  run prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  # Act — no-agent-result run has no agent_result field at all
+  run prepare_run_fixtures "$yaml_file" "$out_dir"
 
   # Assert — stale file should be gone
   [ "$status" -eq 0 ]
@@ -408,10 +343,10 @@ YAML
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# verify_cycle
+# verify_run
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@test "verify_cycle: calls assert_workflow_succeeded for the given workflow" {
+@test "verify_run: calls assert_workflow_succeeded for the given workflow" {
   # Arrange — mock assert_workflow_succeeded to record calls.
   # Call directly (not via `run`) so the mock writes to the log in the same
   # process; `run` spawns a subshell where exports do not propagate back.
@@ -428,13 +363,13 @@ YAML
   yaml_file=$(write_scenario_yaml "none-action")
 
   # Act — direct call keeps mock side-effects visible in this shell.
-  verify_cycle "$yaml_file" "pure-agent-test-wf" 0
+  verify_run "$yaml_file" "pure-agent-test-wf"
 
   # Assert
   grep -q "assert_workflow_succeeded called with: pure-agent-test-wf" "$call_log"
 }
 
-@test "verify_cycle: fails when assert_workflow_succeeded fails" {
+@test "verify_run: fails when assert_workflow_succeeded fails" {
   # Arrange
   assert_workflow_succeeded() {
     return 1
@@ -446,13 +381,13 @@ YAML
   yaml_file=$(write_scenario_yaml "none-action")
 
   # Act
-  run verify_cycle "$yaml_file" "failing-wf" 0
+  run verify_run "$yaml_file" "failing-wf"
 
   # Assert
   [ "$status" -ne 0 ]
 }
 
-@test "verify_cycle: passes cycle index to log output" {
+@test "verify_run: exits cleanly on success" {
   # Arrange
   assert_workflow_succeeded() { return 0; }
   export -f assert_workflow_succeeded
@@ -460,18 +395,18 @@ YAML
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
 
-  # Act — cycle index 0 should appear in some form in output/log
-  run verify_cycle "$yaml_file" "my-wf" 0
+  # Act
+  run verify_run "$yaml_file" "my-wf"
 
   # Assert — function must exit cleanly
   [ "$status" -eq 0 ]
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# verify_cycle — S3 transcript upload verification
+# verify_run — S3 transcript upload verification
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@test "verify_cycle: calls S3 transcript assertion when S3_ENDPOINT_URL is set" {
+@test "verify_run: calls S3 transcript assertion when S3_ENDPOINT_URL is set" {
   # Arrange
   assert_workflow_succeeded() { return 0; }
   export -f assert_workflow_succeeded
@@ -488,13 +423,13 @@ YAML
   touch "$WORK_DIR/s3-calls.txt"
 
   # Act
-  verify_cycle "$yaml_file" "test-wf" 0
+  verify_run "$yaml_file" "test-wf"
 
   # Assert
   grep -q "assert_s3_transcript_exists called" "$WORK_DIR/s3-calls.txt"
 }
 
-@test "verify_cycle: skips S3 assertions when S3_ENDPOINT_URL is not set" {
+@test "verify_run: skips S3 assertions when S3_ENDPOINT_URL is not set" {
   # Arrange
   assert_workflow_succeeded() { return 0; }
   export -f assert_workflow_succeeded
@@ -511,14 +446,14 @@ YAML
   touch "$WORK_DIR/s3-calls.txt"
 
   # Act
-  run verify_cycle "$yaml_file" "test-wf" 0
+  run verify_run "$yaml_file" "test-wf"
 
   # Assert — should pass and NOT call S3 assertions
   [ "$status" -eq 0 ]
   ! grep -q "SHOULD NOT BE CALLED" "$WORK_DIR/s3-calls.txt"
 }
 
-@test "verify_cycle: fails when S3 transcript assertion fails" {
+@test "verify_run: fails when S3 transcript assertion fails" {
   # Arrange
   assert_workflow_succeeded() { return 0; }
   export -f assert_workflow_succeeded
@@ -531,17 +466,17 @@ YAML
   yaml_file=$(write_scenario_yaml "none-action")
 
   # Act
-  run verify_cycle "$yaml_file" "failing-s3-wf" 0
+  run verify_run "$yaml_file" "failing-s3-wf"
 
   # Assert
   [ "$status" -ne 0 ]
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# prepare_cycle_fixtures — transcript fixtures
+# prepare_run_fixtures — transcript fixtures
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@test "prepare_cycle_fixtures: creates transcript fixture when session_id is present" {
+@test "prepare_run_fixtures: creates transcript fixture when session_id is present" {
   # Arrange
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
@@ -549,7 +484,7 @@ YAML
   mkdir -p "$out_dir"
 
   # Act
-  run prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  run prepare_run_fixtures "$yaml_file" "$out_dir"
 
   # Assert — transcript should be created using session_id from export_config
   [ "$status" -eq 0 ]
@@ -557,7 +492,7 @@ YAML
   [ -f "$out_dir/transcripts/mock-session-0.jsonl" ]
 }
 
-@test "prepare_cycle_fixtures: transcript fixture contains valid JSONL" {
+@test "prepare_run_fixtures: transcript fixture contains valid JSONL" {
   # Arrange
   local yaml_file
   yaml_file=$(write_scenario_yaml "none-action")
@@ -565,7 +500,7 @@ YAML
   mkdir -p "$out_dir"
 
   # Act
-  prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  prepare_run_fixtures "$yaml_file" "$out_dir"
 
   # Assert — each line should be valid JSON
   while IFS= read -r line; do
@@ -574,15 +509,15 @@ YAML
   done < "$out_dir/transcripts/mock-session-0.jsonl"
 }
 
-@test "prepare_cycle_fixtures: no transcript when export_config is null" {
+@test "prepare_run_fixtures: no transcript when export_config is null" {
   # Arrange
   local yaml_file
-  yaml_file=$(write_depth_limit_scenario_yaml "depth-limit")
+  yaml_file=$(write_null_config_scenario_yaml "null-config")
   local out_dir="$BATS_TEST_TMPDIR/no-transcript-out"
   mkdir -p "$out_dir"
 
   # Act
-  run prepare_cycle_fixtures "$yaml_file" 0 "$out_dir"
+  run prepare_run_fixtures "$yaml_file" "$out_dir"
 
   # Assert — no transcript directory should be created
   [ "$status" -eq 0 ]

@@ -14,7 +14,6 @@ describe("ExportConfigSchema", () => {
       upload_workspace: {},
       report: { report_content: "content" },
       create_pr: { pr: { title: "t", body: "b", branch: "feat/x", repo: "org/repo", repo_path: "repo" } },
-      continue: {},
     };
     for (const [action, extra] of Object.entries(actionInputs)) {
       expect(() => ExportConfigSchema.parse({ ...minimal, actions: [action], ...extra })).not.toThrow();
@@ -60,14 +59,6 @@ describe("ExportConfigSchema", () => {
     })).toThrow();
   });
 
-  it("rejects continue combined with other actions", () => {
-    expect(() => ExportConfigSchema.parse({
-      ...minimal,
-      actions: ["continue", "report"],
-      report_content: "content",
-    })).toThrow();
-  });
-
   it("rejects upload_workspace without linear_issue_id", () => {
     const { linear_issue_id: _, ...rest } = minimal;
     expect(() => ExportConfigSchema.parse({ ...rest, actions: ["upload_workspace"] })).toThrow();
@@ -81,11 +72,6 @@ describe("ExportConfigSchema", () => {
   it("accepts none without linear_issue_id", () => {
     const { linear_issue_id: _, ...rest } = minimal;
     expect(() => ExportConfigSchema.parse(rest)).not.toThrow();
-  });
-
-  it("accepts continue without linear_issue_id", () => {
-    const { linear_issue_id: _, ...rest } = minimal;
-    expect(() => ExportConfigSchema.parse({ ...rest, actions: ["continue"] })).not.toThrow();
   });
 
   it("accepts missing linear_issue_id", () => {

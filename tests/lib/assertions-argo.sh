@@ -8,8 +8,6 @@
 # Functions:
 #   assert_workflow_succeeded <workflow_name> [namespace]
 #   assert_daemon_pods_ready <workflow_name> [namespace]
-#   assert_run_cycle_count <workflow_name> <expected_count> [namespace]
-#   assert_max_depth_termination <workflow_name> <max_depth> [namespace]
 #   assert_work_dir_clean <workflow_name> [namespace]
 
 set -euo pipefail
@@ -91,96 +89,6 @@ assert_daemon_pods_ready() {
   fi
 
   _argo_assert_log "PASS assert_daemon_pods_ready: daemon pods ready for $workflow_name"
-}
-
-# ── assert_run_cycle_count ────────────────────────────────────────────────────
-# Argo Workflow 노드 트리에서 agent-job Pod 실행 횟수를 검증합니다.
-# continue-then-stop 시나리오: agent-job Pod가 정확히 기대하는 횟수만큼 실행됐는지 확인합니다.
-#
-# Arguments:
-#   $1  workflow_name    — argo workflow 이름
-#   $2  expected_count   — 기대하는 run-cycle 실행 횟수 (예: 2)
-#   $3  namespace        — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
-#
-assert_run_cycle_count() {
-  local workflow_name="$1"
-  local expected_count="$2"
-  local namespace="${3:-${NAMESPACE:-pure-agent}}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
-
-  _argo_assert_log "Checking run-cycle execution count: $workflow_name (expected=$expected_count)"
-
-  # Argo Workflow 노드 트리에서 "run-cycle" 템플릿명을 가진 노드 개수 집계
-  local actual_count
-  actual_count=$(kubectl get workflow "$workflow_name" \
-    -n "$namespace" \
-    --context "$kube_context" \
-    -o json 2>/dev/null \
-    | jq '[.status.nodes // {} | to_entries[] | .value
-           | select(.templateName == "agent-job" and .type == "Pod")]
-          | length') \
-    || { _argo_assert_fail "assert_run_cycle_count: kubectl/jq failed for workflow $workflow_name"; return 1; }
-
-  if [[ "$actual_count" -ne "$expected_count" ]]; then
-    _argo_assert_fail "assert_run_cycle_count: expected $expected_count run-cycle node(s) but got $actual_count (workflow=$workflow_name)"
-    return 1
-  fi
-
-  _argo_assert_log "PASS assert_run_cycle_count: $actual_count run-cycle node(s) for $workflow_name"
-}
-
-# ── assert_max_depth_termination ──────────────────────────────────────────────
-# max_depth에 의한 종료가 Workflow 단계에서 올바르게 처리됐는지 검증합니다.
-# depth-limit 시나리오: max_depth 도달 시 Workflow가 정상 종료(Succeeded)해야 합니다.
-#
-# 검증 내용:
-#   1. Workflow 전체 phase가 Succeeded
-#   2. 실행된 run-cycle 횟수가 max_depth를 초과하지 않음
-#   3. depth-exceeded 또는 max-depth 관련 메시지/노드가 Workflow에 존재
-#
-# Arguments:
-#   $1  workflow_name  — argo workflow 이름
-#   $2  max_depth      — 설정된 max_depth 값 (예: 2)
-#   $3  namespace      — kubernetes namespace (기본값: $NAMESPACE 또는 "pure-agent")
-#
-assert_max_depth_termination() {
-  local workflow_name="$1"
-  local max_depth="$2"
-  local namespace="${3:-${NAMESPACE:-pure-agent}}"
-  local kube_context="${KUBE_CONTEXT:-kind-pure-agent-e2e-integration}"
-
-  _argo_assert_log "Checking max_depth termination: $workflow_name (max_depth=$max_depth)"
-
-  # 1. Workflow 전체 phase 확인
-  local phase
-  phase=$(kubectl get workflow "$workflow_name" \
-    -n "$namespace" \
-    --context "$kube_context" \
-    -o jsonpath='{.status.phase}' 2>/dev/null) \
-    || { _argo_assert_fail "assert_max_depth_termination: kubectl failed for $workflow_name"; return 1; }
-
-  if [[ "$phase" != "Succeeded" ]]; then
-    _argo_assert_fail "assert_max_depth_termination: workflow should Succeed on max_depth but got phase='$phase' (workflow=$workflow_name)"
-    return 1
-  fi
-
-  # 2. run-cycle 실행 횟수가 max_depth를 초과하지 않는지 확인
-  local cycle_count
-  cycle_count=$(kubectl get workflow "$workflow_name" \
-    -n "$namespace" \
-    --context "$kube_context" \
-    -o json 2>/dev/null \
-    | jq '[.status.nodes // {} | to_entries[] | .value
-           | select(.templateName == "agent-job" and .type == "Pod")]
-          | length') \
-    || { _argo_assert_fail "assert_max_depth_termination: jq failed for workflow $workflow_name"; return 1; }
-
-  if [[ "$cycle_count" -gt "$max_depth" ]]; then
-    _argo_assert_fail "assert_max_depth_termination: run-cycle count $cycle_count exceeds max_depth $max_depth (workflow=$workflow_name)"
-    return 1
-  fi
-
-  _argo_assert_log "PASS assert_max_depth_termination: workflow=$workflow_name phase=$phase cycle_count=$cycle_count max_depth=$max_depth"
 }
 
 # ── assert_work_dir_clean ─────────────────────────────────────────────────────

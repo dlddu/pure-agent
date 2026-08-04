@@ -32,7 +32,7 @@ YAML
 @test "parse_scenario: extracts level from scenario YAML" {
   local yaml_file="$FIXTURE_DIR/scenario.yaml"
   cat > "$yaml_file" <<'YAML'
-name: depth-limit
+name: sample-scenario
 level: integration
 fixtures: {}
 assertions: []
@@ -122,7 +122,7 @@ YAML
 @test "place_fixtures: succeeds when fixtures section is empty" {
   local yaml_file="$FIXTURE_DIR/scenario.yaml"
   cat > "$yaml_file" <<'YAML'
-name: depth-limit
+name: sample-scenario
 level: unit
 fixtures: {}
 assertions: []
@@ -170,8 +170,8 @@ name: pr-creation
 level: integration
 fixtures: {}
 assertions:
-  - type: gate_decision
-    expected: assign
+  - type: linear_comment
+    expected: done
   - type: exit_code
     expected: 0
 YAML
@@ -188,11 +188,11 @@ name: pr-creation
 level: integration
 fixtures: {}
 assertions:
-  - type: gate_decision
-    expected: assign
+  - type: linear_comment
+    expected: done
 YAML
 
   run parse_scenario_field "$yaml_file" ".assertions[0].type"
   [ "$status" -eq 0 ]
-  [ "$output" = "gate_decision" ]
+  [ "$output" = "linear_comment" ]
 }

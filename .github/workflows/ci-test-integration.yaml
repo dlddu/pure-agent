@@ -21,8 +21,6 @@ on:
         type: choice
         options:
           - "all"
-          - "continue-then-stop"
-          - "depth-limit"
           - "create-pr-action"
           - "none-action"
           - "report-action"
@@ -270,32 +268,21 @@ jobs:
           yq -i '(.spec.templates[] | select(.name == "planner") | .outputs.parameters) += [{"name": "planner_debug", "valueFrom": {"path": "/tmp/planner_debug.log", "default": "(no debug log)"}}]' \
             /tmp/workflow-template-integration.yaml
 
-          # ── gate 패치: 실제 이미지 + mock 결정 로직 ───────────────────
-          # 실제 gate 이미지를 사용하여 S3 transcript upload를 실행하되,
-          # continue/stop 결정은 mock 로직으로 덮어씁니다.
-          # (mock-agent의 ConfigMap은 정적이므로 실제 gate 로직은 매 cycle 같은 결과를 반환합니다)
-          yq -i "(.spec.templates[] | select(.name == \"gate\") | .container.image) = \"${GATE_IMAGE}\"" \
-            /tmp/workflow-template-integration.yaml
-
-          # gate에 depth/max_depth를 환경변수로 주입 (mock 결정 로직용)
-          yq -i '(.spec.templates[] | select(.name == "gate") | .container.env) += [{"name": "GATE_DEPTH", "value": "{{inputs.parameters.depth}}"}, {"name": "GATE_MAX_DEPTH", "value": "{{inputs.parameters.max_depth}}"}]' \
-            /tmp/workflow-template-integration.yaml
-
-          # gate args: 실제 gate CLI 실행 (transcript upload) → mock 결정 로직으로 output 덮어쓰기
-          yq -i '(.spec.templates[] | select(.name == "gate") | .container.args) = ["gate --export-config \"$EXPORT_CONFIG_JSON\" --depth \"$GATE_DEPTH\" --max-depth \"$GATE_MAX_DEPTH\" --output /tmp/continue.txt 2>&1 || true; echo \"[mock-gate-override] depth=$GATE_DEPTH max_depth=$GATE_MAX_DEPTH\" >&2; D=\"$GATE_DEPTH\"; M=\"$GATE_MAX_DEPTH\"; if [ \"$D\" -ge \"$((M - 1))\" ]; then echo false > /tmp/continue.txt; else if echo \"$EXPORT_CONFIG_JSON\" | grep -q continue; then echo true > /tmp/continue.txt; else echo false > /tmp/continue.txt; fi; fi"]' \
-            /tmp/workflow-template-integration.yaml
-
+          # ── gate 패치: 실제 이미지 (transcript upload) ────────────────
+          # 실제 gate 이미지를 사용하여 S3 transcript upload를 실행합니다.
           # TRANSCRIPT_UPLOAD_API_URL is injected via the base template's
           # gate-secrets reference, so no extra env patch is needed here.
+          yq -i "(.spec.templates[] | select(.name == \"gate\") | .container.image) = \"${GATE_IMAGE}\"" \
+            /tmp/workflow-template-integration.yaml
 
           # ── mock-export-handler 패치 ────────────────────────────────────
           # 실제 export-handler 이미지는 kind에 로드되지 않으며 mock secrets로 동작하지 않음.
           # alpine으로 교체하고 export_config/action_results를 passthrough하는 스크립트로 대체.
-          yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.image) = "alpine:3.20"' \
+          yq -i '(.spec.templates[] | select(.name == "export-output") | .container.image) = "alpine:3.20"' \
             /tmp/workflow-template-integration.yaml
-          yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.command) = ["/bin/sh", "-c"]' \
+          yq -i '(.spec.templates[] | select(.name == "export-output") | .container.command) = ["/bin/sh", "-c"]' \
             /tmp/workflow-template-integration.yaml
-          yq -i '(.spec.templates[] | select(.name == "export-cycle-output") | .container.args) = ["echo \"[mock-export-handler] passthrough\" >&2; cp /work/export_config.json /tmp/export_config.json 2>/dev/null || echo \"{}\" > /tmp/export_config.json; echo \"{}\" > /tmp/action_results.json"]' \
+          yq -i '(.spec.templates[] | select(.name == "export-output") | .container.args) = ["echo \"[mock-export-handler] passthrough\" >&2; cp /work/export_config.json /tmp/export_config.json 2>/dev/null || echo \"{}\" > /tmp/export_config.json; echo \"{}\" > /tmp/action_results.json"]' \
             /tmp/workflow-template-integration.yaml
 
           # ── mock-daemon 패치 ─────────────────────────────────────────────

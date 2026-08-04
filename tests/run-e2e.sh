@@ -14,7 +14,7 @@
 #   - MCP daemon / LLM gateway
 #
 # 시나리오 정의는 tests/scenarios/<name>.yaml 파일에서 읽습니다.
-# YAML의 real.setup/teardown/max_depth 및 assertions 섹션을 사용하여
+# YAML의 real.setup/teardown 및 assertions 섹션을 사용하여
 # 제네릭하게 시나리오를 실행합니다.
 #
 # Usage:
@@ -134,7 +134,6 @@ build_prompt() {
 run_argo_workflow() {
   local scenario_name="$1"
   local prompt="$2"
-  local max_depth="${3:-5}"
 
   log "Submitting Argo Workflow for scenario: $scenario_name"
   log "Prompt: $prompt"
@@ -144,7 +143,6 @@ run_argo_workflow() {
     --from workflowtemplate/pure-agent \
     -n "$NAMESPACE" \
     --context "$KUBE_CONTEXT" \
-    -p max_depth="$max_depth" \
     -p prompt="$prompt" \
     --output json 2>&1) || {
       warn "Argo workflow submission failed:"
@@ -220,9 +218,6 @@ run_scenario() {
   log "=== E2E Scenario: $scenario_name ==="
 
   # ── YAML에서 설정 읽기 ──
-  local max_depth
-  max_depth=$(yaml_get "$yaml_file" '.real.max_depth // 5')
-
   # setup/teardown/verify 목록 (YAML 배열 → 줄바꿈 구분 문자열)
   local setups teardowns verifies
   setups=$(yaml_get "$yaml_file" '.real.setup[]' 2>/dev/null || true)
@@ -274,7 +269,7 @@ run_scenario() {
   local prompt
   prompt=$(build_prompt "$yaml_file" "$prompt_issue_ref" "$github_branch")
   local workflow_name
-  workflow_name=$(run_argo_workflow "$scenario_name" "$prompt" "$max_depth")
+  workflow_name=$(run_argo_workflow "$scenario_name" "$prompt")
 
   # ── Verify (assertions) ──
   local verify_item

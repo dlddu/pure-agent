@@ -23,7 +23,6 @@ vi.mock("./actions/registry.js", () => ({
     upload_workspace: { validate: mockValidate, execute: mockExecute },
     report: { validate: mockValidate, execute: mockExecute },
     create_pr: { validate: mockValidate, execute: mockExecute },
-    continue: { validate: mockValidate, execute: mockExecute },
   },
 }));
 

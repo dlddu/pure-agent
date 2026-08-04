@@ -2,14 +2,12 @@ export const ACTION_NONE = "none" as const;
 export const ACTION_UPLOAD_WORKSPACE = "upload_workspace" as const;
 export const ACTION_REPORT = "report" as const;
 export const ACTION_CREATE_PR = "create_pr" as const;
-export const ACTION_CONTINUE = "continue" as const;
 
 export const EXPORT_ACTIONS = [
   ACTION_NONE,
   ACTION_UPLOAD_WORKSPACE,
   ACTION_REPORT,
   ACTION_CREATE_PR,
-  ACTION_CONTINUE,
 ] as const;
 
 export type ExportAction = (typeof EXPORT_ACTIONS)[number];
@@ -17,7 +15,6 @@ export type ExportAction = (typeof EXPORT_ACTIONS)[number];
 /** Actions that must be the sole element when present in the actions array. */
 export const EXCLUSIVE_ACTIONS: ReadonlySet<ExportAction> = new Set([
   ACTION_NONE,
-  ACTION_CONTINUE,
 ]);
 
 /** Actions that require a valid linear_issue_id. */
