@@ -40,9 +40,7 @@ class TestMain:
         rec = single_log(caplog, lambda r: "complete" in r.message, "complete")
         assert rec.message == "Transcript upload complete: 3 file(s)"
 
-    def test_uploads_zero_files_when_transcript_dir_missing(
-        self, work_env, monkeypatch, caplog
-    ):
+    def test_uploads_zero_files_when_transcript_dir_missing(self, work_env, monkeypatch, caplog):
         """No transcripts on disk -> zero uploads, no error."""
         monkeypatch.setenv("TRANSCRIPT_UPLOAD_API_URL", "http://viewer.test")
         with caplog.at_level(logging.INFO, logger="gate"):

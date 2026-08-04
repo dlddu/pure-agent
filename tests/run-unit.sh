@@ -39,7 +39,7 @@ GATEKEEPER_URL="${GATEKEEPER_URL:-http://localhost:8080}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="${COMPOSE_FILE:-${SCRIPT_DIR}/docker-compose.yml}"
-SCENARIOS_DIR="${SCRIPT_DIR}/scenarios"
+SCENARIOS_DIR="${SCENARIOS_DIR:-${SCRIPT_DIR}/scenarios}"
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 log()  { echo "[run-unit] $*" >&2; }
