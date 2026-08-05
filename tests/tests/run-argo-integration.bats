@@ -47,7 +47,7 @@ name: ${name}
 level: [integration]
 run:
   export_config:
-    linear_issue_id: "mock-issue-id"
+    summary: "mock summary"
     actions:
       - "none"
     session_id: "mock-session-0"
@@ -165,22 +165,6 @@ YAML
   [ "$status" -ne 0 ]
 }
 
-@test "check_prerequisites (Integration): does not require LINEAR_API_KEY" {
-  # Arrange — all tools present, but LINEAR_API_KEY unset
-  argo()    { return 0; }
-  kubectl() { return 0; }
-  jq()      { return 0; }
-  yq()      { return 0; }
-  export -f argo kubectl jq yq
-  unset LINEAR_API_KEY
-  export LEVEL="integration"
-
-  run check_prerequisites
-
-  # Should still pass — Integration does not need API keys
-  [ "$status" -eq 0 ]
-}
-
 @test "check_prerequisites (Integration): does not require GITHUB_TOKEN" {
   # Arrange
   argo()    { return 0; }
@@ -255,10 +239,10 @@ YAML
   # Act
   prepare_run_fixtures "$yaml_file" "$out_dir"
 
-  # Assert — linear_issue_id must be preserved
-  run jq -r '.linear_issue_id' "$out_dir/export_config.json"
+  # Assert — summary must be preserved
+  run jq -r '.summary' "$out_dir/export_config.json"
   [ "$status" -eq 0 ]
-  [ "$output" = "mock-issue-id" ]
+  [ "$output" = "mock summary" ]
 }
 
 @test "prepare_run_fixtures: creates agent_result.txt when run has agent_result" {

@@ -3,15 +3,12 @@ import { parseConfig, derivePaths, deriveFallbackArgoPaths } from "./config.js";
 import { createTestAppConfig } from "./test-helpers.js";
 
 describe("parseConfig", () => {
-  const validEnv = {
-    LINEAR_API_KEY: "lin_key",
-  };
+  const validEnv = {};
 
   it("returns AppConfig with defaults for optional env vars", () => {
     const config = parseConfig(validEnv);
     expect(config.workDir).toBe("/work");
     expect(config.tmpDir).toBe("/tmp");
-    expect(config.linearApiKey).toBe("lin_key");
   });
 
   it("returns frozen object", () => {
@@ -24,14 +21,6 @@ describe("parseConfig", () => {
     expect(config.tmpDir).toBe("/custom/tmp");
   });
 
-  it("throws when LINEAR_API_KEY is missing", () => {
-    expect(() => parseConfig({})).toThrow();
-  });
-
-  it("throws when LINEAR_API_KEY is empty", () => {
-    expect(() => parseConfig({ LINEAR_API_KEY: "" })).toThrow();
-  });
-
   it("maps optional GITHUB_TOKEN", () => {
     const config = parseConfig({ ...validEnv, GITHUB_TOKEN: "gh_tok" });
     expect(config.githubToken).toBe("gh_tok");
@@ -42,15 +31,6 @@ describe("parseConfig", () => {
     expect(config.githubToken).toBeUndefined();
   });
 
-  it("returns undefined for linearApiUrl when LINEAR_API_URL is not provided", () => {
-    const config = parseConfig(validEnv);
-    expect(config.linearApiUrl).toBeUndefined();
-  });
-
-  it("maps LINEAR_API_URL to linearApiUrl when provided", () => {
-    const config = parseConfig({ ...validEnv, LINEAR_API_URL: "https://linear-proxy.example.com" });
-    expect(config.linearApiUrl).toBe("https://linear-proxy.example.com");
-  });
 });
 
 describe("derivePaths", () => {
@@ -60,7 +40,6 @@ describe("derivePaths", () => {
     expect(paths.exportConfigPath).toBe("/w/export_config.json");
     expect(paths.argoOutputPath).toBe("/t/export_config.json");
     expect(paths.actionResultsOutputPath).toBe("/t/action_results.json");
-    expect(paths.zipOutputPath).toBe("/t/workspace.zip");
   });
 
   it("uses default paths from createTestAppConfig", () => {

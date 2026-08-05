@@ -11,12 +11,12 @@
 #
 # Templates:
 #   - main               : DAG 엔트리포인트
-#   - mcp-daemon          : MCP Server 사이드카 (Linear 도구)
+#   - mcp-daemon          : MCP Server 사이드카 (export/git/web-fetch 도구)
 #   - llm-gateway-daemon  : nginx 리버스 프록시 → Anthropic API
 #   - planner             : Claude Code CLI 기반 에이전트 실행 환경(이미지) 선택 (MCP 도구 접근 가능)
 #   - agent-job           : Claude Code CLI 실행 (이미지 파라미터화)
 #   - gate                : 세션 transcript 업로드 (viewer API)
-#   - export-output       : 후처리 (Linear, GitHub, S3)
+#   - export-output       : 후처리 (GitHub, S3)
 #   - cleanup-job         : 공유 볼륨 정리
 #
 # =============================================================================
@@ -137,16 +137,6 @@ spec:
         ports:
           - containerPort: 8080
         env:
-          - name: LINEAR_API_KEY
-            valueFrom:
-              secretKeyRef:
-                name: mcp-server-secrets
-                key: LINEAR_API_KEY
-          - name: LINEAR_TEAM_ID
-            valueFrom:
-              secretKeyRef:
-                name: mcp-server-secrets
-                key: LINEAR_TEAM_ID
           - name: GATEKEEPER_URL
             valueFrom:
               secretKeyRef:
@@ -362,11 +352,6 @@ spec:
         image: ghcr.io/dlddu/pure-agent/export-handler:latest
         command: ["node", "build/index.js"]
         env:
-          - name: LINEAR_API_KEY
-            valueFrom:
-              secretKeyRef:
-                name: export-handler-secrets
-                key: LINEAR_API_KEY
           - name: GITHUB_TOKEN
             valueFrom:
               secretKeyRef:

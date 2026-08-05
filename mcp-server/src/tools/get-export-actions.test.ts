@@ -5,14 +5,14 @@ import { getExportActionsTool } from "./get-export-actions.js";
 const dummyContext = createMockContext();
 
 describe("getExportActionsTool", () => {
-  it("returns all 4 export action types", async () => {
+  it("returns all 2 export action types", async () => {
     const result = await getExportActionsTool.handler({}, dummyContext);
     const parsed = parseResponseText(result);
 
     expect(parsed.success).toBe(true);
-    expect(parsed.actions).toHaveLength(4);
+    expect(parsed.actions).toHaveLength(2);
     const types = parsed.actions.map((a: { type: string }) => a.type);
-    expect(types).toEqual(["none", "upload_workspace", "report", "create_pr"]);
+    expect(types).toEqual(["none", "create_pr"]);
   });
 
   it("does not set isError on the response", async () => {
@@ -23,9 +23,6 @@ describe("getExportActionsTool", () => {
   it("includes correct required_fields for each action", async () => {
     const result = await getExportActionsTool.handler({}, dummyContext);
     const parsed = parseResponseText(result);
-
-    const reportAction = parsed.actions.find((a: { type: string }) => a.type === "report");
-    expect(reportAction.required_fields).toContain("report_content");
 
     const prAction = parsed.actions.find((a: { type: string }) => a.type === "create_pr");
     expect(prAction.required_fields).toEqual(

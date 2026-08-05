@@ -15,20 +15,11 @@ vi.mock("../services/git.js", () => ({
   createGitHubPr: mockCreateGitHubPr,
 }));
 
-const { mockPostLinearComment } = vi.hoisted(() => ({
-  mockPostLinearComment: vi.fn().mockResolvedValue(undefined),
-}));
-
-vi.mock("../services/linear-comment.js", () => ({
-  postLinearComment: mockPostLinearComment,
-}));
-
 import { createPrHandler } from "./create-pr.js";
 import { createTestActionContext } from "../test-helpers.js";
 
 describe("createPrHandler", () => {
   const config: ExportConfig = {
-    linear_issue_id: "TEAM-1",
     summary: "s",
     actions: ["create_pr"],
     pr: { title: "feat: new", body: "desc", branch: "feat/x", base: "main", repo: "org/repo", repo_path: "repo" },
@@ -43,7 +34,6 @@ describe("createPrHandler", () => {
     mockPrepareGitBranch.mockReset();
     mockPushBranch.mockReset();
     mockCreateGitHubPr.mockReset().mockReturnValue("https://github.com/org/repo/pull/1");
-    mockPostLinearComment.mockReset().mockResolvedValue(undefined);
   });
 
   describe("validate", () => {
@@ -104,35 +94,9 @@ describe("createPrHandler", () => {
       });
     });
 
-    it("posts comment with PR URL", async () => {
-      await createPrHandler.execute(fullContext);
-
-      expect(mockPostLinearComment).toHaveBeenCalledWith(
-        expect.anything(),
-        "TEAM-1",
-        expect.stringContaining("https://github.com/org/repo/pull/1"),
-        "PR link",
-      );
-    });
-
     it("returns pr_url in result", async () => {
       const result = await createPrHandler.execute(fullContext);
       expect(result).toEqual({ pr_url: "https://github.com/org/repo/pull/1" });
-    });
-
-    it("skips Linear comment when issueId is 'none'", async () => {
-      const noneConfig: ExportConfig = {
-        ...config,
-        linear_issue_id: "none",
-      };
-      const ctx = createTestActionContext(noneConfig, { githubToken: "tok" });
-
-      await createPrHandler.execute(ctx);
-
-      expect(mockPrepareGitBranch).toHaveBeenCalled();
-      expect(mockPushBranch).toHaveBeenCalled();
-      expect(mockCreateGitHubPr).toHaveBeenCalled();
-      expect(mockPostLinearComment).not.toHaveBeenCalled();
     });
 
     it("uses pr.repo from config", async () => {

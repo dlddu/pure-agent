@@ -1,12 +1,11 @@
 name: none-action
-description: "actions: [\"none\"] → Export Handler는 Linear 코멘트만 작성"
+description: "actions: [\"none\"] → Export Handler는 추가 액션 없이 종료"
 level: [unit, integration, e2e]
 
 # ── Unit/Integration: mock run 정의 ──
 run:
   environment_id: "default"
   export_config:
-    linear_issue_id: "mock-issue-id"
     summary: "No action needed. Task already completed."
     actions:
       - "none"

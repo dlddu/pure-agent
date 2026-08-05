@@ -1,6 +1,5 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
-import { LinearClient } from "@linear/sdk";
 import { ExportConfigSchema, type ExportConfig } from "./schema.js";
 import { ensureArgoOutput, writeActionResults } from "./services/argo-output.js";
 import { processExport } from "./orchestrator.js";
@@ -26,13 +25,10 @@ export async function run(): Promise<void> {
   }
 
   const exportConfig = loadExportConfig(paths.exportConfigPath);
-  log.info(`Export config loaded: actions=[${exportConfig.actions.join(",")}], issue=${exportConfig.linear_issue_id ?? "(none)"}`);
+  log.info(`Export config loaded: actions=[${exportConfig.actions.join(",")}]`);
 
-  const linearClient = new LinearClient({ apiKey: appConfig.linearApiKey, ...(appConfig.linearApiUrl && { apiUrl: appConfig.linearApiUrl }) });
-
-  const actionResults = await processExport(exportConfig, linearClient, {
+  const actionResults = await processExport(exportConfig, {
     workDir: appConfig.workDir,
-    zipOutputPath: paths.zipOutputPath,
     githubToken: appConfig.githubToken,
   });
 

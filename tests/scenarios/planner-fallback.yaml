@@ -6,7 +6,6 @@ level: [unit, integration]
 run:
   environment_id: "unknown-env"
   export_config:
-    linear_issue_id: "mock-issue-id"
     summary: "Fallback test completed."
     actions:
       - "none"

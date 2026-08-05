@@ -23,8 +23,6 @@ Selection guidelines:
 - "python-analysis": Data analysis, visualization, pandas/numpy, ML/AI
 - "infra": Kubernetes, infrastructure, kubectl, Helm, AWS/cloud, deploy
 
-If the task prompt contains a Linear issue ID (e.g. DLD-123, PROJ-456), use the get_issue tool to read the issue details before making your decision.
-
 After analysis, respond with ONLY a JSON object: {"environment_id": "<id>"}
 
 If uncertain, choose "default".

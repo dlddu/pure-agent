@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# tests/lib/mock-api.sh — mock-api (Linear GraphQL + LLM mock) 헬퍼 함수
+# tests/lib/mock-api.sh — mock-api (LLM mock) 헬퍼 함수
 #
 # mock-api 서비스에 대한 health check, 리셋, LLM 환경 설정 함수를 제공합니다.
 # 이 파일은 직접 실행하지 않고, source하여 함수만 로드합니다.

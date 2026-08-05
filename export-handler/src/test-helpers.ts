@@ -1,5 +1,4 @@
 import { vi } from "vitest";
-import type { LinearClient } from "@linear/sdk";
 import type { AppConfig } from "./config.js";
 import type { ActionContext, ActionDeps } from "./actions/types.js";
 import type { ExportConfig } from "./schema.js";
@@ -9,7 +8,6 @@ export function createTestAppConfig(overrides: Partial<AppConfig> = {}): AppConf
   return {
     workDir: "/test/work",
     tmpDir: "/test/tmp",
-    linearApiKey: "test-api-key",
     ...overrides,
   };
 }
@@ -17,20 +15,9 @@ export function createTestAppConfig(overrides: Partial<AppConfig> = {}): AppConf
 export function createTestActionDeps(overrides: Partial<ActionDeps> = {}): ActionDeps {
   return {
     workDir: "/test/work",
-    zipOutputPath: "/test/tmp/workspace.zip",
     githubToken: "test-gh-token",
     ...overrides,
   };
-}
-
-export function createMockLinearClient(
-  overrides: Partial<Record<"createComment" | "fileUpload", unknown>> = {},
-): LinearClient {
-  return {
-    createComment: vi.fn().mockResolvedValue({ success: true }),
-    fileUpload: vi.fn(),
-    ...overrides,
-  } as unknown as LinearClient;
 }
 
 export function createTestActionContext(
@@ -38,8 +25,6 @@ export function createTestActionContext(
   overrides: Partial<ActionContext> = {},
 ): ActionContext {
   return {
-    linearClient: createMockLinearClient(),
-    issueId: config.linear_issue_id,
     config,
     ...createTestActionDeps(),
     ...overrides,

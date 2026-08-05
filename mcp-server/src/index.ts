@@ -3,15 +3,12 @@ import { writeFile, readFile, access, stat, mkdir } from "node:fs/promises";
 import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
-import { LinearClient } from "@linear/sdk";
 import { createMcpServer } from "./server.js";
 import { createHttpTransport } from "./transport.js";
-import { LinearService } from "./services/linear.js";
 import { SessionService } from "./services/session.js";
 import { GatekeeperService } from "./services/gatekeeper.js";
 import { ExchangeRatesService } from "./services/exchange-rates.js";
 import { createDefaultTools } from "./tools/registry.js";
-import { sessionCommentHook } from "./hooks/post-tool-hooks.js";
 import { createLogger } from "./logger.js";
 import { parseConfig } from "./config.js";
 import type { IoLayer } from "./io.js";
@@ -26,13 +23,6 @@ async function main() {
 
   log.info("Starting Pure-Agent MCP Server...");
   log.info(`Configuration: PORT=${config.PORT}, HOST=${config.HOST}`);
-
-  const linearService = new LinearService({
-    client: new LinearClient({ apiKey: config.LINEAR_API_KEY, ...(config.LINEAR_API_URL && { apiUrl: config.LINEAR_API_URL }) }),
-    teamId: config.LINEAR_TEAM_ID,
-    defaultProjectId: config.LINEAR_DEFAULT_PROJECT_ID,
-    defaultLabelId: config.LINEAR_DEFAULT_LABEL_ID,
-  });
 
   log.info("Initializing MCP server...");
 
@@ -86,7 +76,6 @@ async function main() {
 
   const toolContext: McpToolContext = {
     services: {
-      linear: linearService,
       session: sessionService,
       gatekeeper: gatekeeperService,
       exchangeRates: exchangeRatesService,
@@ -101,7 +90,6 @@ async function main() {
     () => createMcpServer({
       tools,
       context: toolContext,
-      postToolHooks: [sessionCommentHook],
     }),
     config.MCP_PATH,
   );

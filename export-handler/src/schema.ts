@@ -2,14 +2,12 @@ import { z } from "zod";
 import {
   EXPORT_ACTIONS,
   EXCLUSIVE_ACTIONS,
-  ACTIONS_REQUIRING_ISSUE,
   MAX_PR_TITLE_LENGTH,
   MAX_PR_BODY_LENGTH,
   MAX_PR_BRANCH_LENGTH,
   MAX_PR_REPO_LENGTH,
   MAX_PR_REPO_PATH_LENGTH,
   MAX_SUMMARY_LENGTH,
-  MAX_REPORT_CONTENT_LENGTH,
 } from "./constants.js";
 
 const PrConfigSchema = z.object({
@@ -22,10 +20,8 @@ const PrConfigSchema = z.object({
 });
 
 export const ExportConfigSchema = z.object({
-  linear_issue_id: z.string().min(1).optional(),
   summary: z.string().min(1).max(MAX_SUMMARY_LENGTH),
   actions: z.array(z.enum(EXPORT_ACTIONS)).min(1),
-  report_content: z.string().max(MAX_REPORT_CONTENT_LENGTH).optional(),
   pr: PrConfigSchema.optional(),
 }).superRefine((data, ctx) => {
   // Exclusive actions (none) must be alone
@@ -46,28 +42,6 @@ export const ExportConfigSchema = z.object({
       code: z.ZodIssueCode.custom,
       message: "Duplicate actions are not allowed",
       path: ["actions"],
-    });
-  }
-
-  // Actions that require linear_issue_id
-  if (
-    data.actions.some((a) => ACTIONS_REQUIRING_ISSUE.has(a)) &&
-    !data.linear_issue_id
-  ) {
-    const required = data.actions.filter((a) => ACTIONS_REQUIRING_ISSUE.has(a));
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `linear_issue_id is required when actions include ${required.map((a) => `'${a}'`).join(", ")}`,
-      path: ["linear_issue_id"],
-    });
-  }
-
-  // report requires report_content
-  if (data.actions.includes("report") && !data.report_content) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "report_content is required when actions include 'report'",
-      path: ["report_content"],
     });
   }
 

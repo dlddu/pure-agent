@@ -3,10 +3,10 @@
 # DLD-468: Unit E2E 테스트 작성 (skipped)
 #
 # 서비스 구성:
-#   mock-api      — Linear GraphQL mock (포트 4000)
+#   mock-api      — LLM / transcript upload mock (포트 4000)
 #   mock-agent    — 시나리오 fixture를 /work에 복사하는 mock agent
 #   gate          — Python CLI (transcript upload)
-#   export-handler — TypeScript (Node 22), LINEAR_API_URL=mock-api로 덮어씀
+#   export-handler — TypeScript (Node 22)
 #   mock-gh       — gh CLI mock, GH_CALLS_DIR에 호출 기록
 #
 # 사용법:
@@ -46,7 +46,7 @@ services:
       retries: 15
       start_period: 10s
 
-  # ── mock-api: Linear GraphQL mock ─────────────────────────────────────────
+  # ── mock-api: LLM / transcript upload mock ────────────────────────────────
   mock-api:
     build:
       context: ..
@@ -121,8 +121,6 @@ services:
       context: ..
       dockerfile: export-handler/Dockerfile
     environment:
-      LINEAR_API_KEY: "mock-api-key"
-      LINEAR_API_URL: "http://mock-api:4000/graphql"
       GITHUB_TOKEN: "mock-gh-token"
       GH_CALLS_DIR: "/gh-calls"
       WORK_DIR: /work

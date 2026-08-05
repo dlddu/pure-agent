@@ -3,7 +3,6 @@
 #
 # Mock:
 #   - Agent        → mock-agent (ConfigMap에서 fixture를 읽어 시뮬레이션)
-#   - Linear API   → mock-api (클러스터 내 GraphQL mock 서비스)
 #   - GitHub CLI   → mock (Workflow 내 passthrough)
 #   - Planner      → mock-planner (Alpine 스크립트, prompt에서 env 파싱)
 #   - Gate         → 실제 gate 이미지 (transcript upload)

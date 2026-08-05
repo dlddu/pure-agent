@@ -5,7 +5,6 @@ level: [unit]
 # ── Unit: mock run 정의 ──
 run:
   export_config:
-    linear_issue_id: "mock-issue-id"
     summary: "web_fetch_get 거절 시나리오 완료."
     actions:
       - "none"

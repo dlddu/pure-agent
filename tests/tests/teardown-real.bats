@@ -4,7 +4,6 @@ bats_require_minimum_version 1.5.0
 #
 # TDD Red Phase: teardown-real.sh does not yet exist.
 # These tests define the expected behaviour of:
-#   teardown_linear_issue <issue_id>               -> archives the issue; warns on failure
 #   teardown_github_pr_and_branch <branch_name>    -> closes PRs + deletes branch; warns on failure
 
 source "$BATS_TEST_DIRNAME/test-helper.sh"
@@ -12,128 +11,10 @@ source "$BATS_TEST_DIRNAME/test-helper.sh"
 setup() {
   common_setup
   # Provide required env vars.
-  export LINEAR_API_KEY="test-linear-key"
   export GITHUB_TOKEN="test-github-token"
   export GITHUB_TEST_REPO="testorg/testrepo"
 
   load_teardown_real
-}
-
-# ── teardown_linear_issue: happy path ─────────────────────────────────────────
-
-@test "teardown_linear_issue: exits with code 0 on success" {
-  # Arrange — mock curl to return a successful archive response
-  curl() {
-    echo '{"data":{"issueArchive":{"success":true}}}'
-  }
-  export -f curl
-
-  # Act
-  run teardown_linear_issue "abc-uuid-123"
-
-  # Assert
-  [ "$status" -eq 0 ]
-}
-
-@test "teardown_linear_issue: sends archive mutation to Linear API" {
-  local captured_args_file="$WORK_DIR/curl-args.txt"
-
-  curl() {
-    printf '%s\n' "$@" > "$captured_args_file"
-    echo '{"data":{"issueArchive":{"success":true}}}'
-  }
-  export -f curl
-  export captured_args_file
-
-  run teardown_linear_issue "abc-uuid-123"
-
-  [ "$status" -eq 0 ]
-  # Should have called the Linear GraphQL endpoint
-  grep -q "linear.app" "$captured_args_file"
-}
-
-@test "teardown_linear_issue: passes the issue ID in the request" {
-  local captured_args_file="$WORK_DIR/curl-args.txt"
-
-  curl() {
-    printf '%s\n' "$@" > "$captured_args_file"
-    echo '{"data":{"issueArchive":{"success":true}}}'
-  }
-  export -f curl
-  export captured_args_file
-
-  run teardown_linear_issue "target-issue-id-456"
-
-  [ "$status" -eq 0 ]
-  grep -q "target-issue-id-456" "$captured_args_file"
-}
-
-# ── teardown_linear_issue: error / warn-only behaviour ────────────────────────
-
-@test "teardown_linear_issue: does NOT exit non-zero when API returns success=false" {
-  # Arrange — archive returns failure (e.g. issue already archived)
-  curl() {
-    echo '{"data":{"issueArchive":{"success":false}}}'
-  }
-  export -f curl
-
-  # Act
-  run teardown_linear_issue "abc-uuid-123"
-
-  # Assert — teardown must not die; it should warn and continue
-  [ "$status" -eq 0 ]
-}
-
-@test "teardown_linear_issue: outputs a warning when API returns success=false" {
-  curl() {
-    echo '{"data":{"issueArchive":{"success":false}}}'
-  }
-  export -f curl
-
-  run teardown_linear_issue "abc-uuid-123"
-
-  [ "$status" -eq 0 ]
-  # Should produce some kind of warning in stderr/stdout
-  [[ "$output" == *"warn"* ]] || [[ "$output" == *"WARN"* ]] || [[ "$output" == *"Warning"* ]] || [[ "$output" == *"fail"* ]] || [[ "$output" == *"Failed"* ]]
-}
-
-@test "teardown_linear_issue: does NOT exit non-zero when curl command fails" {
-  # Arrange — simulate complete network failure
-  curl() {
-    return 1
-  }
-  export -f curl
-
-  # Act
-  run teardown_linear_issue "abc-uuid-123"
-
-  # Assert — must not propagate the failure (warn-only)
-  [ "$status" -eq 0 ]
-}
-
-@test "teardown_linear_issue: outputs a warning when curl fails" {
-  curl() {
-    return 1
-  }
-  export -f curl
-
-  run teardown_linear_issue "abc-uuid-123"
-
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"warn"* ]] || [[ "$output" == *"WARN"* ]] || [[ "$output" == *"Warning"* ]] || [[ "$output" == *"fail"* ]] || [[ "$output" == *"Failed"* ]]
-}
-
-@test "teardown_linear_issue: does not call die (no hard exit) on any failure" {
-  # Simulate the worst case: curl returns garbage JSON
-  curl() {
-    echo 'not-valid-json'
-  }
-  export -f curl
-
-  run teardown_linear_issue "abc-uuid-123"
-
-  # The test passes as long as status is 0 (warn-only, not die)
-  [ "$status" -eq 0 ]
 }
 
 # ── teardown_github_pr_and_branch: happy path ─────────────────────────────────

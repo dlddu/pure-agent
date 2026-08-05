@@ -1,7 +1,7 @@
 name: "CI: Test E2E (kind + Argo, real API)"
 # DLD-465: E2E 풀 테스트를 실제로 동작하게 구현.
 # 이 workflow는 kind 클러스터에서 Argo를 통해 실제 Claude Agent +
-# 실제 Linear/GitHub API로 시나리오를 실행합니다.
+# 실제 GitHub API로 시나리오를 실행합니다.
 
 on:
   workflow_dispatch:
@@ -13,11 +13,8 @@ on:
         type: choice
         options:
           - "all"
-          # [DISABLED] Linear 미사용 예정 (2026-08-05): report-action, linear-issue-env-selection
-          # - "report-action"
           - "create-pr-action"
           - "none-action"
-          # - "linear-issue-env-selection"
           - "planner-infra-env"
           - "planner-python-env"
 
@@ -29,8 +26,6 @@ permissions:
   contents: read
 
 # Required GitHub Actions secrets:
-#   LINEAR_API_KEY            — Linear Personal API Key (테스트 전용)
-#   LINEAR_TEAM_ID            — Linear Team ID
 #   GH_PAT                    — GitHub PAT (PR 생성용, repo scope 필요)
 #   CLAUDE_CODE_OAUTH_TOKEN   — Claude Code OAuth token
 
@@ -142,8 +137,6 @@ jobs:
       # ── Kubernetes namespace and secrets ──────────────────────────────────────
       - name: Create namespace and secrets for pure-agent
         env:
-          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
-          LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
           GITHUB_TOKEN_SECRET: ${{ secrets.GH_PAT }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           GATEKEEPER_URL: ${{ secrets.GATEKEEPER_URL }}
@@ -157,8 +150,6 @@ jobs:
           # mcp-server-secrets
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
             create secret generic mcp-server-secrets \
-              --from-literal=LINEAR_API_KEY="$LINEAR_API_KEY" \
-              --from-literal=LINEAR_TEAM_ID="$LINEAR_TEAM_ID" \
               --from-literal=GATEKEEPER_URL="$GATEKEEPER_URL" \
               --from-literal=GATEKEEPER_API_KEY="$GATEKEEPER_API_KEY" \
               --from-literal=GATEKEEPER_USER_ID="$GATEKEEPER_USER_ID" \
@@ -167,7 +158,6 @@ jobs:
           # export-handler-secrets
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
             create secret generic export-handler-secrets \
-              --from-literal=LINEAR_API_KEY="$LINEAR_API_KEY" \
               --from-literal=GITHUB_TOKEN="$GITHUB_TOKEN_SECRET" \
               --dry-run=client -o yaml | kubectl apply -f -
 
@@ -291,8 +281,6 @@ jobs:
       # ── Run E2E scenarios ─────────────────────────────────────────────────────
       - name: Run E2E scenarios (run-e2e.sh)
         env:
-          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
-          LINEAR_TEAM_ID: ${{ secrets.LINEAR_TEAM_ID }}
           GITHUB_TOKEN: ${{ secrets.GH_PAT }}
           GITHUB_TEST_REPO: ${{ vars.E2E_TEST_REPO }}
           KUBE_CONTEXT: "kind-${{ env.CLUSTER_NAME }}"

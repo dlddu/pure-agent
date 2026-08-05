@@ -37,7 +37,7 @@
 │                         ▼                                     │
 │  ┌─────────────────────────────────────────────────────────┐  │
 │  │                  Export Handler                         │  │
-│  │              (Linear / GitHub / S3)                      │  │
+│  │                   (GitHub / S3)                          │  │
 │  └─────────────────────────────────────────────────────────┘  │
 └───────────────────────────────────────────────────────────────┘
 ```
@@ -99,7 +99,7 @@ Agent 실행 후 세션 transcript(`/work/.transcripts`)를 transcript viewer AP
 Agent 작업 결과를 외부로 내보내는 파이프라인. Agent가 `set_export_config`를 호출하면 Export Handler가 설정에 따라 후처리를 실행한다.
 
 - **Stop Hook 강제**: Agent는 `set_export_config` 호출 없이 종료할 수 없다. 호출하지 않으면 Stop Hook이 차단하고 에이전트에게 호출을 요구한다.
-- **실행 흐름**: Agent → `set_export_config` 호출 → Export Handler 실행 → Linear 코멘트 + 선택된 action 수행
+- **실행 흐름**: Agent → `set_export_config` 호출 → Export Handler 실행 → 선택된 action 수행
 
 ## 기술 스택
 
@@ -108,12 +108,12 @@ Agent 작업 결과를 외부로 내보내는 파이프라인. Agent가 `set_exp
 | 오케스트레이션 | Argo Workflows, Kubernetes |
 | LLM Gateway | nginx (리버스 프록시) |
 | MCP Server | Node.js 22 (>=20), TypeScript, Express, MCP SDK, Zod |
-| Export Handler | Node.js 22 (>=20), TypeScript, Linear SDK, Zod, GitHub CLI |
+| Export Handler | Node.js 22 (>=20), TypeScript, Zod, GitHub CLI |
 | Planner | Python 3.12, Anthropic API (Claude Haiku) |
 | Gate | Python 3.12 |
 | AI | Claude Code CLI, Anthropic API |
 | 테스트 | Vitest, pytest, Supertest |
-| 외부 연동 | Linear SDK, GitHub (PR 생성) |
+| 외부 연동 | GitHub (PR 생성) |
 | 시크릿 관리 | Kubernetes Secret (컨테이너별 분리) |
 | 스토리지 | AWS EFS |
 | CI/CD | GitHub Actions, GitHub Container Registry |
@@ -128,6 +128,6 @@ Agent 작업 결과를 외부로 내보내는 파이프라인. Agent가 `set_exp
 
 | Secret 이름 | 키 | 사용 컨테이너 |
 |---|---|---|
-| `mcp-server-secrets` | `LINEAR_API_KEY`, `LINEAR_TEAM_ID` | MCP Server |
+| `mcp-server-secrets` | `GATEKEEPER_URL`, `GATEKEEPER_API_KEY`, `GATEKEEPER_USER_ID` | MCP Server |
 | `agent-secrets` | `CLAUDE_CODE_OAUTH_TOKEN` | Claude Agent |
-| `export-handler-secrets` | `LINEAR_API_KEY`, `GITHUB_TOKEN`, `AWS_S3_BUCKET_NAME` | Export Handler |
+| `export-handler-secrets` | `GITHUB_TOKEN` | Export Handler |
