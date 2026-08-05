@@ -2,21 +2,21 @@
 # Pure-Agent Argo WorkflowTemplate
 # =============================================================================
 #
-# 에이전트 실행 파이프라인 오케스트레이션:
+# 에이전트 실행 파이프라인 오케스트레이션 (원샷 실행):
 #   1. 데몬 서비스 시작 (MCP Server, LLM Gateway)
-#   2. Planner → Agent → Gate 재귀 루프 실행 (max_depth까지 반복)
-#   3. Export Handler로 결과 내보내기
-#   4. 공유 볼륨 정리
+#   2. Planner → Agent 를 한 번 실행
+#   3. Gate로 세션 transcript 업로드
+#   4. Export Handler로 결과 내보내기
+#   5. 공유 볼륨 정리
 #
 # Templates:
 #   - main               : DAG 엔트리포인트
 #   - mcp-daemon          : MCP Server 사이드카 (Linear 도구)
 #   - llm-gateway-daemon  : nginx 리버스 프록시 → Anthropic API
-#   - run-cycle           : Planner → Agent → Gate → Recurse 재귀 루프
 #   - planner             : Claude Code CLI 기반 에이전트 실행 환경(이미지) 선택 (MCP 도구 접근 가능)
 #   - agent-job           : Claude Code CLI 실행 (이미지 파라미터화)
-#   - gate                : 계속/종료 판단
-#   - export-cycle-output : 후처리 (Linear, GitHub, S3)
+#   - gate                : 세션 transcript 업로드 (viewer API)
+#   - export-output       : 후처리 (Linear, GitHub, S3)
 #   - cleanup-job         : 공유 볼륨 정리
 #
 # =============================================================================
@@ -32,8 +32,6 @@ spec:
 
   arguments:
     parameters:
-      - name: max_depth
-        value: "10"
       - name: prompt
         value: ""
 
@@ -51,15 +49,15 @@ spec:
     parameters:
       - name: export_config
         valueFrom:
-          parameter: "{{tasks.export-cycle-output.outputs.parameters.export_config}}"
+          parameter: "{{tasks.export-output.outputs.parameters.export_config}}"
       - name: action_results
         valueFrom:
-          parameter: "{{tasks.export-cycle-output.outputs.parameters.action_results}}"
+          parameter: "{{tasks.export-output.outputs.parameters.action_results}}"
 
   templates:
 
     # =============================
-    # Main DAG
+    # Main DAG (one-shot pipeline)
     # =============================
     - name: main
       dag:
@@ -70,36 +68,60 @@ spec:
           - name: llm-gateway-daemon
             template: llm-gateway-daemon
 
-          - name: run-cycle
-            template: run-cycle
+          - name: planner
+            template: planner
             dependencies: [mcp-daemon, llm-gateway-daemon]
             continueOn:
               failed: true
               error: true
             arguments:
               parameters:
-                - name: depth
-                  value: "0"
-                - name: max_depth
-                  value: "{{workflow.parameters.max_depth}}"
                 - name: prompt
                   value: "{{workflow.parameters.prompt}}"
-                - name: previous_output
-                  value: ""
-                - name: mcp_host
-                  value: "{{tasks.mcp-daemon.ip}}"
                 - name: llm_gateway_host
                   value: "{{tasks.llm-gateway-daemon.ip}}"
+                - name: mcp_host
+                  value: "{{tasks.mcp-daemon.ip}}"
 
-          - name: export-cycle-output
-            template: export-cycle-output
-            dependencies: [run-cycle]
+          - name: agent
+            template: agent-job
+            dependencies: [planner]
             continueOn:
               failed: true
+              error: true
+            arguments:
+              parameters:
+                - name: prompt
+                  value: "{{workflow.parameters.prompt}}"
+                - name: llm_gateway_host
+                  value: "{{tasks.llm-gateway-daemon.ip}}"
+                - name: mcp_host
+                  value: "{{tasks.mcp-daemon.ip}}"
+                - name: agent_image
+                  value: "{{tasks.planner.outputs.parameters.agent_image}}"
+                # Grant cluster-wide read-only RBAC only when the planner
+                # selected the infra environment; all other agents fall
+                # back to the namespace-scoped argo-workflow-sa.
+                - name: service_account
+                  value: "{{= tasks.planner.outputs.parameters.raw_environment_id == 'infra' ? 'infra-agent-sa' : 'argo-workflow-sa' }}"
+
+          - name: gate
+            template: gate
+            dependencies: [agent]
+            continueOn:
+              failed: true
+              error: true
+
+          - name: export-output
+            template: export-output
+            dependencies: [gate]
+            continueOn:
+              failed: true
+              error: true
 
           - name: cleanup
             template: cleanup-job
-            dependencies: [export-cycle-output]
+            dependencies: [export-output]
 
     # =============================
     # MCP Server Daemon
@@ -190,76 +212,6 @@ spec:
           failureThreshold: 3
 
     # =============================
-    # Planner → Agent → Gate Loop
-    # =============================
-    - name: run-cycle
-      inputs:
-        parameters:
-          - name: depth
-          - name: max_depth
-          - name: prompt
-          - name: previous_output
-          - name: mcp_host
-          - name: llm_gateway_host
-      steps:
-        - - name: planner
-            template: planner
-            arguments:
-              parameters:
-                - name: prompt
-                  value: "{{inputs.parameters.prompt}}"
-                - name: llm_gateway_host
-                  value: "{{inputs.parameters.llm_gateway_host}}"
-                - name: mcp_host
-                  value: "{{inputs.parameters.mcp_host}}"
-        - - name: agent
-            template: agent-job
-            arguments:
-              parameters:
-                - name: prompt
-                  value: "{{inputs.parameters.prompt}}"
-                - name: previous_output
-                  value: "{{inputs.parameters.previous_output}}"
-                - name: llm_gateway_host
-                  value: "{{inputs.parameters.llm_gateway_host}}"
-                - name: mcp_host
-                  value: "{{inputs.parameters.mcp_host}}"
-                - name: agent_image
-                  value: "{{steps.planner.outputs.parameters.agent_image}}"
-                # Grant cluster-wide read-only RBAC only when the planner
-                # selected the infra environment; all other agents fall
-                # back to the namespace-scoped argo-workflow-sa.
-                - name: service_account
-                  value: "{{= steps.planner.outputs.parameters.raw_environment_id == 'infra' ? 'infra-agent-sa' : 'argo-workflow-sa' }}"
-        - - name: gate
-            template: gate
-            arguments:
-              parameters:
-                - name: depth
-                  value: "{{inputs.parameters.depth}}"
-                - name: max_depth
-                  value: "{{inputs.parameters.max_depth}}"
-                - name: export_config
-                  value: "{{steps.agent.outputs.parameters.export_config}}"
-        - - name: recurse
-            template: run-cycle
-            when: "{{steps.gate.outputs.parameters.continue}} == true"
-            arguments:
-              parameters:
-                - name: depth
-                  value: "{{=asInt(inputs.parameters.depth)+1}}"
-                - name: max_depth
-                  value: "{{inputs.parameters.max_depth}}"
-                - name: prompt
-                  value: "{{inputs.parameters.prompt}}"
-                - name: previous_output
-                  value: "{{steps.agent.outputs.parameters.result}}"
-                - name: mcp_host
-                  value: "{{inputs.parameters.mcp_host}}"
-                - name: llm_gateway_host
-                  value: "{{inputs.parameters.llm_gateway_host}}"
-
-    # =============================
     # Planner (image selection)
     # =============================
     - name: planner
@@ -326,7 +278,6 @@ spec:
       inputs:
         parameters:
           - name: prompt
-          - name: previous_output
           - name: llm_gateway_host
           - name: mcp_host
           - name: agent_image
@@ -362,8 +313,6 @@ spec:
         env:
           - name: PROMPT
             value: "{{inputs.parameters.prompt}}"
-          - name: PREVIOUS_OUTPUT
-            value: "{{inputs.parameters.previous_output}}"
           - name: MCP_HOST
             value: "{{inputs.parameters.mcp_host}}"
           - name: ANTHROPIC_BASE_URL
@@ -378,33 +327,13 @@ spec:
             mountPath: /work
 
     # =============================
-    # Gate (continue/stop decision)
+    # Gate (transcript upload)
     # =============================
     - name: gate
-      inputs:
-        parameters:
-          - name: depth
-          - name: max_depth
-          - name: export_config
-      outputs:
-        parameters:
-          - name: continue
-            valueFrom:
-              path: /tmp/continue.txt
       container:
         image: ghcr.io/dlddu/pure-agent/gate:latest
-        command: ["/bin/sh", "-c"]
-        args:
-          - |
-            gate \
-              --export-config "$EXPORT_CONFIG_JSON" \
-              --depth '{{inputs.parameters.depth}}' \
-              --max-depth '{{inputs.parameters.max_depth}}' \
-              --output /tmp/continue.txt \
-            || echo "false" > /tmp/continue.txt
+        command: ["gate"]
         env:
-          - name: EXPORT_CONFIG_JSON
-            value: "{{inputs.parameters.export_config}}"
           - name: TRANSCRIPT_UPLOAD_API_URL
             valueFrom:
               secretKeyRef:
@@ -416,14 +345,15 @@ spec:
             mountPath: /work
 
     # =============================
-    # Export Cycle Output
+    # Export Output
     # =============================
-    - name: export-cycle-output
+    - name: export-output
       outputs:
         parameters:
           - name: export_config
             valueFrom:
               path: /tmp/export_config.json
+              default: "{}"
           - name: action_results
             valueFrom:
               path: /tmp/action_results.json

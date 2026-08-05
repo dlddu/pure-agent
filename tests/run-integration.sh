@@ -6,7 +6,7 @@
 #   - Linear API   → mock-api (클러스터 내 GraphQL mock 서비스)
 #   - GitHub CLI   → mock (Workflow 내 passthrough)
 #   - Planner      → mock-planner (Alpine 스크립트, prompt에서 env 파싱)
-#   - Gate         → mock-gate (Alpine 스크립트, depth limit 로직만 구현)
+#   - Gate         → 실제 gate 이미지 (transcript upload)
 #   - Export Handler → mock (passthrough)
 #   - Anthropic API → 사용하지 않음
 #   - MCP daemon / LLM gateway → 사용하지 않음
@@ -15,7 +15,7 @@
 #   - Kubernetes    (kind 클러스터, ConfigMap, Pod lifecycle)
 #
 # 시나리오 정의는 tests/scenarios/<name>.yaml 파일에서 읽습니다.
-# cycles[] 배열의 각 cycle을 독립적인 Argo Workflow로 제출하고,
+# 시나리오의 run을 하나의 Argo Workflow로 제출하고,
 # mock-agent가 ConfigMap에서 fixture를 읽어 시뮬레이션합니다.
 #
 # Usage:
@@ -43,7 +43,7 @@ MOCK_API_URL="${MOCK_API_URL:-http://mock-api.${NAMESPACE}.svc.cluster.local:400
 # ── Source shared libraries ──────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="${SCRIPT_DIR}/lib"
-SCENARIOS_DIR="${SCRIPT_DIR}/scenarios"
+SCENARIOS_DIR="${SCENARIOS_DIR:-${SCRIPT_DIR}/scenarios}"
 # shellcheck source=lib/common.sh
 source "$LIB_DIR/common.sh"
 # shellcheck source=lib/assertions-argo.sh
@@ -102,21 +102,17 @@ check_prerequisites() {
 #
 # Arguments:
 #   $1  scenario_name  — 시나리오 이름
-#   $2  cycle_index    — cycle 인덱스
-#   $3  max_depth      — 최대 depth (기본값: 5)
-#   $4  scenario_dir   — fixture 파일 디렉토리
-#   $5  env_id         — environment_id (mock-planner가 prompt에서 파싱)
+#   $2  scenario_dir   — fixture 파일 디렉토리
+#   $3  env_id         — environment_id (mock-planner가 prompt에서 파싱)
 #
 # 출력: workflow name
 #
 submit_mock_workflow() {
   local scenario_name="$1"
-  local cycle_index="$2"
-  local max_depth="${3:-5}"
-  local scenario_dir="$4"
-  local env_id="${5:-default}"
+  local scenario_dir="$2"
+  local env_id="${3:-default}"
 
-  local cm_name="mock-scenario-${scenario_name}-cycle${cycle_index}-$$"
+  local cm_name="mock-scenario-${scenario_name}-$$"
   local cm_name_safe
   # ConfigMap 이름은 소문자 + 숫자 + 하이픈만 허용
   cm_name_safe=$(echo "$cm_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-' | cut -c1-253)
@@ -140,7 +136,7 @@ submit_mock_workflow() {
       --dry-run=client -o yaml \
       | kubectl apply -f - -n "$NAMESPACE" --context "$KUBE_CONTEXT" >&2
   else
-    # 빈 ConfigMap 생성 (depth-limit 시나리오처럼 export_config가 null인 경우)
+    # 빈 ConfigMap 생성 (export_config가 null인 경우)
     kubectl create configmap "$cm_name_safe" \
       -n "$NAMESPACE" \
       --context "$KUBE_CONTEXT" \
@@ -148,7 +144,7 @@ submit_mock_workflow() {
       | kubectl apply -f - -n "$NAMESPACE" --context "$KUBE_CONTEXT" >&2
   fi
 
-  log "Submitting mock Argo Workflow (scenario=$scenario_name, cycle=$cycle_index, max_depth=$max_depth)"
+  log "Submitting mock Argo Workflow (scenario=$scenario_name)"
 
   # Argo Workflow 제출 — mock-agent 이미지와 SCENARIO_DIR(ConfigMap 마운트)를 사용
   local submit_output
@@ -156,14 +152,13 @@ submit_mock_workflow() {
     --from workflowtemplate/pure-agent \
     -n "$NAMESPACE" \
     --context "$KUBE_CONTEXT" \
-    -p max_depth="$max_depth" \
-    -p prompt="[mock] scenario=${scenario_name} cycle=${cycle_index} env=${env_id}" \
+    -p prompt="[mock] scenario=${scenario_name} env=${env_id}" \
     -p mock_api_url="$MOCK_API_URL" \
     -p scenario_configmap="$cm_name_safe" \
     --output json 2>&1) || {
-      warn "Argo workflow submission failed (scenario=$scenario_name, cycle=$cycle_index):"
+      warn "Argo workflow submission failed (scenario=$scenario_name):"
       echo "$submit_output" >&2
-      die "Workflow submission failed for: $scenario_name cycle $cycle_index"
+      die "Workflow submission failed for: $scenario_name"
     }
 
   local workflow_name
@@ -187,25 +182,23 @@ submit_mock_workflow() {
       warn "argo wait failed (exit=$wait_exit): $workflow_name (phase=$phase)"
     fi
     argo get "$workflow_name" -n "$NAMESPACE" --context "$KUBE_CONTEXT" >&2 || true
-    die "Mock workflow failed: $scenario_name cycle $cycle_index"
+    die "Mock workflow failed: $scenario_name"
   fi
 
   echo "$workflow_name"
 }
 
-# verify_cycle: 단일 cycle 검증 (assertions 필드 기반)
+# verify_run: 단일 run 검증 (assertions 필드 기반)
 #
 # Arguments:
 #   $1  yaml_file      — 시나리오 YAML 파일 경로
 #   $2  workflow_name  — 완료된 workflow 이름
-#   $3  cycle_index    — 검증 중인 cycle 인덱스
 #
-verify_cycle() {
+verify_run() {
   local yaml_file="$1"
   local workflow_name="$2"
-  local cycle_index="$3"
 
-  log "Verifying cycle ${cycle_index} for workflow: $workflow_name"
+  log "Verifying run for workflow: $workflow_name"
 
   # 1. Workflow Succeeded 검증
   assert_workflow_succeeded "$workflow_name" "$NAMESPACE" || return 1
@@ -219,23 +212,22 @@ verify_cycle() {
 
   # 3. mock-api 기반 assertion은 skip
   # mock-agent는 HTTP 호출을 하지 않으므로 mock-api에 recorded call이 없음.
-  # gate_decision은 assert_run_cycle_count / assert_workflow_succeeded로 간접 검증.
   log "Skipping mock-api assertions (not applicable in Integration mock architecture)"
 
   # 4. S3 transcript upload 검증
   if [[ -n "${S3_ENDPOINT_URL:-}" ]]; then
-    log "Verifying S3 transcript upload for cycle ${cycle_index}"
+    log "Verifying S3 transcript upload"
     assert_s3_transcript_exists 1 || return 1
   fi
 
-  log "Cycle ${cycle_index} verification passed"
+  log "Run verification passed"
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # SCENARIO RUNNER
 # ═══════════════════════════════════════════════════════════════════════════════
 
-# run_scenario: cycles[]를 순회하며 mock-agent 방식으로 실행하고 검증합니다.
+# run_scenario: 시나리오의 run을 mock-agent 방식으로 실행하고 검증합니다.
 #
 # Arguments:
 #   $1  scenario_name  — 시나리오 이름
@@ -249,80 +241,35 @@ run_scenario() {
 
   log "=== Integration Scenario: $scenario_name ==="
 
-  # cycles 배열 길이 확인
-  local cycle_count
-  cycle_count=$(yq eval '.cycles | length' "$yaml_file" 2>/dev/null || echo "0")
+  # run 정의 확인
+  local has_run
+  has_run=$(yq eval '.run' "$yaml_file" 2>/dev/null || echo "null")
 
-  if [[ "$cycle_count" -eq 0 ]]; then
-    warn "No cycles defined in scenario: $scenario_name — skipping"
+  if [[ "$has_run" == "null" || -z "$has_run" ]]; then
+    warn "No run defined in scenario: $scenario_name — skipping"
     return 0
   fi
 
-  # max_depth 읽기 (시나리오 레벨 또는 기본값 5)
-  local max_depth
-  max_depth=$(yaml_get "$yaml_file" '.max_depth // 5')
+  # 임시 fixture 디렉토리 생성
+  local run_dir
+  run_dir=$(mktemp -d "/tmp/e2e-integration-${scenario_name}-XXXXXX")
 
-  # 각 cycle을 독립적인 Workflow로 제출하고 검증합니다.
-  local cycle_index
-  local all_workflow_names=()
+  # environment_id 읽기 (mock-planner가 prompt에서 파싱)
+  local env_id
+  env_id=$(yaml_get "$yaml_file" ".run.environment_id")
 
-  for (( cycle_index=0; cycle_index<cycle_count; cycle_index++ )); do
-    log "--- Cycle ${cycle_index}/${cycle_count} ---"
+  # run fixtures 배치
+  prepare_run_fixtures "$yaml_file" "$run_dir"
 
-    # per-cycle max_depth (YAML에서 cycles[i].max_depth를 확인, 없으면 시나리오 max_depth)
-    local cycle_max_depth
-    cycle_max_depth=$(yaml_get "$yaml_file" ".cycles[${cycle_index}].max_depth")
-    if [[ -z "$cycle_max_depth" ]]; then
-      cycle_max_depth="$max_depth"
-    fi
+  # mock Argo Workflow 제출 + 완료 대기
+  local workflow_name
+  workflow_name=$(submit_mock_workflow "$scenario_name" "$run_dir" "$env_id")
 
-    # 임시 fixture 디렉토리 생성
-    local cycle_dir
-    cycle_dir=$(mktemp -d "/tmp/e2e-integration-${scenario_name}-cycle${cycle_index}-XXXXXX")
+  # run 검증
+  verify_run "$yaml_file" "$workflow_name"
 
-    # environment_id 읽기 (mock-planner가 prompt에서 파싱)
-    local env_id
-    env_id=$(yaml_get "$yaml_file" ".cycles[${cycle_index}].environment_id")
-
-    # cycle fixtures 배치
-    prepare_cycle_fixtures "$yaml_file" "$cycle_index" "$cycle_dir"
-
-    # mock Argo Workflow 제출 + 완료 대기
-    local workflow_name
-    workflow_name=$(submit_mock_workflow \
-      "$scenario_name" "$cycle_index" "$cycle_max_depth" "$cycle_dir" "$env_id")
-
-    all_workflow_names+=("$workflow_name")
-
-    # cycle 검증
-    verify_cycle "$yaml_file" "$workflow_name" "$cycle_index"
-
-    # 임시 디렉토리 정리
-    rm -rf "$cycle_dir"
-  done
-
-  # --- 시나리오 레벨 추가 검증 ---
-
-  # continue-then-stop: 전체 cycle 수만큼 workflow가 실행됐는지 검증
-  local scenario_name_check
-  scenario_name_check=$(yaml_get "$yaml_file" '.name')
-  if [[ "$scenario_name_check" == "continue-then-stop" ]]; then
-    log "continue-then-stop: verifying workflow count matches cycle count"
-    local wf_count="${#all_workflow_names[@]}"
-    if [[ "$wf_count" -ne "$cycle_count" ]]; then
-      die "continue-then-stop: expected $cycle_count workflows but got $wf_count"
-    fi
-    for wf_name in "${all_workflow_names[@]}"; do
-      assert_run_cycle_count "$wf_name" 1 "$NAMESPACE"
-    done
-  fi
-
-  # depth-limit: max_depth 종료 검증
-  if [[ "$scenario_name_check" == "depth-limit" ]]; then
-    log "depth-limit: verifying max_depth termination"
-    local last_workflow="${all_workflow_names[${#all_workflow_names[@]}-1]}"
-    assert_max_depth_termination "$last_workflow" "$max_depth" "$NAMESPACE"
-  fi
+  # 임시 디렉토리 정리
+  rm -rf "$run_dir"
 
   # daemon pods ready / work dir cleanup 검증
   # mock-agent만 실행되며 MCP daemon/LLM gateway 사이드카가 없으므로 skip.

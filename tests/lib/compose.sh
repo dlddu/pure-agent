@@ -13,10 +13,9 @@
 # Functions:
 #   compose_up
 #   compose_down
-#   place_fixtures_via_mock_agent <cycle_fixture_dir>
+#   place_fixtures_via_mock_agent <run_fixture_dir>
 #   run_planner_in_compose <prompt> <planner_output_on_host>
-#   run_gate <depth> <max_depth>
-#   run_gate_in_compose <depth> <max_depth> <gate_output_on_host>
+#   run_gate_in_compose
 #   run_export_handler
 
 set -euo pipefail
@@ -70,121 +69,43 @@ run_planner_in_compose() {
 # ── fixture 배치: mock-agent를 run하여 /work 볼륨에 파일 복사 ─────────────────
 #
 # Arguments:
-#   $1  cycle_fixture_dir  — 호스트의 cycle fixture 디렉토리 (export_config.json 등)
+#   $1  run_fixture_dir  — 호스트의 run fixture 디렉토리 (export_config.json 등)
 #
 place_fixtures_via_mock_agent() {
-  local cycle_fixture_dir="$1"
+  local run_fixture_dir="$1"
 
-  log "Placing fixtures via mock-agent (from: $cycle_fixture_dir) ..."
+  log "Placing fixtures via mock-agent (from: $run_fixture_dir) ..."
 
   docker compose -f "$COMPOSE_FILE" \
     run --rm \
     -e "SCENARIO_DIR=/scenario" \
-    -v "${cycle_fixture_dir}:/scenario:ro" \
+    -v "${run_fixture_dir}:/scenario:ro" \
     mock-agent \
     /app/entrypoint.sh
 }
 
-# ── gate 실행 ─────────────────────────────────────────────────────────────────
+# ── gate 실행 (transcript upload) ─────────────────────────────────────────────
 #
-# Arguments:
-#   $1  depth      — 현재 depth
-#   $2  max_depth  — 최대 depth
-#
-# 출력: gate_decision.txt 파일의 내용 ("true" or "false")
-#
-run_gate() {
-  local depth="$1"
-  local max_depth="$2"
-  local output_file="/work/gate_decision.txt"
-
-  log "Running gate (depth=${depth}, max_depth=${max_depth}) ..."
-
-  docker compose -f "$COMPOSE_FILE" \
-    run --rm \
-    --no-deps \
-    --entrypoint="" \
-    gate \
-    sh -c '
-      EC="{}";
-      if [ -f /work/export_config.json ]; then
-        EC=$(cat /work/export_config.json);
-      fi;
-      exec gate \
-        --depth '"${depth}"' \
-        --max-depth '"${max_depth}"' \
-        --export-config "$EC" \
-        --output '"${output_file}"'
-    ' \
-    || {
-      warn "gate exited non-zero for depth=${depth}"
-      return 1
-    }
-
-  local decision
-  decision=$(docker compose -f "$COMPOSE_FILE" \
-    run --rm \
-    --no-deps \
-    --entrypoint="" \
-    gate \
-    cat "${output_file}" 2>/dev/null | tr -d '[:space:]') || {
-    warn "Failed to read gate_decision.txt"
-    return 1
-  }
-
-  log "Gate decision: $decision"
-  echo "$decision"
-}
-
-# ── gate 실행 (간소화 버전: /work 볼륨 공유를 위해 export-handler 이미지 활용) ──
-#
-# Arguments:
-#   $1  depth      — 현재 depth
-#   $2  max_depth  — 최대 depth
-#   $3  gate_output_on_host  — 호스트에서 결과를 받을 임시 파일 경로
+# gate CLI를 실행합니다. gate는 /work/.transcripts의 세션 transcript를
+# viewer API로 업로드합니다 (TRANSCRIPT_UPLOAD_API_URL 미설정 시 skip).
 #
 run_gate_in_compose() {
-  local depth="$1"
-  local max_depth="$2"
-  local gate_output_on_host="$3"
-
-  log "Running gate (depth=${depth}, max_depth=${max_depth}) ..."
+  log "Running gate (transcript upload) ..."
 
   local exit_code=0
   docker compose -f "$COMPOSE_FILE" \
     run --rm \
     --entrypoint="" \
     gate \
-    sh -c '
-      EC="{}";
-      if [ -f /work/export_config.json ]; then
-        EC=$(cat /work/export_config.json);
-      fi;
-      exec gate \
-        --depth '"${depth}"' \
-        --max-depth '"${max_depth}"' \
-        --export-config "$EC" \
-        --output /work/gate_decision.txt
-    ' \
+    gate \
     || exit_code=$?
 
   if [[ "$exit_code" -ne 0 ]]; then
-    warn "gate exited with code ${exit_code} (depth=${depth})"
+    warn "gate exited with code ${exit_code}"
     return "$exit_code"
   fi
 
-  docker compose -f "$COMPOSE_FILE" \
-    run --rm \
-    --entrypoint="" \
-    gate \
-    sh -c "cat /work/gate_decision.txt" \
-    > "$gate_output_on_host" 2>/dev/null \
-    || {
-      warn "Failed to read /work/gate_decision.txt from volume"
-      return 1
-    }
-
-  log "Gate decision: $(cat "$gate_output_on_host")"
+  log "Gate completed"
 }
 
 # ── export-handler 실행 ────────────────────────────────────────────────────────

@@ -1,23 +1,24 @@
 name: planner-python-env
 description: "Planner가 python-analysis 환경을 선택하는 시나리오"
 level: [unit, integration, e2e]
-max_depth: 1
 
-# ── Integration: mock cycle 정의 ──
-cycles:
-  - environment_id: "python-analysis"
-    export_config:
-      linear_issue_id: "mock-issue-id"
-      summary: "Data analysis task completed."
-      actions:
-        - "none"
-      session_id: "mock-session-python"
-    agent_result: "pandas analysis done."
+# ── Unit/Integration: mock run 정의 ──
+run:
+  environment_id: "python-analysis"
+  export_config:
+    linear_issue_id: "mock-issue-id"
+    summary: "Data analysis task completed."
+    actions:
+      - "none"
+    session_id: "mock-session-python"
+  agent_result: "pandas analysis done."
 
 # ── E2E: real API 실행 설정 ──
 real:
-  max_depth: 5
-  prompt: "pandas와 matplotlib를 사용하여 CSV 데이터를 분석하고 시각화해주세요. Python 데이터 분석 환경이 필요합니다."
+  # 이 시나리오는 planner의 환경 선택만 검증합니다. 프롬프트가 열려 있으면
+  # 에이전트가 전체 분석 프로젝트를 구성하다 워크플로우 타임아웃에 걸리므로,
+  # python-analysis 신호(pandas/matplotlib)는 유지하되 작업량을 제한합니다.
+  prompt: "pandas로 3행짜리 DataFrame을 하나 만들어 합계를 출력하고, matplotlib로 막대 그래프 하나만 /work/chart.png에 저장한 뒤 바로 종료해주세요. 그 외 추가 분석·파일 생성은 하지 마세요. Python 데이터 분석 환경이 필요합니다."
   setup: []
   verify: [planner_exact_image, s3_transcript]
   teardown: []
@@ -25,5 +26,4 @@ real:
 # ── 공유 assertions ──
 assertions:
   planner_image: "python-analysis"
-  gate_decision: "stop"
   export_handler_exit: 0

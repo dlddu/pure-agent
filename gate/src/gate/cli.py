@@ -1,10 +1,8 @@
-"""CLI entry point: argument parsing, orchestration, error handling."""
+"""CLI entry point: transcript upload orchestration and error handling."""
 
-import argparse
 import logging
 import sys
 
-from gate import logic
 from gate.config import GateConfig, TranscriptUploadConfig
 
 logging.basicConfig(
@@ -17,73 +15,27 @@ logger = logging.getLogger("gate")
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Workflow gate: continue/stop decision")
-    parser.add_argument("--depth", type=int, required=True)
-    parser.add_argument("--max-depth", type=int, required=True)
-    parser.add_argument("--export-config", type=str, default="{}", help="Export config JSON")
-    parser.add_argument("--output", type=str, required=True, help="Output file for decision")
-
-    args = parser.parse_args()
-
-    if args.depth < 0:
-        raise SystemExit(2)
-    if args.max_depth < 1:
-        raise SystemExit(2)
-
+    """Upload session transcripts via the viewer API, if configured."""
     config = GateConfig.from_env()
 
-    continuing, reason = logic.should_continue(
-        config, args.export_config, args.depth, args.max_depth
-    )
-    logger.info(
-        "depth=%d/%d decision=%s reason=%s",
-        args.depth,
-        args.max_depth,
-        "CONTINUE" if continuing else "STOP",
-        reason,
-    )
-
-    logic.write_output("true" if continuing else "false", args.output)
-
-    # Upload transcripts via the viewer API (independent of routing decision)
-    _upload_transcripts(config)
-
-
-def _upload_transcripts(config: GateConfig) -> None:
-    """Upload transcripts if the viewer API is configured. Failures are logged, not raised."""
     upload_config = TranscriptUploadConfig.from_env()
     if upload_config is None:
         logger.info("Transcript upload skipped: TRANSCRIPT_UPLOAD_API_URL not configured")
         return
 
-    try:
-        from gate.transcript_upload import upload_transcripts
+    from gate.transcript_upload import upload_transcripts
 
-        count = upload_transcripts(config.transcript_dir, upload_config)
-        logger.info("Transcript upload complete: %d file(s)", count)
-    except Exception:
-        logger.exception("Transcript upload failed (non-fatal)")
-
-
-def _write_fallback_output() -> None:
-    """Extract --output from sys.argv and write 'false' as a safe default."""
-    try:
-        idx = sys.argv.index("--output")
-        output_path = sys.argv[idx + 1]
-        with open(output_path, "w") as f:
-            f.write("false\n")
-        logger.info("Wrote fallback output: false -> %s", output_path)
-    except (ValueError, IndexError, OSError):
-        pass  # Shell-level fallback will handle it
+    count = upload_transcripts(config.transcript_dir, upload_config)
+    logger.info("Transcript upload complete: %d file(s)", count)
 
 
 def run() -> None:
-    """Entry point with error handling. Always produces output."""
+    """Entry point with error handling.
+
+    Transcript upload is best-effort: failures are logged but never fail
+    the workflow step.
+    """
     try:
         main()
-    except SystemExit:
-        raise
     except Exception:
-        logger.exception("Gate crashed with unhandled exception")
-        _write_fallback_output()
-        sys.exit(1)
+        logger.exception("Transcript upload failed (non-fatal)")

@@ -25,16 +25,20 @@
 │            │               │ 선택된 이미지                     │
 │            │               ▼                                  │
 │  ┌─────────┴─────────────────────────────────────────────┐    │
-│  │                   Claude Agent                        │    │
+│  │                   Claude Agent (원샷 실행)             │    │
 │  └─────────────────────────┬─────────────────────────────┘    │
 │                            │                                  │
 │                            ▼                                  │
 │  ┌─────────────────────────────────────────────────────────┐  │
 │  │                      Gate                               │  │
-│  │              (계속 / 종료 판단)                            │  │
+│  │              (transcript 업로드)                          │  │
 │  └──────────────────────┬──────────────────────────────────┘  │
 │                         │                                     │
-│                         ▼ depth < max_depth 이면 Planner로 복귀│
+│                         ▼                                     │
+│  ┌─────────────────────────────────────────────────────────┐  │
+│  │                  Export Handler                         │  │
+│  │              (Linear / GitHub / S3)                      │  │
+│  └─────────────────────────────────────────────────────────┘  │
 └───────────────────────────────────────────────────────────────┘
 ```
 
@@ -55,11 +59,10 @@ Agent가 외부 네트워크에 직접 접근하지 않도록 모든 통신을 �
 
 ### 2. 에이전트 오케스트레이션
 
-Argo Workflows 기반으로 Agent → Gate 반복 루프를 실행한다.
+Argo Workflows 기반으로 Planner → Agent → Gate → Export 파이프라인을 원샷으로 실행한다.
 
-- **Agent → Gate 루프**: Agent가 작업을 수행하고, Gate가 계속 여부를 판단
-- **재귀적 depth 제어**: 기본 `max_depth=10`, 무한 루프 방지
-- **사이클별 출력 내보내기**: 각 사이클의 결과를 JSON으로 저장
+- **원샷 실행**: Agent는 태스크당 한 번만 실행되며, 반복 루프 없이 종료된다
+- **결과 내보내기**: 실행 결과를 JSON으로 저장하고 Export Handler가 후처리
 - **자동 리소스 정리**: 워크플로우 완료 후 Pod, Service, PVC 자동 삭제
 
 ### 3. LLM Gateway
@@ -75,7 +78,7 @@ Model Context Protocol HTTP 서버. Agent가 사용할 도구를 제공한다.
 
 ### 5. Planner
 
-LLM 기반 에이전트 실행 환경 선택기. 각 사이클마다 태스크 프롬프트를 분석하여 최적의 컨테이너 이미지를 선택한다.
+LLM 기반 에이전트 실행 환경 선택기. 태스크 프롬프트를 분석하여 최적의 컨테이너 이미지를 선택한다.
 
 - **LLM 기반 라우팅**: Claude Haiku 모델이 태스크를 분석하여 적합한 환경을 자동 선택
 - **사전 정의 환경**:
@@ -87,12 +90,16 @@ LLM 기반 에이전트 실행 환경 선택기. 각 사이클마다 태스크 �
 - **Fallback**: LLM Gateway 연결 실패, 응답 파싱 실패, 알 수 없는 환경 ID 반환 시 모두 `default` 환경으로 자동 전환
 - **CLI**: `planner --prompt "태스크 설명" --output /tmp/agent_image.txt`
 
-### 6. Export 시스템
+### 6. Gate
 
-Agent 작업 결과를 외부로 내보내는 파이프라인. Agent가 `set_export_config`를 호출하면 Gate가 종료를 판단하고, Export Handler가 설정에 따라 후처리를 실행한다.
+Agent 실행 후 세션 transcript(`/work/.transcripts`)를 transcript viewer API로 업로드한다. `TRANSCRIPT_UPLOAD_API_URL` 미설정 시 업로드를 건너뛴다. 업로드 실패는 워크플로우를 실패시키지 않는다 (best-effort).
+
+### 7. Export 시스템
+
+Agent 작업 결과를 외부로 내보내는 파이프라인. Agent가 `set_export_config`를 호출하면 Export Handler가 설정에 따라 후처리를 실행한다.
 
 - **Stop Hook 강제**: Agent는 `set_export_config` 호출 없이 종료할 수 없다. 호출하지 않으면 Stop Hook이 차단하고 에이전트에게 호출을 요구한다.
-- **실행 흐름**: Agent → `set_export_config` 호출 → Gate 종료 판단 → Export Handler 실행 → Linear 코멘트 + 선택된 action 수행
+- **실행 흐름**: Agent → `set_export_config` 호출 → Export Handler 실행 → Linear 코멘트 + 선택된 action 수행
 
 ## 기술 스택
 
@@ -124,4 +131,3 @@ Agent 작업 결과를 외부로 내보내는 파이프라인. Agent가 `set_exp
 | `mcp-server-secrets` | `LINEAR_API_KEY`, `LINEAR_TEAM_ID` | MCP Server |
 | `agent-secrets` | `CLAUDE_CODE_OAUTH_TOKEN` | Claude Agent |
 | `export-handler-secrets` | `LINEAR_API_KEY`, `GITHUB_TOKEN`, `AWS_S3_BUCKET_NAME` | Export Handler |
-

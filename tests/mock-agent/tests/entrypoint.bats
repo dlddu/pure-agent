@@ -89,7 +89,7 @@ line three"
   [ -n "$content" ]
 }
 
-# ── missing fixture handling (depth-limit scenario) ──────────────────────────
+# ── missing fixture handling (null export_config scenario) ───────────────────
 
 @test "succeeds without export_config.json when fixture is absent" {
   # Arrange — SCENARIO_DIR is empty (no export_config.json)

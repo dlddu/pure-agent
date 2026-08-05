@@ -75,9 +75,9 @@ teardown() {
   reset_mock_api
 
   # Cycle 0: fixture 배치 (mock-agent가 web_fetch_get 호출하도록 설정)
-  local cycle_dir="${BATS_TEST_TMPDIR}/web-fetch-approved-cycle0"
-  prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
-  place_fixtures_via_mock_agent "$cycle_dir"
+  local run_dir="${BATS_TEST_TMPDIR}/web-fetch-approved-run"
+  prepare_run_fixtures "$yaml_file" "$run_dir"
+  place_fixtures_via_mock_agent "$run_dir"
 
   # Gatekeeper 테스트 사용자 생성 및 로그인
   gatekeeper_signup "e2e-test-user" "e2e-test-password"
@@ -85,11 +85,8 @@ teardown() {
   jwt_token=$(gatekeeper_login "e2e-test-user" "e2e-test-password")
   [ -n "$jwt_token" ]
 
-  # mock-agent가 web_fetch_get를 호출하도록 gate 실행
-  local max_depth
-  max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
-  local gate_output="${BATS_TEST_TMPDIR}/gate_decision.txt"
-  run_gate_in_compose 0 "$max_depth" "$gate_output"
+  # gate 실행 (transcript upload)
+  run_gate_in_compose
 
   # Gatekeeper PENDING 요청 조회
   local pending_json
@@ -137,9 +134,9 @@ teardown() {
   reset_mock_api
 
   # Cycle 0: fixture 배치 (mock-agent가 web_fetch_get 호출하도록 설정)
-  local cycle_dir="${BATS_TEST_TMPDIR}/web-fetch-rejected-cycle0"
-  prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
-  place_fixtures_via_mock_agent "$cycle_dir"
+  local run_dir="${BATS_TEST_TMPDIR}/web-fetch-rejected-run"
+  prepare_run_fixtures "$yaml_file" "$run_dir"
+  place_fixtures_via_mock_agent "$run_dir"
 
   # Gatekeeper 테스트 사용자 생성 및 로그인
   gatekeeper_signup "e2e-test-user" "e2e-test-password"
@@ -147,11 +144,8 @@ teardown() {
   jwt_token=$(gatekeeper_login "e2e-test-user" "e2e-test-password")
   [ -n "$jwt_token" ]
 
-  # mock-agent가 web_fetch_get를 호출하도록 gate 실행
-  local max_depth
-  max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
-  local gate_output="${BATS_TEST_TMPDIR}/gate_decision.txt"
-  run_gate_in_compose 0 "$max_depth" "$gate_output"
+  # gate 실행 (transcript upload)
+  run_gate_in_compose
 
   # Gatekeeper PENDING 요청 조회
   local pending_json
@@ -199,9 +193,9 @@ teardown() {
   reset_mock_api
 
   # Cycle 0: fixture 배치 (짧은 timeout으로 web_fetch_get 호출)
-  local cycle_dir="${BATS_TEST_TMPDIR}/web-fetch-timeout-cycle0"
-  prepare_cycle_fixtures "$yaml_file" 0 "$cycle_dir"
-  place_fixtures_via_mock_agent "$cycle_dir"
+  local run_dir="${BATS_TEST_TMPDIR}/web-fetch-timeout-run"
+  prepare_run_fixtures "$yaml_file" "$run_dir"
+  place_fixtures_via_mock_agent "$run_dir"
 
   # Gatekeeper 테스트 사용자 생성 및 로그인
   gatekeeper_signup "e2e-test-user" "e2e-test-password"
@@ -209,11 +203,8 @@ teardown() {
   jwt_token=$(gatekeeper_login "e2e-test-user" "e2e-test-password")
   [ -n "$jwt_token" ]
 
-  # mock-agent가 web_fetch_get를 호출하도록 gate 실행
-  local max_depth
-  max_depth=$(yq eval '.max_depth // 5' "$yaml_file")
-  local gate_output="${BATS_TEST_TMPDIR}/gate_decision.txt"
-  run_gate_in_compose 0 "$max_depth" "$gate_output"
+  # gate 실행 (transcript upload)
+  run_gate_in_compose
 
   # 승인 처리 없이 timeoutSeconds 이상 대기하여 요청이 만료되도록 함
   # (WEB_FETCH_TIMEOUT_SECONDS=1 이므로 2초 대기)

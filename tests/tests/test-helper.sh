@@ -66,7 +66,7 @@ load_mock_gh() {
   source "$LIB_DIR/mock-gh.sh"
 }
 
-# Source common.sh (shared helpers: yaml_get, discover_scenarios, prepare_cycle_fixtures).
+# Source common.sh (shared helpers: yaml_get, discover_scenarios, prepare_run_fixtures).
 load_common() {
   # shellcheck disable=SC1090
   source "$LIB_DIR/common.sh"

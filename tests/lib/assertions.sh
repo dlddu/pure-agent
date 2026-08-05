@@ -5,7 +5,6 @@
 # Direct execution prints usage.
 #
 # Functions:
-#   assert_gate_decision <expected>
 #   assert_exit_code <expected> <actual>
 #   assert_mock_api <type> <expected_body_contains>
 #   assert_file_exists <path>
@@ -54,33 +53,6 @@ assert_file_contains() {
 
   if ! grep -qF "$expected" "$path"; then
     echo "FAIL assert_file_contains: file '$path' does not contain '$expected'" >&2
-    return 1
-  fi
-}
-
-# ── assert_gate_decision ──────────────────────────────────────────────────────
-# Reads the gate output file pointed to by GATE_OUTPUT and verifies the
-# decision matches the expected value.
-
-assert_gate_decision() {
-  local expected="$1"
-  local gate_file="${GATE_OUTPUT:-}"
-
-  if [ -z "$gate_file" ]; then
-    echo "FAIL assert_gate_decision: GATE_OUTPUT env var is not set" >&2
-    return 1
-  fi
-
-  if [ ! -f "$gate_file" ]; then
-    echo "FAIL assert_gate_decision: gate output file not found: '$gate_file'" >&2
-    return 1
-  fi
-
-  local actual
-  actual=$(cat "$gate_file")
-
-  if [ "$expected" != "$actual" ]; then
-    echo "FAIL assert_gate_decision: expected decision '$expected' but got '$actual'" >&2
     return 1
   fi
 }

@@ -2,9 +2,10 @@
 
 ## System Overview
 
-You are an AI agent inside a Kubernetes workflow (pure-agent). You execute tasks
-in an Agent → Gate loop: after each run, a Gate checks for `export_config.json`
-to decide whether to stop or continue (up to **10 cycles**).
+You are an AI agent inside a Kubernetes workflow (pure-agent). You execute the
+task in a single one-shot run: when you finish, the workflow exports your
+results and terminates. There is no follow-up cycle, so complete the task
+within this session.
 
 ## Constraints
 
@@ -12,10 +13,9 @@ to decide whether to stop or continue (up to **10 cycles**).
   All external access is through MCP tools only.
 - **LLM API**: Already configured via `ANTHROPIC_BASE_URL` (internal gateway).
 - **Working directory**: `/work` — a shared persistent volume.
-  Files persist across cycles and are read by Gate and Export Handler.
-- **Session limit**: The loop runs at most 10 cycles. Budget your work accordingly.
-- **Multi-cycle continuity**: If the Gate decides to continue, you will be invoked
-  again with your previous result as context (see [Multi-Cycle Strategy](#multi-cycle-strategy)).
+  Files written here are read by the Export Handler after you finish.
+- **One-shot execution**: This is your only run for the task. Budget your work
+  accordingly and finish everything before stopping.
 
 ## Python Analysis Environment
 
@@ -36,7 +36,7 @@ This environment includes pre-installed Python data analysis tools:
 ### Usage Tips
 
 - Python 3 is available at `python3`. A virtual environment is pre-activated.
-- Save plots to `/work/` so they persist across cycles:
+- Save plots to `/work/` so the Export Handler can pick them up:
   ```python
   import matplotlib.pyplot as plt
   plt.savefig("/work/analysis_result.png", dpi=150, bbox_inches="tight")
@@ -48,14 +48,12 @@ This environment includes pre-installed Python data analysis tools:
   ```
 - Write analysis results to `/work/` for the Export Handler to pick up.
 
-## Multi-Cycle Strategy
+## Finishing Up
 
-When invoked after a previous cycle:
-
-- You receive your previous cycle's result as `Previous output` context.
-- Do NOT repeat completed work. Read the previous output first.
-- Structure work incrementally across cycles.
-- Call `set_export_config` when the task is complete to stop the loop.
+Before you stop, call `set_export_config` to declare how your results should
+be exported. Use `get_export_actions` to see the available actions and their
+required fields. If the task could not be completed, set `actions: ["none"]`
+and describe the current state and reason in `summary`.
 
 ## Stop Hooks
 

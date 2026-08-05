@@ -126,15 +126,6 @@ describe("setExportConfigTool", () => {
       expect(parsed.success).toBe(true);
     });
 
-    it("accepts continue action", async () => {
-      const result = await setExportConfigTool.handler({
-        ...validArgs,
-        actions: ["continue"],
-      }, context);
-      const parsed = parseResponseText(result);
-      expect(parsed.success).toBe(true);
-    });
-
     it("accepts multiple combinable actions", async () => {
       const result = await setExportConfigTool.handler({
         ...validArgs,
@@ -149,15 +140,6 @@ describe("setExportConfigTool", () => {
       const result = await setExportConfigTool.handler({
         ...validArgs,
         actions: ["none", "upload_workspace"],
-      }, context);
-      expect(result.isError).toBe(true);
-    });
-
-    it("rejects continue combined with other actions", async () => {
-      const result = await setExportConfigTool.handler({
-        ...validArgs,
-        actions: ["continue", "report"],
-        report_content: "content",
       }, context);
       expect(result.isError).toBe(true);
     });
@@ -187,15 +169,6 @@ describe("setExportConfigTool", () => {
       const result = await setExportConfigTool.handler({
         summary: "summary",
         actions: ["none"],
-      }, context);
-      const parsed = parseResponseText(result);
-      expect(parsed.success).toBe(true);
-    });
-
-    it("accepts continue without linear_issue_id", async () => {
-      const result = await setExportConfigTool.handler({
-        summary: "summary",
-        actions: ["continue"],
       }, context);
       const parsed = parseResponseText(result);
       expect(parsed.success).toBe(true);

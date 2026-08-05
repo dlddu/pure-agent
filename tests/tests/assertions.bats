@@ -81,44 +81,6 @@ setup() {
   [[ "$output" == *"expected-string"* ]]
 }
 
-# ── assert_gate_decision ────────────────────────────────────────────────────
-
-@test "assert_gate_decision: passes when gate output file contains the expected decision" {
-  # Arrange — write a fake gate output file
-  local gate_output="$WORK_DIR/gate_decision.txt"
-  echo "assign" > "$gate_output"
-  export GATE_OUTPUT="$gate_output"
-
-  run assert_gate_decision "assign"
-  [ "$status" -eq 0 ]
-}
-
-@test "assert_gate_decision: fails when gate output contains a different decision" {
-  local gate_output="$WORK_DIR/gate_decision.txt"
-  echo "skip" > "$gate_output"
-  export GATE_OUTPUT="$gate_output"
-
-  run assert_gate_decision "assign"
-  [ "$status" -ne 0 ]
-}
-
-@test "assert_gate_decision: fails when gate output file is missing" {
-  export GATE_OUTPUT="$WORK_DIR/nonexistent_decision.txt"
-
-  run assert_gate_decision "assign"
-  [ "$status" -ne 0 ]
-}
-
-@test "assert_gate_decision: failure output mentions expected and actual decision" {
-  local gate_output="$WORK_DIR/gate_decision.txt"
-  echo "skip" > "$gate_output"
-  export GATE_OUTPUT="$gate_output"
-
-  run assert_gate_decision "assign"
-  [[ "$output" == *"assign"* ]]
-  [[ "$output" == *"skip"* ]]
-}
-
 # ── assert_mock_api ───────────────────────────────────────────────────────────
 # assert_mock_api queries GET /assertions on the running mock-api server.
 # We simulate the server response by setting MOCK_API_URL to a local netcat

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "gate"
 version = "0.1.0"
-description = "Workflow gate: continue/stop decision for pure-agent"
+description = "Post-run transcript uploader for pure-agent"
 requires-python = ">=3.12"
 dependencies = []
 

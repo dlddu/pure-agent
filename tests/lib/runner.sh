@@ -41,7 +41,7 @@ parse_scenario_field() {
 #   fixtures.export_config  → export_config.json
 #   fixtures.agent_result   → agent_result.txt
 #
-# Unknown or absent fixture keys are silently ignored (supports depth-limit).
+# Unknown or absent fixture keys are silently ignored.
 
 place_fixtures() {
   local yaml_file="$1"

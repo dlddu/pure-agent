@@ -38,7 +38,6 @@ main() {
   [ -f "$EXTRACT_RESULT_FILTER" ] || die "Missing jq filter: $EXTRACT_RESULT_FILTER"
 
   log "Config: WORK_DIR=$WORK_DIR MCP_HOST=$MCP_HOST:$MCP_PORT"
-  log "Previous output: $([ -n "${PREVIOUS_OUTPUT:-}" ] && echo "yes (${#PREVIOUS_OUTPUT} chars)" || echo "no")"
 
   cd "$WORK_DIR"
   _copy_agent_guidelines

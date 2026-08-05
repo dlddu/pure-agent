@@ -109,7 +109,7 @@ describe("Integration: MCP Protocol End-to-End", () => {
   });
 
   describe("tools/call: get_export_actions", () => {
-    it("returns the 5 action types", async () => {
+    it("returns the 4 action types", async () => {
       const result = await client.callTool({
         name: "get_export_actions",
         arguments: {},
@@ -118,13 +118,12 @@ describe("Integration: MCP Protocol End-to-End", () => {
       expect(result.isError).toBeFalsy();
       const parsed = parseResponseText(result);
 
-      expect(parsed.actions).toHaveLength(5);
+      expect(parsed.actions).toHaveLength(4);
       expect(parsed.actions.map((a: { type: string }) => a.type)).toEqual([
         "none",
         "upload_workspace",
         "report",
         "create_pr",
-        "continue",
       ]);
     });
   });

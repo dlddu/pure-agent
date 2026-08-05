@@ -1,29 +1,33 @@
-name: linear-issue-env-selection
-description: "Linear 이슈 ID 기반 프롬프트 → planner 환경 선택 → 작업 완료"
-level: [unit, integration, e2e]
-max_depth: 1
+# =============================================================================
+# [DISABLED] Linear 미사용 예정으로 비활성화 (2026-08-05)
+# =============================================================================
+# 이 시나리오는 Linear API(이슈 생성/코멘트)에 의존합니다. Linear를 더 이상
+# 사용하지 않을 예정이라 전체 레벨(unit/integration/e2e)에서 제외합니다.
+# 재활성화하려면 아래 주석을 해제하세요.
+# =============================================================================
+# name: linear-issue-env-selection
+# description: "Linear 이슈 ID 기반 프롬프트 → planner 환경 선택 → 작업 완료"
+# level: [unit, integration, e2e]
 
-# ── Unit/Integration: mock cycle 정의 ──
-cycles:
-  - environment_id: "default"
-    export_config:
-      linear_issue_id: "mock-issue-id"
-      summary: "Linear 이슈 기반 작업 완료"
-      actions:
-        - "none"
-      session_id: "mock-session-linear-issue"
-    agent_result: "Issue-based task completed."
+# ── Unit/Integration: mock run 정의 ──
+# run:
+#   environment_id: "default"
+#   export_config:
+#     linear_issue_id: "mock-issue-id"
+#     summary: "Linear 이슈 기반 작업 완료"
+#     actions:
+#       - "none"
+#     session_id: "mock-session-linear-issue"
+#   agent_result: "Issue-based task completed."
 
 # ── E2E: real API 실행 설정 ──
-real:
-  max_depth: 5
-  prompt: "Linear 이슈 {{LINEAR_ISSUE_ID}} 내용을 확인하고 요약해주세요."
-  setup: [linear_issue]
-  verify: [planner_valid_image, s3_transcript]
-  teardown: [linear_issue]
+# real:
+#   prompt: "Linear 이슈 {{LINEAR_ISSUE_ID}} 내용을 확인하고 요약해주세요."
+#   setup: [linear_issue]
+#   verify: [planner_valid_image, s3_transcript]
+#   teardown: [linear_issue]
 
 # ── 공유 assertions ──
-assertions:
-  planner_image: "default"
-  gate_decision: "stop"
-  export_handler_exit: 0
+# assertions:
+#   planner_image: "default"
+#   export_handler_exit: 0

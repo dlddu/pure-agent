@@ -11,7 +11,7 @@
 # Functions:
 #   yaml_get <yaml_file> <yq_path>
 #   discover_scenarios
-#   prepare_cycle_fixtures <yaml_file> <cycle_index> <out_dir>
+#   prepare_run_fixtures <yaml_file> <out_dir>
 
 set -euo pipefail
 
@@ -42,54 +42,52 @@ discover_scenarios() {
   done
 }
 
-# ── cycle fixture 준비 ──────────────────────────────────────────────────────
-# 시나리오 YAML의 cycles[N]에서 export_config.json, agent_result.txt를 생성합니다.
+# ── run fixture 준비 ────────────────────────────────────────────────────────
+# 시나리오 YAML의 run에서 export_config.json, agent_result.txt를 생성합니다.
 #
 # Arguments:
-#   $1  yaml_file    — 시나리오 YAML 파일 경로
-#   $2  cycle_index  — cycle 인덱스 (0-based)
-#   $3  out_dir      — 파일을 배치할 디렉토리
-prepare_cycle_fixtures() {
+#   $1  yaml_file  — 시나리오 YAML 파일 경로
+#   $2  out_dir    — 파일을 배치할 디렉토리
+prepare_run_fixtures() {
   local yaml_file="$1"
-  local cycle_index="$2"
-  local out_dir="$3"
+  local out_dir="$2"
 
   mkdir -p "$out_dir"
 
   # export_config: YAML → JSON
   local export_config_raw
-  export_config_raw=$(yq eval ".cycles[${cycle_index}].export_config" "$yaml_file" 2>/dev/null || echo "null")
+  export_config_raw=$(yq eval ".run.export_config" "$yaml_file" 2>/dev/null || echo "null")
 
   if [[ "$export_config_raw" != "null" && -n "$export_config_raw" ]]; then
-    yq eval -o=json ".cycles[${cycle_index}].export_config" "$yaml_file" \
+    yq eval -o=json ".run.export_config" "$yaml_file" \
       > "${out_dir}/export_config.json"
-    log "Prepared export_config.json for cycle ${cycle_index}"
+    log "Prepared export_config.json"
   else
     rm -f "${out_dir}/export_config.json"
-    log "No export_config for cycle ${cycle_index}"
+    log "No export_config for this run"
   fi
 
   # agent_result
   local agent_result
-  agent_result=$(yq eval ".cycles[${cycle_index}].agent_result // \"\"" "$yaml_file" 2>/dev/null || echo "")
+  agent_result=$(yq eval ".run.agent_result // \"\"" "$yaml_file" 2>/dev/null || echo "")
 
   if [[ -n "$agent_result" && "$agent_result" != "null" ]]; then
     echo "$agent_result" > "${out_dir}/agent_result.txt"
-    log "Prepared agent_result.txt for cycle ${cycle_index}: $agent_result"
+    log "Prepared agent_result.txt: $agent_result"
   else
     rm -f "${out_dir}/agent_result.txt"
   fi
 
   # transcript fixtures (optional): create mock transcript files for S3 upload testing
   local session_id
-  session_id=$(yq eval ".cycles[${cycle_index}].export_config.session_id // \"\"" "$yaml_file" 2>/dev/null || echo "")
+  session_id=$(yq eval ".run.export_config.session_id // \"\"" "$yaml_file" 2>/dev/null || echo "")
   if [[ -n "$session_id" && "$session_id" != "null" ]]; then
     local transcript_dir="${out_dir}/transcripts"
     mkdir -p "$transcript_dir"
     cat > "$transcript_dir/${session_id}.jsonl" <<JSONL
 {"type":"assistant","message":"mock transcript","session_id":"${session_id}"}
-{"type":"result","result":"cycle ${cycle_index} completed","session_id":"${session_id}"}
+{"type":"result","result":"run completed","session_id":"${session_id}"}
 JSONL
-    log "Prepared mock transcript for cycle ${cycle_index}: ${session_id}.jsonl"
+    log "Prepared mock transcript: ${session_id}.jsonl"
   fi
 }
