@@ -10,7 +10,6 @@
 #   count_gh_pr_create_calls()  — lib/compose.sh에서 제공
 #
 # Functions:
-#   assert_local_linear_comment <body_contains>
 #   assert_local_export_handler_exit <expected> <actual>
 #   assert_local_github_pr [expected]
 
@@ -45,39 +44,6 @@ assert_local_planner_image() {
   fi
 
   log "assert_local_planner_image OK: ${actual}"
-}
-
-# ── assert_local_linear_comment ──────────────────────────────────────────────
-# mock-api /assertions 기반 Linear comment 검증
-#
-# Arguments:
-#   $1  body_contains  — 코멘트 body에 포함되어야 하는 문자열
-#
-assert_local_linear_comment() {
-  local body_contains="$1"
-  local url="${MOCK_API_URL}/assertions"
-
-  local response
-  response=$(curl -sf "$url") || {
-    echo "FAIL assert_local_linear_comment: could not reach mock-api at $url" >&2
-    return 1
-  }
-
-  local match
-  match=$(echo "$response" | jq --arg b "$body_contains" \
-    '[.calls[] | select(
-        .type == "mutation" and
-        ((.operationName // "" | ascii_downcase | contains("comment")) or
-         ((.body | tostring) | contains($b)))
-     )] | length' 2>/dev/null || echo "0")
-
-  if [[ "$match" -eq 0 ]]; then
-    echo "FAIL assert_local_linear_comment: no createComment mutation with body containing '${body_contains}'" >&2
-    echo "Recorded calls: $response" >&2
-    return 1
-  fi
-
-  log "assert_local_linear_comment OK (${match} matching call(s))"
 }
 
 # ── assert_local_export_handler_exit ─────────────────────────────────────────

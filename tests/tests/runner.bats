@@ -170,7 +170,7 @@ name: pr-creation
 level: integration
 fixtures: {}
 assertions:
-  - type: linear_comment
+  - type: github_pr
     expected: done
   - type: exit_code
     expected: 0
@@ -188,11 +188,11 @@ name: pr-creation
 level: integration
 fixtures: {}
 assertions:
-  - type: linear_comment
+  - type: github_pr
     expected: done
 YAML
 
   run parse_scenario_field "$yaml_file" ".assertions[0].type"
   [ "$status" -eq 0 ]
-  [ "$output" = "linear_comment" ]
+  [ "$output" = "github_pr" ]
 }

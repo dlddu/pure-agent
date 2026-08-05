@@ -13,24 +13,13 @@ describe("setExportConfigTool", () => {
   });
 
   const validArgs = {
-    linear_issue_id: "issue-123",
     summary: "Task completed successfully",
     actions: ["none"],
   };
 
   describe("input validation", () => {
-    it("accepts when linear_issue_id is missing", async () => {
-      const result = await setExportConfigTool.handler({
-        summary: "summary",
-        actions: ["none"],
-      }, context);
-      const parsed = parseResponseText(result);
-      expect(parsed.success).toBe(true);
-    });
-
     it("rejects when summary is missing", async () => {
       const result = await setExportConfigTool.handler({
-        linear_issue_id: "id",
         actions: ["none"],
       }, context);
       expect(result.isError).toBe(true);
@@ -38,16 +27,28 @@ describe("setExportConfigTool", () => {
 
     it("rejects when actions contain invalid value", async () => {
       const result = await setExportConfigTool.handler({
-        linear_issue_id: "id",
         summary: "summary",
         actions: ["invalid_action"],
       }, context);
       expect(result.isError).toBe(true);
     });
 
+    it("rejects removed action types (upload_workspace, report)", async () => {
+      const uploadResult = await setExportConfigTool.handler({
+        summary: "summary",
+        actions: ["upload_workspace"],
+      }, context);
+      expect(uploadResult.isError).toBe(true);
+
+      const reportResult = await setExportConfigTool.handler({
+        summary: "summary",
+        actions: ["report"],
+      }, context);
+      expect(reportResult.isError).toBe(true);
+    });
+
     it("rejects when actions is empty", async () => {
       const result = await setExportConfigTool.handler({
-        linear_issue_id: "id",
         summary: "summary",
         actions: [],
       }, context);
@@ -56,7 +57,6 @@ describe("setExportConfigTool", () => {
 
     it("rejects when summary exceeds 10000 characters", async () => {
       const result = await setExportConfigTool.handler({
-        linear_issue_id: "id",
         summary: "x".repeat(10001),
         actions: ["none"],
       }, context);
@@ -65,16 +65,6 @@ describe("setExportConfigTool", () => {
   });
 
   describe("business rules", () => {
-    it("rejects report without report_content", async () => {
-      const result = await setExportConfigTool.handler({
-        ...validArgs,
-        actions: ["report"],
-      }, context);
-      const parsed = parseResponseText(result);
-      expect(result.isError).toBe(true);
-      expect(parsed.error).toContain("report_content");
-    });
-
     it("rejects create_pr without pr config", async () => {
       const result = await setExportConfigTool.handler({
         ...validArgs,
@@ -83,16 +73,6 @@ describe("setExportConfigTool", () => {
       const parsed = parseResponseText(result);
       expect(result.isError).toBe(true);
       expect(parsed.error).toContain("pr is required when actions include 'create_pr'");
-    });
-
-    it("accepts report with report_content provided", async () => {
-      const result = await setExportConfigTool.handler({
-        ...validArgs,
-        actions: ["report"],
-        report_content: "# Analysis Report\n\nFindings...",
-      }, context);
-      const parsed = parseResponseText(result);
-      expect(parsed.success).toBe(true);
     });
 
     it("accepts create_pr with valid pr config", async () => {
@@ -117,67 +97,25 @@ describe("setExportConfigTool", () => {
       expect(parsed.success).toBe(true);
     });
 
-    it("accepts upload_workspace without optional fields", async () => {
-      const result = await setExportConfigTool.handler({
-        ...validArgs,
-        actions: ["upload_workspace"],
-      }, context);
-      const parsed = parseResponseText(result);
-      expect(parsed.success).toBe(true);
-    });
-
-    it("accepts multiple combinable actions", async () => {
-      const result = await setExportConfigTool.handler({
-        ...validArgs,
-        actions: ["upload_workspace", "report"],
-        report_content: "content",
-      }, context);
-      const parsed = parseResponseText(result);
-      expect(parsed.success).toBe(true);
-    });
-
     it("rejects none combined with other actions", async () => {
       const result = await setExportConfigTool.handler({
         ...validArgs,
-        actions: ["none", "upload_workspace"],
+        actions: ["none", "create_pr"],
       }, context);
       expect(result.isError).toBe(true);
-    });
-
-    it("rejects upload_workspace without linear_issue_id", async () => {
-      const result = await setExportConfigTool.handler({
-        summary: "summary",
-        actions: ["upload_workspace"],
-      }, context);
-      const parsed = parseResponseText(result);
-      expect(result.isError).toBe(true);
-      expect(parsed.error).toContain("linear_issue_id");
-    });
-
-    it("rejects report without linear_issue_id", async () => {
-      const result = await setExportConfigTool.handler({
-        summary: "summary",
-        actions: ["report"],
-        report_content: "content",
-      }, context);
-      const parsed = parseResponseText(result);
-      expect(result.isError).toBe(true);
-      expect(parsed.error).toContain("linear_issue_id");
-    });
-
-    it("accepts none without linear_issue_id", async () => {
-      const result = await setExportConfigTool.handler({
-        summary: "summary",
-        actions: ["none"],
-      }, context);
-      const parsed = parseResponseText(result);
-      expect(parsed.success).toBe(true);
     });
 
     it("rejects duplicate actions", async () => {
       const result = await setExportConfigTool.handler({
         ...validArgs,
-        actions: ["upload_workspace", "upload_workspace"],
+        actions: ["create_pr", "create_pr"],
+        pr: {
+          title: "PR title",
+          body: "PR body",
+          branch: "feature/branch",
+          repo: "org/repo",
+          repo_path: "repo",
+        },
       }, context);
       expect(result.isError).toBe(true);
     });
@@ -193,7 +131,6 @@ describe("setExportConfigTool", () => {
       expect(encoding).toBe("utf-8");
 
       const written = JSON.parse(content);
-      expect(written.linear_issue_id).toBe("issue-123");
       expect(written.summary).toBe("Task completed successfully");
       expect(written.actions).toEqual(["none"]);
     });

@@ -1,12 +1,11 @@
 name: create-pr-action
-description: "PR 생성 (mock gh) + Linear 코멘트"
+description: "PR 생성 (mock gh)"
 level: [unit, integration, e2e]
 
 # ── Unit/Integration: mock run 정의 ──
 run:
   environment_id: "default"
   export_config:
-    linear_issue_id: "mock-issue-id"
     summary: "PR 생성 완료"
     actions:
       - "create_pr"

@@ -2,9 +2,9 @@ name: "CI: Test Integration (kind + Argo, mock)"
 # DLD-467: Integration E2E 테스트 활성화
 #
 # E2E (ci-test-e2e.yaml) 대비 주요 차이점:
-#   - secrets 불필요 (LINEAR_API_KEY, GH_PAT, CLAUDE_CODE_OAUTH_TOKEN)
+#   - secrets 불필요 (GH_PAT, CLAUDE_CODE_OAUTH_TOKEN)
 #   - 빌드 대상: mock-agent, mock-api 이미지만
-#   - 실제 Claude Agent / Linear / GitHub API 호출 없음
+#   - 실제 Claude Agent / GitHub API 호출 없음
 #   - kind 클러스터에서 mock-api Deployment + Service를 배포하여 실행
 
 on:
@@ -23,8 +23,6 @@ on:
           - "all"
           - "create-pr-action"
           - "none-action"
-          # [DISABLED] Linear 미사용 예정 (2026-08-05)
-          # - "report-action"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -122,8 +120,6 @@ jobs:
           # Integration 用ダミーシークレット (mock なので実際の値は不要)
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
             create secret generic mcp-server-secrets \
-              --from-literal=LINEAR_API_KEY="mock-key" \
-              --from-literal=LINEAR_TEAM_ID="mock-team" \
               --from-literal=GATEKEEPER_URL="http://mock-gatekeeper:8080" \
               --from-literal=GATEKEEPER_API_KEY="mock-gatekeeper-key" \
               --from-literal=GATEKEEPER_USER_ID="mock-user" \
@@ -131,7 +127,6 @@ jobs:
 
           kubectl --context "kind-${CLUSTER_NAME}" -n "$PURE_AGENT_NAMESPACE" \
             create secret generic export-handler-secrets \
-              --from-literal=LINEAR_API_KEY="mock-key" \
               --from-literal=GITHUB_TOKEN="mock-token" \
               --dry-run=client -o yaml | kubectl apply -f -
 

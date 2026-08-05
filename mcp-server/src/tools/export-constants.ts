@@ -1,14 +1,11 @@
 import { z } from "zod";
 
 // Export action types (keep in sync with export-handler)
-export const EXPORT_ACTION_TYPES = ["none", "upload_workspace", "report", "create_pr"] as const;
+export const EXPORT_ACTION_TYPES = ["none", "create_pr"] as const;
 export const EXPORT_CONFIG_FILENAME = "export_config.json";
 
 /** Actions that must be the sole element when present in the actions array. */
 export const EXCLUSIVE_ACTIONS = new Set(["none"]);
-
-/** Actions that require a valid linear_issue_id. */
-export const ACTIONS_REQUIRING_ISSUE = new Set(["upload_workspace", "report"]);
 
 // Validation limits (keep in sync with export-handler/src/constants.ts)
 export const MAX_PR_TITLE_LENGTH = 200;
@@ -17,7 +14,6 @@ export const MAX_PR_BRANCH_LENGTH = 100;
 export const MAX_PR_REPO_LENGTH = 200;
 export const MAX_PR_REPO_PATH_LENGTH = 200;
 export const MAX_SUMMARY_LENGTH = 10000;
-export const MAX_REPORT_CONTENT_LENGTH = 50000;
 
 // --- Zod schemas (single source of truth) ---
 
@@ -43,10 +39,6 @@ function requiredKeysOf<T extends z.ZodRawShape>(schema: z.ZodObject<T>): string
  * - required_fields: get_export_actions 응답으로 에이전트에게 노출할 필드 경로
  */
 export const ACTION_REQUIREMENTS: Record<string, { field: string; required_fields: string[] }> = {
-  report: {
-    field: "report_content",
-    required_fields: ["report_content"],
-  },
   create_pr: {
     field: "pr",
     required_fields: requiredKeysOf(PrConfigSchema).map((k) => `pr.${k}`),
@@ -56,20 +48,8 @@ export const ACTION_REQUIREMENTS: Record<string, { field: string; required_field
 export const EXPORT_ACTIONS = [
   {
     type: "none" as const,
-    description: "추가 작업 없음. 작업 요약 코멘트만 Linear 이슈에 추가됩니다.",
+    description: "추가 작업 없음. 작업 요약(summary)만 export 결과로 기록됩니다.",
     required_fields: [] as string[],
-  },
-  {
-    type: "upload_workspace" as const,
-    description:
-      "workspace 전체를 압축하여 Linear 이슈에 첨부합니다. 코드, 데이터, 결과물 등을 공유할 때 사용합니다.",
-    required_fields: [] as string[],
-  },
-  {
-    type: "report" as const,
-    description:
-      "분석 리포트를 Linear 이슈 코멘트로 추가합니다. 마크다운 형식의 상세 분석 결과를 공유할 때 사용합니다.",
-    required_fields: ACTION_REQUIREMENTS.report.required_fields,
   },
   {
     type: "create_pr" as const,

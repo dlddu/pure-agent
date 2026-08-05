@@ -2,7 +2,6 @@
 # tests/lib/setup-real.sh — E2E test setup helpers (real API calls)
 #
 # Functions:
-#   setup_linear_test_issue <scenario_name>  -> prints Linear issue ID to stdout
 #   setup_github_test_branch <scenario_name> -> prints branch name to stdout
 #
 # Usage (source-only):
@@ -18,47 +17,6 @@ GITHUB_TEST_BRANCH_PREFIX="e2e-test"
 log()  { echo "[setup-real] $*" >&2; }
 warn() { echo "[setup-real] WARN: $*" >&2; }
 die()  { echo "[setup-real] ERROR: $*" >&2; exit 1; }
-
-# ── setup_linear_test_issue ──────────────────────────────────────────────────
-# Creates a Linear test issue and prints the issue ID to stdout.
-# Args:
-#   $1  scenario_name
-setup_linear_test_issue() {
-  local scenario_name="$1"
-
-  [[ -n "${LINEAR_API_KEY:-}" ]] || die "LINEAR_API_KEY is not set"
-  [[ -n "${LINEAR_TEAM_ID:-}" ]] || die "LINEAR_TEAM_ID is not set"
-
-  local issue_title
-  issue_title="[E2E-TEST] ${scenario_name} — $(date '+%Y-%m-%dT%H:%M:%S')"
-  log "Creating Linear test issue: $issue_title"
-
-  local response
-  response=$(curl -sf \
-    -X POST \
-    -H "Authorization: ${LINEAR_API_KEY}" \
-    -H "Content-Type: application/json" \
-    --data "$(jq -n \
-      --arg title "$issue_title" \
-      --arg teamId "$LINEAR_TEAM_ID" \
-      '{
-        query: "mutation CreateIssue($title: String!, $teamId: String!) { issueCreate(input: { title: $title, teamId: $teamId }) { success issue { id identifier } } }",
-        variables: { title: $title, teamId: $teamId }
-      }')" \
-    "https://api.linear.app/graphql")
-
-  local issue_id
-  issue_id=$(echo "$response" | jq -r '.data.issueCreate.issue.id')
-  local issue_identifier
-  issue_identifier=$(echo "$response" | jq -r '.data.issueCreate.issue.identifier')
-
-  [[ "$issue_id" != "null" && -n "$issue_id" ]] \
-    || die "Failed to create Linear issue. Response: $response"
-
-  log "Created Linear issue: $issue_identifier (id=$issue_id)"
-  # Output UUID on line 1 (for teardown/verify API calls) and identifier on line 2 (for prompts)
-  printf '%s\n%s' "$issue_id" "$issue_identifier"
-}
 
 # ── setup_github_test_branch ─────────────────────────────────────────────────
 # Creates a GitHub branch for E2E testing and prints the branch name to stdout.

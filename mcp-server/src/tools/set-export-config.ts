@@ -5,33 +5,21 @@ import {
   EXPORT_ACTION_TYPES,
   EXPORT_CONFIG_FILENAME,
   EXCLUSIVE_ACTIONS,
-  ACTIONS_REQUIRING_ISSUE,
   ACTION_REQUIREMENTS,
   PrConfigSchema,
   MAX_SUMMARY_LENGTH,
-  MAX_REPORT_CONTENT_LENGTH,
 } from "./export-constants.js";
 
 const SetExportConfigInputSchema = z.object({
-  linear_issue_id: z
-    .string()
-    .min(1)
-    .optional()
-    .describe("Linear 이슈 ID. 이슈가 없거나 ID를 알 수 없는 경우 생략 가능."),
   summary: z
     .string()
     .min(1)
     .max(MAX_SUMMARY_LENGTH)
-    .describe("작업 요약. Linear 이슈에 코멘트로 항상 추가됩니다."),
+    .describe("작업 요약. export 결과에 항상 기록됩니다."),
   actions: z
     .array(z.enum(EXPORT_ACTION_TYPES))
     .min(1)
     .describe("수행할 export action 타입 배열. 'none'은 단독으로만 사용 가능."),
-  report_content: z
-    .string()
-    .max(MAX_REPORT_CONTENT_LENGTH)
-    .optional()
-    .describe("분석 리포트 마크다운 내용 (actions에 'report' 포함 시 필수)"),
   pr: PrConfigSchema.optional().describe("PR 설정 (actions에 'create_pr' 포함 시 필수)"),
 }).superRefine((data, ctx) => {
   // Exclusive actions (none) must be alone
@@ -55,19 +43,6 @@ const SetExportConfigInputSchema = z.object({
     });
   }
 
-  // Actions that require linear_issue_id
-  if (
-    data.actions.some((a) => ACTIONS_REQUIRING_ISSUE.has(a)) &&
-    !data.linear_issue_id
-  ) {
-    const required = data.actions.filter((a) => ACTIONS_REQUIRING_ISSUE.has(a));
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: `linear_issue_id is required when actions include ${required.map((a) => `'${a}'`).join(", ")}`,
-      path: ["linear_issue_id"],
-    });
-  }
-
   // Conditional field requirements (driven by ACTION_REQUIREMENTS)
   for (const [action, { field }] of Object.entries(ACTION_REQUIREMENTS)) {
     if (
@@ -86,7 +61,7 @@ const SetExportConfigInputSchema = z.object({
 export const setExportConfigTool = defineTool({
   name: "set_export_config",
   description:
-    "작업 완료 후 export 설정을 저장합니다. 이 설정에 따라 Linear 이슈에 코멘트가 추가되고, 선택한 action이 수행됩니다. 반드시 작업 완료 시점에 호출하세요.",
+    "작업 완료 후 export 설정을 저장합니다. 이 설정에 따라 선택한 action이 수행됩니다. 반드시 작업 완료 시점에 호출하세요.",
   schema: SetExportConfigInputSchema,
   handler: async (args, context) => {
     const exportConfigPath = join(context.workDir, EXPORT_CONFIG_FILENAME);

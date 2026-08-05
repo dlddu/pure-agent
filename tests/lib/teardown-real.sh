@@ -2,7 +2,6 @@
 # tests/lib/teardown-real.sh — E2E test teardown helpers (real API calls)
 #
 # Functions:
-#   teardown_linear_issue <issue_id>            -> archives the issue; warns on failure
 #   teardown_github_pr_and_branch <branch_name> -> closes PRs + deletes branch; warns on failure
 #
 # Contract: these functions NEVER exit non-zero. All failures are warn-only.
@@ -15,42 +14,6 @@
 # ── Logging ──────────────────────────────────────────────────────────────────
 log()  { echo "[teardown-real] $*" >&2; }
 warn() { echo "[teardown-real] WARN: $*" >&2; }
-
-# ── teardown_linear_issue ────────────────────────────────────────────────────
-# Archives a Linear issue. Warns on any failure; always exits 0.
-# Args:
-#   $1  issue_id
-teardown_linear_issue() {
-  local issue_id="$1"
-  log "Archiving Linear test issue: $issue_id"
-
-  local response
-  if ! response=$(curl -sf \
-    -X POST \
-    -H "Authorization: ${LINEAR_API_KEY:-}" \
-    -H "Content-Type: application/json" \
-    --data "$(jq -n \
-      --arg issueId "$issue_id" \
-      '{
-        query: "mutation ArchiveIssue($issueId: String!) { issueArchive(id: $issueId) { success } }",
-        variables: { issueId: $issueId }
-      }')" \
-    "https://api.linear.app/graphql"); then
-    warn "curl failed while archiving Linear issue $issue_id"
-    return 0
-  fi
-
-  local success
-  success=$(echo "$response" | jq -r '.data.issueArchive.success' 2>/dev/null) || success=""
-
-  if [[ "$success" != "true" ]]; then
-    warn "Failed to archive Linear issue $issue_id (may need manual cleanup). Response: $response"
-    return 0
-  fi
-
-  log "Archived Linear issue: $issue_id"
-  return 0
-}
 
 # ── teardown_github_pr_and_branch ────────────────────────────────────────────
 # Closes all open PRs for the branch and then deletes the branch.

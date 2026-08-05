@@ -6,7 +6,6 @@ level: [unit, integration, e2e]
 run:
   environment_id: "infra"
   export_config:
-    linear_issue_id: "mock-issue-id"
     summary: "Infrastructure deployment completed."
     actions:
       - "none"

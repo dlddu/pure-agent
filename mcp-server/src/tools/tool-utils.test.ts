@@ -7,14 +7,11 @@ import type { McpToolContext, McpToolResponse } from "./types.js";
 const mockContext = createMockContext();
 
 describe("mcpSuccess", () => {
-  it("returns response without _meta when meta is not provided", () => {
+  it("returns a text content response with the serialized data", () => {
     const result = mcpSuccess({ ok: true });
-    expect(result._meta).toBeUndefined();
-  });
-
-  it("returns response with _meta when meta is provided", () => {
-    const result = mcpSuccess({ ok: true }, { issueId: "issue-1" });
-    expect(result._meta).toEqual({ issueId: "issue-1" });
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0].type).toBe("text");
+    expect(JSON.parse(result.content[0].text)).toEqual({ ok: true });
   });
 });
 

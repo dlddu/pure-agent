@@ -1,7 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SERVER_NAME, SERVER_VERSION } from "./version.js";
 import { createLogger } from "./logger.js";
-import { runPostToolHooks, type PostToolHook } from "./hooks/post-tool-hooks.js";
 import type { McpTool, McpToolContext, McpToolExtra } from "./tools/types.js";
 
 const log = createLogger("server");
@@ -9,11 +8,10 @@ const log = createLogger("server");
 export interface McpServerDeps {
   tools: McpTool[];
   context: McpToolContext;
-  postToolHooks?: PostToolHook[];
 }
 
 export function createMcpServer(deps: McpServerDeps): McpServer {
-  const { tools, context, postToolHooks = [] } = deps;
+  const { tools, context } = deps;
 
   const mcpServer = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
@@ -33,10 +31,7 @@ export function createMcpServer(deps: McpServerDeps): McpServer {
         sessionId: extra.sessionId,
         signal: extra.signal,
       };
-      const fullResponse = await tool.handler(args, context, mcpExtra);
-      const { _meta, ...result } = fullResponse;
-
-      await runPostToolHooks(postToolHooks, fullResponse, context);
+      const result = await tool.handler(args, context, mcpExtra);
 
       const durationMs = Math.round(performance.now() - start);
       log.info("Tool call completed", { toolName: tool.name, durationMs, isError: !!result.isError });

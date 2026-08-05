@@ -3,7 +3,6 @@
 #
 # Mock:
 #   - Agent        → mock-agent (fixture를 /work에 복사)
-#   - Linear API   → mock-api (GraphQL mock 서버)
 #   - GitHub CLI   → mock-gh (호출 기록만 저장)
 #   - Anthropic API → mock-api (Planner의 LLM 호출을 mock 응답으로 대체)
 # Real:
@@ -100,9 +99,6 @@ run_scenario() {
   export_handler_exit=$(yaml_get "$yaml_file" '.assertions.export_handler_exit')
   [[ -n "$export_handler_exit" ]] || export_handler_exit=0
 
-  local linear_comment_body
-  linear_comment_body=$(yaml_get "$yaml_file" '.assertions.linear_comment.body_contains')
-
   local github_pr
   github_pr=$(yaml_get "$yaml_file" '.assertions.github_pr')
 
@@ -156,10 +152,6 @@ run_scenario() {
   rm -rf "$run_dir"
 
   # mock-api assertions 검증
-  if [[ -n "$linear_comment_body" ]]; then
-    assert_local_linear_comment "$linear_comment_body"
-  fi
-
   if [[ -n "$github_pr" && "$github_pr" != "null" ]]; then
     assert_local_github_pr "$github_pr"
   fi

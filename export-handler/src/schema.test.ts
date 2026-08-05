@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { ExportConfigSchema } from "./schema.js";
 
 describe("ExportConfigSchema", () => {
-  const minimal = { linear_issue_id: "TEAM-1", summary: "done", actions: ["none"] };
+  const minimal = { summary: "done", actions: ["none"] };
 
   it("parses valid minimal config", () => {
     expect(ExportConfigSchema.parse(minimal)).toMatchObject(minimal);
@@ -11,8 +11,6 @@ describe("ExportConfigSchema", () => {
   it("accepts all valid single action values", () => {
     const actionInputs: Record<string, Record<string, unknown>> = {
       none: {},
-      upload_workspace: {},
-      report: { report_content: "content" },
       create_pr: { pr: { title: "t", body: "b", branch: "feat/x", repo: "org/repo", repo_path: "repo" } },
     };
     for (const [action, extra] of Object.entries(actionInputs)) {
@@ -20,21 +18,9 @@ describe("ExportConfigSchema", () => {
     }
   });
 
-  it("accepts multiple combinable actions", () => {
-    expect(() => ExportConfigSchema.parse({
-      ...minimal,
-      actions: ["upload_workspace", "report"],
-      report_content: "content",
-    })).not.toThrow();
-  });
-
-  it("accepts all combinable actions together", () => {
-    expect(() => ExportConfigSchema.parse({
-      ...minimal,
-      actions: ["upload_workspace", "report", "create_pr"],
-      report_content: "content",
-      pr: { title: "t", body: "b", branch: "feat/x", repo: "org/repo", repo_path: "repo" },
-    })).not.toThrow();
+  it("rejects removed action values (upload_workspace, report)", () => {
+    expect(() => ExportConfigSchema.parse({ ...minimal, actions: ["upload_workspace"] })).toThrow();
+    expect(() => ExportConfigSchema.parse({ ...minimal, actions: ["report"] })).toThrow();
   });
 
   it("rejects invalid action value", () => {
@@ -48,40 +34,17 @@ describe("ExportConfigSchema", () => {
   it("rejects duplicate actions", () => {
     expect(() => ExportConfigSchema.parse({
       ...minimal,
-      actions: ["upload_workspace", "upload_workspace"],
+      actions: ["create_pr", "create_pr"],
+      pr: { title: "t", body: "b", branch: "feat/x", repo: "org/repo", repo_path: "repo" },
     })).toThrow();
   });
 
   it("rejects none combined with other actions", () => {
     expect(() => ExportConfigSchema.parse({
       ...minimal,
-      actions: ["none", "upload_workspace"],
+      actions: ["none", "create_pr"],
+      pr: { title: "t", body: "b", branch: "feat/x", repo: "org/repo", repo_path: "repo" },
     })).toThrow();
-  });
-
-  it("rejects upload_workspace without linear_issue_id", () => {
-    const { linear_issue_id: _, ...rest } = minimal;
-    expect(() => ExportConfigSchema.parse({ ...rest, actions: ["upload_workspace"] })).toThrow();
-  });
-
-  it("rejects report without linear_issue_id", () => {
-    const { linear_issue_id: _, ...rest } = minimal;
-    expect(() => ExportConfigSchema.parse({ ...rest, actions: ["report"], report_content: "content" })).toThrow();
-  });
-
-  it("accepts none without linear_issue_id", () => {
-    const { linear_issue_id: _, ...rest } = minimal;
-    expect(() => ExportConfigSchema.parse(rest)).not.toThrow();
-  });
-
-  it("accepts missing linear_issue_id", () => {
-    const { linear_issue_id: _, ...rest } = minimal;
-    const config = ExportConfigSchema.parse(rest);
-    expect(config.linear_issue_id).toBeUndefined();
-  });
-
-  it("rejects empty linear_issue_id", () => {
-    expect(() => ExportConfigSchema.parse({ ...minimal, linear_issue_id: "" })).toThrow();
   });
 
   it("rejects missing summary", () => {
@@ -95,17 +58,6 @@ describe("ExportConfigSchema", () => {
 
   it("rejects summary exceeding max length", () => {
     expect(() => ExportConfigSchema.parse({ ...minimal, summary: "x".repeat(10001) })).toThrow();
-  });
-
-  it("accepts optional report_content", () => {
-    const config = ExportConfigSchema.parse({ ...minimal, report_content: "report text" });
-    expect(config.report_content).toBe("report text");
-  });
-
-  it("rejects report_content exceeding max length", () => {
-    expect(() =>
-      ExportConfigSchema.parse({ ...minimal, report_content: "x".repeat(50001) }),
-    ).toThrow();
   });
 
   it("defaults pr.base to main when not provided", () => {
@@ -152,27 +104,6 @@ describe("ExportConfigSchema", () => {
         pr: { title: "t", body: "b", branch: "" },
       }),
     ).toThrow();
-  });
-
-  it("requires report_content when actions include report", () => {
-    expect(() =>
-      ExportConfigSchema.parse({ ...minimal, actions: ["report"] }),
-    ).toThrow();
-  });
-
-  it("requires non-empty report_content when actions include report", () => {
-    expect(() =>
-      ExportConfigSchema.parse({ ...minimal, actions: ["report"], report_content: "" }),
-    ).toThrow();
-  });
-
-  it("accepts report action with report_content", () => {
-    const config = ExportConfigSchema.parse({
-      ...minimal,
-      actions: ["report"],
-      report_content: "analysis result",
-    });
-    expect(config.report_content).toBe("analysis result");
   });
 
   it("requires pr config when actions include create_pr", () => {

@@ -32,76 +32,6 @@ export function setMockEnvironmentId(id: string): void {
   mockEnvironmentId = id;
 }
 
-// ── GraphQL helpers ───────────────────────────────────────────────────────────
-
-function isMutation(query: string): boolean {
-  return /^\s*mutation\b/i.test(query);
-}
-
-function buildMutationResponse(operationName: string | null, query: string): unknown {
-  // Match comment creation by operationName OR by query body content.
-  // The @linear/sdk may send different operationName formats.
-  const isCommentCreate =
-    operationName === "createComment" ||
-    operationName === "CreateComment" ||
-    operationName === "CommentCreate" ||
-    /commentCreate\s*\(/.test(query);
-
-  if (isCommentCreate) {
-    return {
-      data: {
-        commentCreate: {
-          lastSyncId: 1000,
-          success: true,
-          comment: {
-            id: "mock-comment-id",
-            body: "mock comment body",
-            url: "https://linear.app/mock/comment/mock-comment-id",
-          },
-        },
-      },
-    };
-  }
-
-  // Generic mutation success response
-  return {
-    data: {
-      mutationResult: {
-        lastSyncId: 1000,
-        success: true,
-      },
-    },
-  };
-}
-
-function buildQueryResponse(operationName: string | null): unknown {
-  if (operationName === "issue" || operationName === "Issue" || operationName === "GetIssue") {
-    return {
-      data: {
-        issue: {
-          id: "mock-issue-id",
-          identifier: "MOCK-1",
-          title: "Mock Issue Title",
-          description: "Mock issue description for e2e testing",
-          state: { name: "In Progress", type: "started" },
-          priority: 2,
-          priorityLabel: "High",
-          labels: { nodes: [] },
-          assignee: null,
-          url: "https://linear.app/mock/issue/MOCK-1",
-          createdAt: "2025-01-01T00:00:00.000Z",
-          updatedAt: "2025-01-01T00:00:00.000Z",
-        },
-      },
-    };
-  }
-
-  // Generic query response
-  return {
-    data: {},
-  };
-}
-
 // ── Transcript upload-url mock ──────────────────────────────────────────────
 // Stands in for the transcript viewer's upload-url endpoint. It hands back a
 // direct PUT URL to the LocalStack S3 service so the gate's two-step upload
@@ -127,36 +57,6 @@ function transcriptBucket(): string {
 export function createApp(): express.Application {
   const app = express();
   app.use(express.json());
-
-  // POST /graphql — Linear GraphQL mock
-  app.post("/graphql", (req: Request, res: Response) => {
-    const { query, operationName } = req.body as {
-      query?: string;
-      operationName?: string | null;
-    };
-
-    if (!query) {
-      res.status(400).json({ errors: [{ message: "Missing query field" }] });
-      return;
-    }
-
-    const resolvedOperationName = operationName ?? null;
-    const type: "mutation" | "query" = isMutation(query) ? "mutation" : "query";
-
-    calls.push({
-      type,
-      operationName: resolvedOperationName,
-      body: req.body,
-      timestamp: new Date().toISOString(),
-    });
-
-    const response =
-      type === "mutation"
-        ? buildMutationResponse(resolvedOperationName, query)
-        : buildQueryResponse(resolvedOperationName);
-
-    res.status(200).json(response);
-  });
 
   // ── Mock Anthropic Messages API (planner용) ───────────────────────────
 

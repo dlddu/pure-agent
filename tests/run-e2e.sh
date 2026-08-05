@@ -5,7 +5,6 @@
 #   - 없음 (모든 컴포넌트가 실제 서비스)
 # Real:
 #   - Agent        (실제 Claude Code 에이전트, Anthropic API 호출)
-#   - Linear API   (이슈 생성 → 코멘트 검증 → 정리)
 #   - GitHub API   (브랜치/PR 생성 → 검증 → 정리)
 #   - Planner      (실제 Claude Haiku로 환경 선택)
 #   - Gate         (실제 Python CLI)
@@ -21,8 +20,6 @@
 #   ./tests/run-e2e.sh [--scenario <name|all>] [--namespace <ns>] [--context <ctx>]
 #
 # Environment variables (required):
-#   LINEAR_API_KEY        — Linear Personal API Key
-#   LINEAR_TEAM_ID        — Linear Team ID
 #   GITHUB_TOKEN          — GitHub token (repo scope, PR 생성용)
 #   GITHUB_TEST_REPO      — "org/repo" 형태의 테스트용 GitHub 레포
 #
@@ -84,8 +81,6 @@ check_prerequisites() {
   command -v jq      >/dev/null 2>&1 || die "jq is not installed"
   command -v yq      >/dev/null 2>&1 || die "yq is not installed"
 
-  [[ -n "${LINEAR_API_KEY:-}" ]]  || die "LINEAR_API_KEY is not set"
-  [[ -n "${LINEAR_TEAM_ID:-}" ]]  || die "LINEAR_TEAM_ID is not set"
   [[ -n "${GITHUB_TOKEN:-}" ]]    || die "GITHUB_TOKEN is not set"
 
   log "Prerequisites OK"
@@ -113,8 +108,7 @@ _ensure_gate_upload_secret() {
 # build_prompt: 시나리오 YAML의 real.prompt를 읽고 변수를 치환합니다.
 build_prompt() {
   local yaml_file="$1"
-  local linear_issue_id="${2:-}"
-  local github_branch="${3:-}"
+  local github_branch="${2:-}"
 
   local prompt
   prompt=$(yaml_get "$yaml_file" '.real.prompt')
@@ -122,7 +116,6 @@ build_prompt() {
     || die "Prompt not defined in: $yaml_file (real.prompt)"
 
   # 변수 치환
-  prompt="${prompt//\{\{LINEAR_ISSUE_ID\}\}/$linear_issue_id}"
   prompt="${prompt//\{\{GITHUB_TEST_REPO\}\}/$GITHUB_TEST_REPO}"
   prompt="${prompt//\{\{GITHUB_BRANCH\}\}/$github_branch}"
 
@@ -225,21 +218,12 @@ run_scenario() {
   verifies=$(yaml_get "$yaml_file" '.real.verify[]' 2>/dev/null || true)
 
   # ── Setup ──
-  local linear_issue_id=""
-  local linear_issue_identifier=""
   local github_branch=""
 
   local setup_item
   while IFS= read -r setup_item; do
     [[ -n "$setup_item" ]] || continue
     case "$setup_item" in
-      linear_issue)
-        local setup_output
-        setup_output=$(setup_linear_test_issue "$scenario_name")
-        linear_issue_id=$(echo "$setup_output" | sed -n '1p')
-        linear_issue_identifier=$(echo "$setup_output" | sed -n '2p')
-        log "Linear issue: id=$linear_issue_id identifier=$linear_issue_identifier"
-        ;;
       github_branch)
         github_branch=$(setup_github_test_branch "$scenario_name")
         ;;
@@ -253,7 +237,6 @@ run_scenario() {
     while IFS= read -r td_item; do
       [[ -n "$td_item" ]] || continue
       case "$td_item" in
-        linear_issue)  teardown_linear_issue "$linear_issue_id" ;;
         github_branch) teardown_github_pr_and_branch "$github_branch" ;;
         *) warn "Unknown teardown type: $td_item" ;;
       esac
@@ -263,11 +246,8 @@ run_scenario() {
   trap "_teardown_handler '$teardowns'" EXIT
 
   # ── Run ──
-  # Use identifier (e.g. DLD-123) in prompt so planner/agent can recognize it;
-  # keep UUID (linear_issue_id) for teardown/verify API calls.
-  local prompt_issue_ref="${linear_issue_identifier:-$linear_issue_id}"
   local prompt
-  prompt=$(build_prompt "$yaml_file" "$prompt_issue_ref" "$github_branch")
+  prompt=$(build_prompt "$yaml_file" "$github_branch")
   local workflow_name
   workflow_name=$(run_argo_workflow "$scenario_name" "$prompt")
 
@@ -276,11 +256,6 @@ run_scenario() {
   while IFS= read -r verify_item; do
     [[ -n "$verify_item" ]] || continue
     case "$verify_item" in
-      linear_comment)
-        local body_contains
-        body_contains=$(yaml_get "$yaml_file" '.assertions.linear_comment.body_contains')
-        verify_linear_comment "$linear_issue_id" "$body_contains"
-        ;;
       github_pr)
         verify_github_pr "$github_branch"
         ;;

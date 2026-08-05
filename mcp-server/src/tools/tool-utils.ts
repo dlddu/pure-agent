@@ -1,10 +1,9 @@
 import { type z, ZodError } from "zod";
-import type { McpToolMeta, McpToolResponse, McpToolContext, McpTool, McpToolExtra } from "./types.js";
+import type { McpToolResponse, McpToolContext, McpTool, McpToolExtra } from "./types.js";
 
-export function mcpSuccess(data: unknown, meta?: McpToolMeta): McpToolResponse {
+export function mcpSuccess(data: unknown): McpToolResponse {
   return {
     content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-    ...(meta && { _meta: meta }),
   };
 }
 
