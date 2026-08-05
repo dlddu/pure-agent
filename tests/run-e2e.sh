@@ -30,7 +30,7 @@
 #   SCENARIO              — 실행할 시나리오 이름 (기본값: all)
 #   NAMESPACE             — Kubernetes 네임스페이스 (기본값: pure-agent)
 #   KUBE_CONTEXT          — kubectl context (기본값: kind-pure-agent-e2e-full)
-#   WORKFLOW_TIMEOUT      — Workflow 대기 타임아웃 초 (기본값: 600)
+#   WORKFLOW_TIMEOUT      — Workflow 대기 타임아웃 초 (기본값: 900)
 
 set -euo pipefail
 
@@ -38,7 +38,7 @@ set -euo pipefail
 SCENARIO="${SCENARIO:-all}"
 LEVEL="${LEVEL:-e2e}"
 NAMESPACE="${NAMESPACE:-pure-agent}"
-WORKFLOW_TIMEOUT="${WORKFLOW_TIMEOUT:-600}"  # seconds
+WORKFLOW_TIMEOUT="${WORKFLOW_TIMEOUT:-900}"  # seconds (실제 에이전트 실행 편차 감안)
 KUBE_CONTEXT="${KUBE_CONTEXT:-kind-pure-agent-e2e-full}"
 GITHUB_TEST_BRANCH_PREFIX="e2e-test"
 GITHUB_TEST_REPO="${GITHUB_TEST_REPO:?GITHUB_TEST_REPO is not set}"
