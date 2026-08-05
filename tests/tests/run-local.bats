@@ -102,40 +102,41 @@ teardown() {
 #   - Linear 코멘트: "분석 리포트" 포함
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@test "scenario: report-action — linear comment contains report" {
-  # Arrange
-  local yaml_file="${SCENARIOS_DIR}/report-action.yaml"
-  [ -f "$yaml_file" ]
+# [DISABLED] Linear 미사용 예정으로 비활성화 (2026-08-05) — scenarios/ 의 해당 YAML 참고
+# @test "scenario: report-action — linear comment contains report" {
+#   # Arrange
+#   local yaml_file="${SCENARIOS_DIR}/report-action.yaml"
+#   [ -f "$yaml_file" ]
 
-  # docker compose up
-  compose_up
-  wait_mock_api
-  reset_mock_api
+#   # docker compose up
+#   compose_up
+#   wait_mock_api
+#   reset_mock_api
 
-  # Planner: mock LLM 환경 설정 + 실행
-  configure_mock_llm_environment "default"
-  local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
-  run_planner_in_compose "test prompt" "$planner_output"
-  assert_local_planner_image "default" "$planner_output"
+#   # Planner: mock LLM 환경 설정 + 실행
+#   configure_mock_llm_environment "default"
+#   local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
+#   run_planner_in_compose "test prompt" "$planner_output"
+#   assert_local_planner_image "default" "$planner_output"
 
-  # fixture 배치
-  local run_dir="${BATS_TEST_TMPDIR}/report-action-run"
-  prepare_run_fixtures "$yaml_file" "$run_dir"
-  place_fixtures_via_mock_agent "$run_dir"
+#   # fixture 배치
+#   local run_dir="${BATS_TEST_TMPDIR}/report-action-run"
+#   prepare_run_fixtures "$yaml_file" "$run_dir"
+#   place_fixtures_via_mock_agent "$run_dir"
 
-  # gate 실행 (transcript upload)
-  run_gate_in_compose
+#   # gate 실행 (transcript upload)
+#   run_gate_in_compose
 
-  # export-handler 실행
-  local eh_exit=0
-  run_export_handler || eh_exit=$?
+#   # export-handler 실행
+#   local eh_exit=0
+#   run_export_handler || eh_exit=$?
 
-  # Assert: export-handler 종료 코드가 0일 것
-  assert_local_export_handler_exit 0 "$eh_exit"
+#   # Assert: export-handler 종료 코드가 0일 것
+#   assert_local_export_handler_exit 0 "$eh_exit"
 
-  # Assert: Linear 코멘트에 "분석 리포트"가 포함될 것
-  assert_local_linear_comment "분석 리포트"
-}
+#   # Assert: Linear 코멘트에 "분석 리포트"가 포함될 것
+#   assert_local_linear_comment "분석 리포트"
+# }
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # 시나리오 3: create-pr-action
@@ -316,35 +317,36 @@ teardown() {
 #   - Export Handler 종료 코드: 0
 # ═══════════════════════════════════════════════════════════════════════════════
 
-@test "scenario: linear-issue-env-selection — planner handles prompt with Linear issue ID" {
-  # Arrange
-  local yaml_file="${SCENARIOS_DIR}/linear-issue-env-selection.yaml"
-  [ -f "$yaml_file" ]
+# [DISABLED] Linear 미사용 예정으로 비활성화 (2026-08-05) — scenarios/ 의 해당 YAML 참고
+# @test "scenario: linear-issue-env-selection — planner handles prompt with Linear issue ID" {
+#   # Arrange
+#   local yaml_file="${SCENARIOS_DIR}/linear-issue-env-selection.yaml"
+#   [ -f "$yaml_file" ]
 
-  # docker compose up
-  compose_up
-  wait_mock_api
-  reset_mock_api
+#   # docker compose up
+#   compose_up
+#   wait_mock_api
+#   reset_mock_api
 
-  # Planner: mock LLM 환경을 default로 설정
-  configure_mock_llm_environment "default"
-  local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
-  # 프롬프트에 Linear 이슈 ID 패턴(MOCK-1)을 포함
-  run_planner_in_compose "Linear 이슈 MOCK-1 내용을 확인하고 요약해주세요" "$planner_output"
+#   # Planner: mock LLM 환경을 default로 설정
+#   configure_mock_llm_environment "default"
+#   local planner_output="${BATS_TEST_TMPDIR}/planner_output.txt"
+#   # 프롬프트에 Linear 이슈 ID 패턴(MOCK-1)을 포함
+#   run_planner_in_compose "Linear 이슈 MOCK-1 내용을 확인하고 요약해주세요" "$planner_output"
 
-  # Assert: planner가 default (claude-agent) 이미지를 선택할 것
-  assert_local_planner_image "default" "$planner_output"
+#   # Assert: planner가 default (claude-agent) 이미지를 선택할 것
+#   assert_local_planner_image "default" "$planner_output"
 
-  # fixture 배치
-  local run_dir="${BATS_TEST_TMPDIR}/linear-issue-env-selection-run"
-  prepare_run_fixtures "$yaml_file" "$run_dir"
-  place_fixtures_via_mock_agent "$run_dir"
+#   # fixture 배치
+#   local run_dir="${BATS_TEST_TMPDIR}/linear-issue-env-selection-run"
+#   prepare_run_fixtures "$yaml_file" "$run_dir"
+#   place_fixtures_via_mock_agent "$run_dir"
 
-  # gate 실행 (transcript upload)
-  run_gate_in_compose
+#   # gate 실행 (transcript upload)
+#   run_gate_in_compose
 
-  # export-handler 실행
-  local eh_exit=0
-  run_export_handler || eh_exit=$?
-  assert_local_export_handler_exit 0 "$eh_exit"
-}
+#   # export-handler 실행
+#   local eh_exit=0
+#   run_export_handler || eh_exit=$?
+#   assert_local_export_handler_exit 0 "$eh_exit"
+# }

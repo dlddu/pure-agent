@@ -1,6 +1,8 @@
 name: planner-session-comment
 description: "Planner가 get_issue 호출 시 Linear 이슈에 session ID (planner) 코멘트를 기록"
-level: [integration, e2e]
+# [NOTE] Linear 미사용 예정 (2026-08-05): 실제 Linear 이슈를 생성하는 e2e 레벨은
+# 제외하고, mock 기반 integration 레벨만 유지합니다.
+level: [integration]
 
 # ── Integration: mock run 정의 ──
 run:

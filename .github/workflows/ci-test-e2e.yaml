@@ -7,16 +7,17 @@ on:
   workflow_dispatch:
     inputs:
       scenario:
-        description: "실행할 시나리오 (all 또는 시나리오명: report-action | create-pr-action | none-action)"
+        description: "실행할 시나리오 (all 또는 시나리오명: create-pr-action | none-action | planner-*)"
         required: false
         default: "all"
         type: choice
         options:
           - "all"
-          - "report-action"
+          # [DISABLED] Linear 미사용 예정 (2026-08-05): report-action, linear-issue-env-selection
+          # - "report-action"
           - "create-pr-action"
           - "none-action"
-          - "linear-issue-env-selection"
+          # - "linear-issue-env-selection"
           - "planner-infra-env"
           - "planner-python-env"
 

@@ -23,7 +23,8 @@ on:
           - "all"
           - "create-pr-action"
           - "none-action"
-          - "report-action"
+          # [DISABLED] Linear 미사용 예정 (2026-08-05)
+          # - "report-action"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
