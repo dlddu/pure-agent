@@ -117,6 +117,7 @@ spec:
             dependencies: [gate]
             continueOn:
               failed: true
+              error: true
 
           - name: cleanup
             template: cleanup-job
@@ -352,6 +353,7 @@ spec:
           - name: export_config
             valueFrom:
               path: /tmp/export_config.json
+              default: "{}"
           - name: action_results
             valueFrom:
               path: /tmp/action_results.json
